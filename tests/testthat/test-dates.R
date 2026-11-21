@@ -18,7 +18,8 @@ test_that("yyddd_vers_date décode les codes des cartes publiées", {
 
 test_that("l'aller-retour redonne la date de départ", {
   dates <- seq(as.Date("2018-01-01"), as.Date("2026-12-31"), by = "day")
-  expect_identical(yyddd_vers_date(date_vers_yyddd(dates)), dates)
+  # expect_equal : selon la version de R, seq() rend des dates stockées en entiers ou en doubles
+  expect_equal(yyddd_vers_date(date_vers_yyddd(dates)), dates)
 })
 
 test_that("les valeurs manquantes sont conservées", {
