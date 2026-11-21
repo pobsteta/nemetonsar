@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      NOT_CRAN: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tester la décision de release
+        run: .github/scripts/test-release-necessaire.sh
+
+      - name: Tester le calcul de version calendaire
+        run: .github/scripts/test-version-calendaire.sh
+
+      - name: Configurer R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      - name: Installer les dépendances R
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            any::rcmdcheck
+            any::covr
+          needs: check
+
+      # R CMD check lance aussi la suite testthat : un test rouge fait échouer la CI.
+      - name: R CMD check (tests unitaires compris)
+        uses: r-lib/actions/check-r-package@v2
+        with:
+          args: 'c("--no-manual", "--as-cran")'
+          build_args: 'c("--no-manual")'
+          error-on: '"warning"'
+
+      - name: Mesurer la couverture
+        run: |
+          cov <- covr::package_coverage()
+          print(cov)
+          pct <- sprintf("%.1f", covr::percent_coverage(cov))
+          writeLines(pct, file.path(Sys.getenv("RUNNER_TEMP"), "couverture.txt"))
+          cat(sprintf("### Couverture : %s %%\n", pct), file = Sys.getenv("GITHUB_STEP_SUMMARY"), append = TRUE)
+        shell: Rscript {0}
+
+      - name: Générer le badge de couverture
+        if: github.event_name == 'push'
+        run: .github/scripts/badge-couverture.sh "$(cat "$RUNNER_TEMP/couverture.txt")" > .github/badges/couverture.svg
+
+      - name: Publier le badge mis à jour
+        if: github.event_name == 'push'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: mise à jour du badge de couverture [skip ci]"
+          file_pattern: .github/badges/*.svg

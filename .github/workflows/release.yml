@@ -1,0 +1,91 @@
+name: Release
+
+# La release ne part qu'après la fin VERTE de « CI » sur un push de main :
+# workflow_run s'exécute depuis la branche par défaut, sur le head_sha du run de CI.
+on:
+  workflow_run:
+    workflows: [ CI ]
+    types: [ completed ]
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Tests verts, sur un push de main (jamais une PR, jamais un run rouge ou annulé).
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    steps:
+      # On construit exactement le commit que la CI a testé.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      # Pas de tag, de release ni d'archive si le commit n'est plus la tête de main, ou si rien du package
+      # (tests et docs exclus) n'a changé depuis le dernier tag v*. Règle : .github/scripts/release-necessaire.sh.
+      - name: Décider si une release est nécessaire
+        id: decision
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          RES=$(.github/scripts/release-necessaire.sh "$HEAD_SHA")
+          echo "$RES"
+          case "$RES" in
+            "pas de release"*) echo "necessaire=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "necessaire=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+          echo "### Release : $RES" >> "$GITHUB_STEP_SUMMARY"
+
+      # Version calendaire vAAAA.MM.N (N = compteur du mois, UTC, repart à 1 chaque mois), calculée par
+      # .github/scripts/version-calendaire.sh d'après les tags existants ; tag annoté sur head_sha.
+      - name: Calculer la version
+        id: tag
+        if: steps.decision.outputs.necessaire == 'true'
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          TAG=$(.github/scripts/version-calendaire.sh)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "nemetonsar $TAG" "$HEAD_SHA"
+          git push origin "refs/tags/$TAG"
+          echo "new_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "new_version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Configurer R
+        if: steps.tag.outputs.new_tag != ''
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      # Le dépôt garde une version de développement dans DESCRIPTION ; l'archive publiée porte la version du tag.
+      - name: Construire l'archive du package à la version du tag
+        if: steps.tag.outputs.new_tag != ''
+        id: archive
+        env:
+          VERSION: ${{ steps.tag.outputs.new_version }}
+        run: |
+          sed -i "s/^Version:.*/Version: $VERSION/" DESCRIPTION
+          R CMD build --no-manual .
+          NAME="nemetonsar_$VERSION.tar.gz"
+          test -f "$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Créer la release GitHub
+        if: steps.tag.outputs.new_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.new_tag }}
+          name: nemetonsar ${{ steps.tag.outputs.new_tag }}
+          generate_release_notes: true
+          files: ${{ steps.archive.outputs.name }}

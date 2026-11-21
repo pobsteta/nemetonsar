@@ -1,0 +1,22 @@
+# Développement R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Renviron
+*.Rproj
+
+# Fichiers compilés
+*.o
+*.so
+*.dll
+
+# Produits de build et de check
+*.tar.gz
+*.Rcheck/
+/doc/
+/Meta/
+
+# Fichiers temporaires
+*~
+.DS_Store
