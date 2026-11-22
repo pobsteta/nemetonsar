@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 4 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 5 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -25,9 +25,17 @@ _Modèle de carte :_
 
 ## Planifié
 
+- 015 limite de tuiles (segmentation et 0,1 ha après assemblage) · depuis le cycle 5 · fiche à écrire
+- 016 performance (passe 1 ; ≈ 10 h par tuile estimées) · depuis le cycle 5 · fiche à écrire
+- 017 tuile pilote réelle avec TCD et EFFIS, comparaison à la v3.0.1 · depuis le cycle 5 · attend Pascal (AOI pilote, accès CLMS)
+
 
 ## Terminé
 
+- [014-nemetonsar-run](missions/014-nemetonsar-run.md) · depuis le cycle 5
+  - Homme : `dev` (opus)
+  - Mission : une commande unique, `nemetonsar_run()`
+  - Moyens : voir la fiche
 - [011-aoi](missions/011-aoi.md) · depuis le cycle 4
   - Homme : `dev` (opus)
   - Mission : AOI, validation et tuiles MGRS en UTM
@@ -106,3 +114,4 @@ l'inscrit avec ce qu'elle nous apprend._
 - cycle 2 · la chaîne de détection complète sur données synthétiques : filtre de Quegan et Yu (`s1_filter_multitemp()`), ratio, segmentation, post-traitement (`postprocess()`) et table des objets (surface, date, ratio) · pour Pascal · de plus que le cycle 1 : une série synthétique donne maintenant des objets de coupe filtrés, nettoyés et datés, et l'on sait que la date reste imprécise avec les réglages provisoires
 - cycle 3 · la chaîne sur fichiers : `nemetonsar_detecter()` lit des rasters par blocs et écrit `dates.tif`, `ratio.tif`, `objets.tif` et `objets.gpkg` ; la date de coupe est calculée avec `xb_date = 5` (96 % de dates exactes en simulation contre 16 %) ; ADR 0003 (terra) acceptée · pour Pascal · de plus que le cycle 2 : des fichiers qui s'ouvrent dans QGIS, et une date fiable en simulation ; mauvaise nouvelle apprise : ≈ 10 h estimées par tuile en base R
 - cycle 4 · les entrées réelles : une AOI découpée en tuiles UTM (`aoi_preparer()`), les images Sentinel-1 RTC trouvées et lues depuis le Planetary Computer (`s1_rechercher()`, `s1_lire()`), les masques forêt et feu (`masque_foret()`, `masque_feu()`) · pour Pascal · de plus que le cycle 3 : les briques pour passer d'une AOI réelle à des piles d'images réelles ; pas encore enchaînées en une commande
+- cycle 5 · une commande unique : `nemetonsar_run(aoi, date_debut, date_fin, dossier, tcd, effis)` de l'AOI aux sorties Lambert-93 et au journal d'exécution ; essai réel 2 km × 2 km dans les Landes, 123 images, 95 s, 1 objet de 0,97 ha au 2025-03-06 (sans masque forêt) · pour Pascal · de plus que le cycle 4 : le premier critère du brief est tenu sur une vraie AOI ; mauvaise nouvelle apprise : une coupe à la limite de deux tuiles peut être perdue
