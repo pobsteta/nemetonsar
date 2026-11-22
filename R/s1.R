@@ -13,7 +13,9 @@
 #'   - **une seule ligne par tranche** : si deux items ont le même capteur, la
 #'     même orbite relative et la même heure de début d'acquisition
 #'     (`start_datetime`), seul celui au traitement le plus récent
-#'     (`s1:processing_datetime`) est gardé ;
+#'     (`s1:processing_datetime`) est gardé ; un item sans date de
+#'     traitement (les plus anciens du catalogue n'en ont pas) passe après
+#'     ceux qui en ont une, puis l'ordre des identifiants départage ;
 #'   - **plusieurs lignes par date et par orbite** quand l'emprise touche
 #'     plusieurs tranches d'une même acquisition. Elles portent la même
 #'     `serie` et la même `date` ; [s1_lire()] les assemble en **une seule

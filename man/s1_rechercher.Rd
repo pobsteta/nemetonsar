@@ -53,7 +53,9 @@ publiée plusieurs fois (traitements successifs). La table rend :
 \item \strong{une seule ligne par tranche} : si deux items ont le même capteur, la
 même orbite relative et la même heure de début d'acquisition
 (\code{start_datetime}), seul celui au traitement le plus récent
-(\code{s1:processing_datetime}) est gardé ;
+(\code{s1:processing_datetime}) est gardé ; un item sans date de
+traitement (les plus anciens du catalogue n'en ont pas) passe après
+ceux qui en ont une, puis l'ordre des identifiants départage ;
 \item \strong{plusieurs lignes par date et par orbite} quand l'emprise touche
 plusieurs tranches d'une même acquisition. Elles portent la même
 \code{serie} et la même \code{date} ; \code{\link[=s1_lire]{s1_lire()}} les assemble en \strong{une seule
