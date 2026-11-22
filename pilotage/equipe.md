@@ -46,6 +46,8 @@
 | [003](missions/003-parametres-et-db.md) paramètres exposés et dB | `dev` | opus | prendre (plan d'abord) | 3 oui | 1 (plan), après 001 |
 | [004](missions/004-rcr-compute.md) ratio et date du minimum | `dev` | opus | donner | 3 oui | après 003 |
 | [005](missions/005-rcr-segment.md) segmentation en deux seuils | `dev` | opus | donner | 3 oui | après 004 |
+| [006](missions/006-postprocess.md) post-traitement : surface minimale et fermeture | `dev` | opus | donner | 3 oui | 2 |
+| [007](missions/007-filtre-quegan.md) filtre multitemporel de Quegan et Yu | `dev` | opus | donner (formule sourcée d'abord) | 3 oui, la 2e sous condition | 2 |
 
 ### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
 
@@ -54,5 +56,5 @@
 | Mesure A contre B en γ0 sur forêt stable (ADR 0001, jalon 0) | 3e : pas d'AOI pilote, pas de Docker ni de compte Planetary Computer, lieu de calcul non dit | Pascal choisit l'AOI pilote (une tuile) et le poste ou serveur de calcul |
 | Référence locale de validation (protocole, premiers polygones) | 3e : orthophotos ou données terrain sur l'AOI inconnues | Pascal dit ce dont il dispose |
 | Lecture des images et de l'AOI en raster (`terra`, `sf`, `rstac`) | 2e : aucune ADR sur les dépendances | ADR 0003 « dépendances R » à proposer |
-| Filtre de Quegan et Yu, post-traitement, masques, `nemetonsar_run()` | 3e : dépendent des missions ci-dessus | Cycles suivants |
+| Masques, `nemetonsar_run()` sur images réelles | 3e : dépendent des missions ci-dessus | Cycles suivants |
 
