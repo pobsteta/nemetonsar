@@ -143,6 +143,15 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
                                 lignes_par_bloc = NULL,
                                 resolution_m = NULL,
                                 foret = NULL) {
+  detecter_blocs(orbites, dates, dossier, parametres, lignes_par_bloc, resolution_m, foret)
+}
+
+# Corps de nemetonsar_detecter(). Deux réglages internes, pour la détection
+# brute de nemetonsar_run() : `ecrire_objets = FALSE` n'écrit pas le
+# GeoPackage (pas de polygonisation) ; `type_ratio` est le type du
+# `ratio.tif` écrit ("FLT8S" : le ratio de la passe 1 sans arrondi).
+detecter_blocs <- function(orbites, dates, dossier, parametres, lignes_par_bloc, resolution_m,
+                           foret, ecrire_objets = TRUE, type_ratio = "FLT4S") {
   p <- valide_parametres(parametres)
   valide_orbites(orbites, dates)
   modele <- orbites[[1]]
@@ -181,19 +190,12 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
     dir.create(dossier, recursive = TRUE)
   }
   chemin <- function(nom) file.path(dossier, nom)
-  tmp <- chemin(paste0(".nemetonsar_tmp_", c("ratio", "date", "zone", "objet"), ".tif"))
-  names(tmp) <- c("ratio", "date", "zone", "objet")
+  tmp <- chemin(paste0(".nemetonsar_tmp_", c("ratio", "date"), ".tif"))
+  names(tmp) <- c("ratio", "date")
   on.exit(unlink(tmp[file.exists(tmp)]), add = TRUE)
-  sorties <- c(
-    dates = chemin("dates.tif"),
-    ratio = chemin("ratio.tif"),
-    objets_raster = chemin("objets.tif"),
-    objets = chemin("objets.gpkg")
-  )
 
   debuts <- seq(1L, nl, by = lignes_par_bloc)
   blocs <- data.frame(debut = debuts, n = pmin(lignes_par_bloc, nl - debuts + 1L))
-  s <- seuils_db(p)
 
   # Passe 1 : filtre, ratio, combinaison, par bande bordée. --------------------
   rf <- (p$fenetre_filtre - 1L) %/% 2L
@@ -237,22 +239,69 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
   r_ratio <- terra::rast(tmp[["ratio"]])
   r_date <- terra::rast(tmp[["date"]])
 
-  # Passe 2 : zones <= tp étiquetées par bande, fusionnées entre bandes. -------
+  # Passes 2 et 3 : sur le ratio (double) et la date de la passe 1 ; les
+  # pixels sans ratio sont « sans donnée ».
+  res <- segmenter_blocs(r_ratio, r_date, NULL, p, dossier, lignes_par_bloc,
+                         gpkg = ecrire_objets, resolution_m = resolution_m,
+                         type_ratio = type_ratio)
+  list(fichiers = res$fichiers, objets = res$objets, lignes_par_bloc = lignes_par_bloc)
+}
+
+# Passes 2 et 3 de nemetonsar_detecter() (voir sa documentation), par blocs
+# de lignes, sur un ratio (dB) et une date déjà calculés : zones <= tp
+# gardées si elles contiennent une graine (< ts) et atteignent
+# surface_min_ha, fermeture, objets étiquetés et fusionnés entre bandes,
+# numérotés par première cellule, table des objets. Seule copie de ces
+# passes : nemetonsar_detecter() l'appelle sur les sorties de sa passe 1,
+# nemetonsar_run() sur les sorties brutes d'une tuile ou de l'assemblage.
+# `donnee` : NULL (comme nemetonsar_detecter() : un pixel sans ratio est
+# « sans donnée », neutre pour la fermeture), ou une couche valant 1 là où
+# il y a une donnée (forêt de l'AOI), 0 ou NA ailleurs (hors zone et neutre
+# pour la fermeture ; un pixel de 1 sans ratio n'est alors pas neutre).
+# Écrit `dates.tif`, `ratio.tif` (de type `type_ratio`), `objets.tif` (et
+# `objets.gpkg` si `gpkg` et s'il y a un objet) dans `dossier`.
+segmenter_blocs <- function(ratio, date, donnee, p, dossier, lignes_par_bloc, gpkg = FALSE,
+                            resolution_m = NULL, type_ratio = "FLT4S") {
+  dir.create(dossier, showWarnings = FALSE, recursive = TRUE)
+  modele <- terra::rast(ratio, nlyrs = 1)
+  if (is.null(resolution_m)) resolution_m <- resolution_carree(modele)
+  nl <- terra::nrow(modele)
+  nc <- terra::ncol(modele)
+  if (is.null(lignes_par_bloc)) lignes_par_bloc <- max(1L, as.integer(floor(2.5e7 / nc)))
+  lignes_par_bloc <- as.integer(min(lignes_par_bloc, nl))
+  debuts <- seq(1L, nl, by = lignes_par_bloc)
+  blocs <- data.frame(debut = debuts, n = pmin(lignes_par_bloc, nl - debuts + 1L))
+  s <- seuils_db(p)
+  tmp <- file.path(dossier, paste0(".nemetonsar_tmp_", c("zone", "objet"), ".tif"))
+  names(tmp) <- c("zone", "objet")
+  on.exit(unlink(tmp[file.exists(tmp)]), add = TRUE)
+  sorties <- c(dates = file.path(dossier, "dates.tif"), ratio = file.path(dossier, "ratio.tif"),
+               objets_raster = file.path(dossier, "objets.tif"),
+               objets = file.path(dossier, "objets.gpkg"))
+  lues <- if (is.null(donnee)) list(ratio) else list(ratio, donnee)
+  # Pixels avec donnée de la bande [debut, debut + n - 1], de ratio `rat`.
+  avec_donnee <- function(rat, debut, n) {
+    if (is.null(donnee)) return(!is.na(rat))
+    d <- lire_bande(donnee, debut, n, nc)
+    !is.na(d) & d == 1
+  }
+
+  # Passe 2 : zones <= tp, étiquetées par bande, fusionnées entre bandes.
   ecr_zone <- ecrivain(modele, tmp[["zone"]], "INT4S")
-  terra::readStart(r_ratio)
+  for (x in lues) terra::readStart(x)
   z <- nouvelles_etiquettes()
   graine_lab <- list()
   for (b in seq_len(nrow(blocs))) {
-    ratio <- lire_bande(r_ratio, blocs$debut[b], blocs$n[b], nc)
-    valide <- !is.na(ratio)
-    zone <- valide & ratio <= s[["tp"]]
-    graine <- valide & ratio < s[["ts"]]
+    rat <- lire_bande(ratio, blocs$debut[b], blocs$n[b], nc)
+    valide <- !is.na(rat) & avec_donnee(rat, blocs$debut[b], blocs$n[b])
+    zone <- valide & rat <= s[["tp"]]
+    graine <- valide & rat < s[["ts"]]
     lab <- etiquette_bande(zone, p$connexite, z, blocs$debut[b], nc)
     z <- lab$etat
     graine_lab[[b]] <- unique(lab$matrice[graine])
     terra::writeValues(ecr_zone, as.vector(lab$matrice), blocs$debut[b], blocs$n[b])
   }
-  terra::readStop(r_ratio)
+  for (x in lues) terra::readStop(x)
   terra::writeStop(ecr_zone)
   r_zone <- terra::rast(tmp[["zone"]])
   racine_z <- racines_equivalences(z$n, z$a, z$b)
@@ -261,66 +310,55 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
   seme[racine_z[unlist(graine_lab, use.names = FALSE)]] <- TRUE
   petit <- taille_z * resolution_m^2 < p$surface_min_ha * 1e4 * (1 - 1e-9)
   garde_z <- (seme & !petit)[racine_z]
-  rm(graine_lab, seme, petit, taille_z)
 
-  # Passe 3 : fermeture par bande bordée, objets étiquetés et fusionnés. -------
+  # Passe 3 : fermeture par bande bordée, objets étiquetés et fusionnés.
   rc <- if (p$fermeture && p$taille_fermeture > 1L) (p$taille_fermeture - 1L) %/% 2L else 0L
   ecr_objet <- ecrivain(modele, tmp[["objet"]], "INT4S")
   ecr_dates <- ecrivain(modele, sorties[["dates"]], "INT4S")
-  ecr_rsort <- ecrivain(modele, sorties[["ratio"]], "FLT4S")
-  for (r in list(r_ratio, r_date, r_zone)) terra::readStart(r)
+  ecr_rsort <- ecrivain(modele, sorties[["ratio"]], type_ratio)
+  for (x in c(lues, list(date, r_zone))) terra::readStart(x)
   ob <- nouvelles_etiquettes()
   paires <- list()
   somme_lin <- list()
   for (b in seq_len(nrow(blocs))) {
     lu <- bande_bordee(blocs$debut[b], blocs$n[b], 2L * rc, nl)
     lab_z <- lire_bande(r_zone, lu$debut, lu$n, nc)
-    sans_donnee <- is.na(lire_bande(r_ratio, lu$debut, lu$n, nc))
+    sans_donnee <- !avec_donnee(lire_bande(ratio, lu$debut, lu$n, nc), lu$debut, lu$n)
     avant <- !is.na(lab_z)
     avant[avant] <- garde_z[lab_z[avant]]
     ferme <- if (rc > 0L) fermeture_carre(avant, sans_donnee, p$taille_fermeture) else avant
-    centre <- lu$centre
-    ferme <- ferme[, centre, drop = FALSE]
-    avant <- avant[, centre, drop = FALSE]
-    ratio <- lire_bande(r_ratio, blocs$debut[b], blocs$n[b], nc)
-    date <- lire_bande(r_date, blocs$debut[b], blocs$n[b], nc)
+    ferme <- ferme[, lu$centre, drop = FALSE]
+    avant <- avant[, lu$centre, drop = FALSE]
+    rat <- lire_bande(ratio, blocs$debut[b], blocs$n[b], nc)
+    dat <- lire_bande(date, blocs$debut[b], blocs$n[b], nc)
     lab <- etiquette_bande(ferme, p$connexite, ob, blocs$debut[b], nc)
     ob <- lab$etat
-    # Date et ratio : pixels de l'objet détectés avant la fermeture.
     dans <- avant & ferme
     l <- lab$matrice[dans]
-    d <- date[dans]
+    d <- dat[dans]
     a_d <- !is.na(d)
-    cle <- sort(l[a_d] * 1e5 + d[a_d])
-    rl <- rle(cle)
+    rl <- rle(sort(l[a_d] * 1e5 + d[a_d]))
     paires[[b]] <- list(cle = rl$values, n = rl$lengths)
-    rr <- ratio[dans]
+    rr <- rat[dans]
     a_r <- !is.na(rr)
     somme_lin[[b]] <- list(lab = l[a_r], lin = db_vers_lineaire(rr[a_r]))
-    date[!dans] <- NA_integer_
-    ratio[!dans] <- NA_real_
+    dat[!dans] <- NA_integer_
+    rat[!dans] <- NA_real_
     terra::writeValues(ecr_objet, as.vector(lab$matrice), blocs$debut[b], blocs$n[b])
-    terra::writeValues(ecr_dates, as.vector(date), blocs$debut[b], blocs$n[b])
-    terra::writeValues(ecr_rsort, as.vector(ratio), blocs$debut[b], blocs$n[b])
+    terra::writeValues(ecr_dates, as.vector(dat), blocs$debut[b], blocs$n[b])
+    terra::writeValues(ecr_rsort, as.vector(rat), blocs$debut[b], blocs$n[b])
   }
-  for (r in list(r_ratio, r_date, r_zone)) terra::readStop(r)
+  for (x in c(lues, list(date, r_zone))) terra::readStop(x)
   terra::writeStop(ecr_objet)
   terra::writeStop(ecr_dates)
   terra::writeStop(ecr_rsort)
 
-  # Objets : racines, numérotation par première cellule, table. ---------------
+  # Objets : racines, numérotation par première cellule, table, raster.
   racine_o <- racines_equivalences(ob$n, ob$a, ob$b)
-  # Racines rangées par première cellule de leur objet.
-  par_cellule <- order(ob$premiere)
-  racines <- unique(racine_o[par_cellule])
+  racines <- unique(racine_o[order(ob$premiere)])
   identifiant <- match(racine_o, racines)
   k <- length(racines)
-  table <- table_objets_blocs(
-    identifiant, k, ob$taille, resolution_m^2,
-    paires, somme_lin
-  )
-
-  # Raster des objets : étiquettes de bande -> identifiants. -------------------
+  table <- table_objets_blocs(identifiant, k, ob$taille, resolution_m^2, paires, somme_lin)
   r_objet <- terra::rast(tmp[["objet"]])
   ecr_obj <- ecrivain(modele, sorties[["objets_raster"]], "INT4S")
   terra::readStart(r_objet)
@@ -334,8 +372,7 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
   terra::readStop(r_objet)
   terra::writeStop(ecr_obj)
 
-  # GeoPackage. ----------------------------------------------------------------
-  if (k > 0L) {
+  if (gpkg && k > 0L) {
     r_id <- terra::rast(sorties[["objets_raster"]])
     names(r_id) <- "identifiant"
     poly <- terra::as.polygons(r_id, dissolve = TRUE, values = TRUE, na.rm = TRUE)
@@ -344,14 +381,13 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
     attributs <- attributs[match(poly$identifiant, attributs$identifiant), , drop = FALSE]
     terra::values(poly) <- attributs
     poly <- poly[order(poly$identifiant), ]
-    terra::writeVector(poly, sorties[["objets"]], filetype = "GPKG",
-                       layer = "objets", overwrite = TRUE)
+    terra::writeVector(poly, sorties[["objets"]], filetype = "GPKG", layer = "objets",
+                       overwrite = TRUE)
   } else {
     if (file.exists(sorties[["objets"]])) unlink(sorties[["objets"]])
     sorties <- sorties[names(sorties) != "objets"]
   }
-
-  list(fichiers = sorties, objets = table, lignes_par_bloc = lignes_par_bloc)
+  list(fichiers = sorties, objets = table)
 }
 
 # Outils des blocs ------------------------------------------------------------

@@ -398,17 +398,17 @@ test_that("mission 016 : médiane des dates par objet, cas limites", {
 en_flt4s <- function(x) readBin(writeBin(x, raw(), size = 4), "double", size = 4, n = length(x))
 
 test_that("mission 018 : ratio à moins de 1e-6 dB d'un seuil, détection brute puis segmenter_blocs() identique", {
-  # Un pixel détecté (bord de coupe) dont le ratio double r arrondi en réel
-  # 32 bits monte (f > r) ; le seuil tp est placé entre les deux : en double
-  # le pixel est dans la zone, en réel 32 bits il n'y est plus.
-  s0 <- seuils_db(p_def)
+  # Un pixel détecté dont le ratio double r arrondi en réel 32 bits monte
+  # (f > r) ; le seuil tp est placé entre les deux (et ts 0,1 dB dessous) :
+  # en double le pixel est dans la zone, en réel 32 bits il n'y est plus.
   r <- as.vector(ref$comb$ratio_min_db)
   f <- en_flt4s(r)
-  cand <- which(as.vector(ref$avant) & !is.na(r) & r > s0[["ts"]] + 0.2 & f > r)
+  cand <- which(as.vector(ref$avant) & !is.na(r) & f > r)
   expect_gt(length(cand), 0L)
   i <- cand[which.max(r[cand])]
   tp_eff <- (r[i] + f[i]) / 2
-  p <- parametres_sufosat(tp_db = tp_eff / p_def$facteur_seuil)
+  p <- parametres_sufosat(tp_db = tp_eff / p_def$facteur_seuil,
+                          ts_db = (tp_eff - 0.1) / p_def$facteur_seuil)
   s <- seuils_db(p)
   expect_true(r[i] <= s[["tp"]] && f[i] > s[["tp"]])
   expect_lt(abs(r[i] - s[["tp"]]), 1e-6)
