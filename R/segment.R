@@ -118,7 +118,7 @@ valide_ratio <- function(x) {
   if (is.list(x) && !is.data.frame(x)) {
     if (!"ratio_min_db" %in% names(x)) {
       stop(
-        "`ratio_min_db` doit être une matrice numérique ou un résultat de ",
+        "`ratio_min_db` doit \u00eatre une matrice num\u00e9rique ou un r\u00e9sultat de ",
         "rcr_compute() ou rcr_combine_orbites().",
         call. = FALSE
       )
@@ -129,7 +129,7 @@ valide_ratio <- function(x) {
     storage.mode(x) <- "double"
   }
   if (!is.matrix(x) || !is.numeric(x)) {
-    stop("`ratio_min_db` doit être une matrice numérique (en dB).", call. = FALSE)
+    stop("`ratio_min_db` doit \u00eatre une matrice num\u00e9rique (en dB).", call. = FALSE)
   }
   if (any(is.infinite(x))) {
     stop("`ratio_min_db` ne doit pas contenir de valeur infinie.", call. = FALSE)
