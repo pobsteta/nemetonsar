@@ -49,6 +49,7 @@ mgrs_zone <- function(lon, lat) {
 
 # Lettre de la bande de latitude (8 degrés de -80 à 72, 12 degrés de 72 à 84).
 mgrs_bande <- function(lat) {
+  if (length(lat) == 0L) return(character(0))
   i <- pmin(floor((lat + 80) / 8) + 1, 20)
   i[lat < -80 | lat > 84] <- NA
   substring(.mgrs_bandes, i, i)
@@ -58,6 +59,7 @@ mgrs_bande <- function(lat) {
 # huit lettres, selon la zone), ligne d'après l'ordonnée UTM (vingt lettres
 # répétées tous les 2 000 km, décalées de cinq lettres dans les zones paires).
 mgrs_carre <- function(zone, x, y) {
+  if (length(x) == 0L) return(character(0))
   col <- floor(x / 1e5)
   jeu <- .mgrs_colonnes[((zone - 1) %% 3) + 1]
   lettre_col <- substring(jeu, col, col)
