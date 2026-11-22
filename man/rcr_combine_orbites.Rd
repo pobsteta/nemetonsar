@@ -21,9 +21,11 @@ rang dans \code{resultats} si la liste n'est pas nommée), \code{NA} sans ratio.
 Applique la règle \code{combinaison_orbites} de \code{\link[=parametres_sufosat]{parametres_sufosat()}} aux
 résultats de \code{\link[=rcr_compute]{rcr_compute()}} obtenus sur plusieurs orbites relatives (par
 exemple une ascendante et une descendante) d'une même grille. Avec
-\code{"minimum"}, seule règle permise : par pixel, l'orbite au ratio le plus bas
-donne le ratio et ses dates ; une orbite sans ratio pour ce pixel (\code{NA})
-est ignorée. Règle \strong{provisoire, gèle au jalon 2} : non précisée dans M24
+\code{"minimum"}, seule règle permise : par pixel, l'orbite au ratio de
+\strong{détection} (\code{ratio_min_db}) le plus bas donne le ratio et ses dates
+(celles que \code{\link[=rcr_compute]{rcr_compute()}} a tirées, pour cette orbite, du ratio de
+datation calculé avec \code{xb_date}) ; une orbite sans ratio pour ce pixel
+(\code{NA}) est ignorée. Règle \strong{provisoire, gèle au jalon 2} : non précisée dans M24
 (p. 13748, « mosaicked »), formule ambiguë dans B18 (§ 2.3.2, p. 11). En
 cas d'égalité, la première orbite de la liste l'emporte : \strong{provisoire,
 non sourcé (choix du package), gèle au jalon 2.}

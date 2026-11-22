@@ -314,3 +314,128 @@ test_that("un faux minimum de speckle en début de série n'apparaît plus", {
   expect_true(r$ratio_min_db[1, 1] > seuils_db(r$parametres)[["tp"]])
   expect_true(yyddd_vers_date(r$date_avant[1, 1]) >= as.Date("2019-01-01"))
 })
+
+# Datation à part (mission 010) : ratio de détection avec xb, date au minimum
+# du ratio calculé avec xb_date.
+marches <- function() array(rep(c(1, 0.5, 0.25), each = 6), dim = c(1, 1, 18))
+
+test_that("la date suit xb_date, le ratio de détection suit xb", {
+  # Niveau 1, puis 0,5, puis 0,25 (6 images chacun).
+  dates <- dates_12(18)
+  p <- parametres_sufosat(xb = Inf, xb_date = 3)
+  r <- rcr_compute(marches(), dates, p)
+  # ratio de détection inchangé : celui de xb = Inf (Mb = 0,75 à la 12e image)
+  r_inf <- rcr_compute(marches(), dates, parametres_sufosat(xb = Inf, xb_date = Inf))
+  expect_identical(r$ratio_min_db, r_inf$ratio_min_db)
+  expect_equal(r$ratio_min_db[1, 1], lineaire_vers_db(0.25 / 0.75))
+  # date : minimum du ratio à xb = 3, première marche (égalité : la plus ancienne)
+  expect_equal(yyddd_vers_date(r$date_min[1, 1]), dates[7])
+  expect_equal(yyddd_vers_date(r$date_avant[1, 1]), dates[6])
+  expect_identical(r$duree_xa_jours[1, 1], as.integer(dates[9] - dates[6]))
+  # à xb_date = Inf, la date est celle du minimum de détection
+  expect_equal(yyddd_vers_date(r_inf$date_min[1, 1]), dates[13])
+  expect_equal(yyddd_vers_date(r_inf$date_avant[1, 1]), dates[12])
+  expect_identical(r_inf$duree_xa_jours[1, 1], as.integer(dates[15] - dates[12]))
+})
+
+test_that("le défaut date avec xb_date = 5 et détecte avec xb = Inf", {
+  dates <- dates_12(18)
+  p <- parametres_sufosat()
+  expect_identical(p$xb, Inf)
+  expect_identical(p$xb_date, 5)
+  r <- rcr_compute(marches(), dates, p)
+  attendu <- rcr_naif(marches(), dates, 3L, Inf, xb_date = 5)
+  expect_equal(r$ratio_min_db, attendu$ratio_min_db)
+  expect_identical(r$date_min, attendu$date_min)
+  expect_identical(r$date_avant, attendu$date_avant)
+  expect_identical(r$duree_xa_jours, attendu$duree_xa_jours)
+  expect_equal(r$ratio_min_db[1, 1], lineaire_vers_db(0.25 / 0.75))
+})
+
+test_that("xb_date = xb rend les dates du ratio de détection", {
+  set.seed(7)
+  dates <- dates_12(30)
+  serie <- array(niveau * db_vers_lineaire(rnorm(3 * 4 * 30, sd = 2)), dim = c(3, 4, 30))
+  serie[2, 2, 5] <- NA
+  for (xb in c(Inf, 4)) {
+    r <- rcr_compute(serie, dates, parametres_sufosat(xb = xb, xb_date = xb))
+    attendu <- rcr_naif(serie, dates, 3L, xb)
+    expect_equal(r$ratio_min_db, attendu$ratio_min_db)
+    expect_identical(r$date_min, attendu$date_min)
+    expect_identical(r$date_avant, attendu$date_avant)
+    expect_identical(r$duree_xa_jours, attendu$duree_xa_jours)
+  }
+  # quel que soit xb_date, le ratio de détection ne bouge pas
+  r_ref <- rcr_compute(serie, dates, parametres_sufosat(xb_date = Inf))
+  for (xd in c(1, 5, 10)) {
+    r <- rcr_compute(serie, dates, parametres_sufosat(xb_date = xd))
+    expect_identical(r$ratio_min_db, r_ref$ratio_min_db)
+  }
+})
+
+test_that("cas simulé de la mission 008 : date bien meilleure, détection identique", {
+  # Reprise à petite échelle de docs/analyses/precision-date.R : forêt à
+  # 0,05, speckle gamma (ENL 4,4), chute de -6 dB après le 2020-06-15,
+  # cadence 12 j, filtre de fenêtre 3, xb = Inf. Simulation, pas une mesure.
+  set.seed(20261122L)
+  nr <- 20L
+  nc <- 30L
+  dates <- seq(as.Date("2018-01-03"), as.Date("2021-12-31"), by = 12)
+  nt <- length(dates)
+  k1 <- which(dates > as.Date("2020-06-15"))[1]
+  serie <- array(0.05, c(nr, nc, nt))
+  serie[, 1:15, k1:nt] <- 0.05 * db_vers_lineaire(-6)
+  serie <- serie * array(rgamma(nr * nc * nt, shape = 4.4, rate = 4.4), c(nr, nc, nt))
+  p_avant <- parametres_sufosat(xb_date = Inf)
+  p_apres <- parametres_sufosat() # xb_date = 5
+  filtree <- s1_filter_multitemp(serie, dates, p_apres)
+  r_avant <- rcr_compute(filtree, dates, p_avant)
+  r_apres <- rcr_compute(filtree, dates, p_apres)
+
+  # pixels coupés à 3 pixels ou plus de la lisière, forêt intacte de même
+  coupe <- matrix(FALSE, nr, nc)
+  coupe[, 1:12] <- TRUE
+  intact <- matrix(FALSE, nr, nc)
+  intact[, 19:30] <- TRUE
+  vraie <- dates[k1]
+  exacte <- function(r) mean(yyddd_vers_date(r$date_min[coupe]) == vraie)
+  # graine fixée : 25,0 % à xb_date = Inf, 93,3 % à xb_date = 5 (240 pixels)
+  expect_lt(exacte(r_avant), 0.4)
+  expect_gt(exacte(r_apres), 0.9)
+  expect_gt(exacte(r_apres) - exacte(r_avant), 0.5)
+  # aucune date en avance d'une acquisition ou plus
+  expect_true(all(yyddd_vers_date(r_apres$date_min[coupe]) >= vraie))
+
+  # détection identique
+  expect_identical(r_apres$ratio_min_db, r_avant$ratio_min_db)
+  s_avant <- rcr_segment(r_avant, p_avant)
+  s_apres <- rcr_segment(r_apres, p_apres)
+  expect_identical(s_apres$detection, s_avant$detection)
+  expect_true(all(s_apres$detection[coupe]))
+  expect_false(any(s_apres$detection[intact]))
+})
+
+test_that("deux orbites : l'orbite au ratio de détection le plus bas donne ses dates", {
+  p <- parametres_sufosat(xb = Inf, xb_date = 3)
+  dates_asc <- dates_12(18)
+  dates_desc <- dates_asc + 5
+  # asc : marches 1 / 0,5 / 0,25 ; détection -4,77 dB, ratio de datation -3,01 dB (image 7)
+  asc <- marches()
+  # desc : une marche de -4 dB à l'image 12 ; détection et datation -4 dB
+  desc <- array(1, dim = c(1, 1, 18))
+  desc[1, 1, 12:18] <- db_vers_lineaire(-4)
+  ra <- rcr_compute(asc, dates_asc, p)
+  rd <- rcr_compute(desc, dates_desc, p)
+  comb <- rcr_combine_orbites(list(asc = ra, desc = rd), p)
+  # l'ascendante l'emporte par son ratio de détection, bien que son ratio de
+  # datation (-3,01 dB) soit plus haut que celui de la descendante (-4 dB)
+  expect_identical(comb$orbite[1, 1], "asc")
+  expect_equal(comb$ratio_min_db[1, 1], lineaire_vers_db(0.25 / 0.75))
+  expect_equal(yyddd_vers_date(comb$date_min[1, 1]), dates_asc[7])
+  expect_equal(yyddd_vers_date(comb$date_avant[1, 1]), dates_asc[6])
+  expect_identical(comb$duree_xa_jours[1, 1], ra$duree_xa_jours[1, 1])
+  expect_equal(yyddd_vers_date(rd$date_min[1, 1]), dates_desc[12])
+  # des résultats calculés avec un autre xb_date sont refusés
+  rx <- rcr_compute(desc, dates_desc, parametres_sufosat(xb = Inf, xb_date = 5))
+  expect_error(rcr_combine_orbites(list(ra, rx), p), "autres r")
+})

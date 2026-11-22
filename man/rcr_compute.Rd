@@ -15,19 +15,21 @@ seule orbite relative.}
 longueur \code{dim(serie)[3]} : la date d'acquisition de chaque image.}
 
 \item{parametres}{Un objet créé par \code{\link[=parametres_sufosat]{parametres_sufosat()}} ; seuls \code{xa},
-\code{xb} et \code{annee_noyau} servent ici.}
+\code{xb}, \code{xb_date} et \code{annee_noyau} servent ici.}
 }
 \value{
 Une liste :
 \itemize{
-\item \code{ratio_min_db} : matrice (lignes x colonnes) du ratio minimal, en dB ;
-\code{NA} si le pixel n'a aucun ratio ;
+\item \code{ratio_min_db} : matrice (lignes x colonnes) du minimum du ratio de
+détection (calculé avec \code{xb}), en dB ; \code{NA} si le pixel n'a aucun
+ratio ;
 \item \code{date_min} : matrice d'entiers \code{YYDDD} (voir \code{\link[=date_vers_yyddd]{date_vers_yyddd()}}) de
-la première image valide après la chute ;
+la première image valide après la chute, au minimum du ratio de
+datation (calculé avec \code{xb_date}) ;
 \item \code{date_avant} : matrice d'entiers \code{YYDDD} de la dernière image valide
-avant la chute ;
+avant la chute, au même minimum ;
 \item \code{duree_xa_jours} : matrice d'entiers, durée en jours de \code{d_i} à la
-dernière image de la fenêtre \code{Ma} ;
+dernière image de la fenêtre \code{Ma}, au même minimum ;
 \item \code{parametres} : l'objet \code{parametres} validé.
 }
 
@@ -36,8 +38,8 @@ Les matrices gardent les noms des deux premières dimensions de \code{serie}.
 \description{
 Calcule, pour chaque pixel d'une série Sentinel-1 d'\strong{une seule orbite
 relative}, le ratio de changement radar à chaque date, puis garde le ratio
-le plus bas et sa date. Définition (M24, § II-D.1, p. 13747 ; B18, § 2.3.2,
-p. 10, éq. 1) : à la date d'acquisition \code{d_i},
+le plus bas et une date de coupe. Définition (M24, § II-D.1, p. 13747 ; B18,
+§ 2.3.2, p. 10, éq. 1) : à la date d'acquisition \code{d_i},
 }
 \details{
 \itemize{
@@ -64,12 +66,39 @@ avertissement qui en donne le nombre, comme \code{\link[=lineaire_vers_db]{linea
 valeur infinie est refusée.
 }
 
+\section{Deux ratios, détection et date }{
+ Le ratio est calculé deux fois,
+avec la même \code{Ma} et deux longueurs de \code{Mb} :
+\itemize{
+\item avec \code{xb} : c'est le ratio de \strong{détection}, \code{ratio_min_db} (son
+minimum), seul lu par la segmentation (\code{\link[=rcr_segment]{rcr_segment()}}) ;
+\item avec \code{xb_date} : c'est le ratio de \strong{datation} ; la date de coupe
+(\code{date_min}, \code{date_avant}, \code{duree_xa_jours}) est celle de \strong{son}
+minimum, qui peut différer de la date du minimum du ratio de détection.
+}
+
+Avec \code{xb = Inf}, \code{Mb} garde après la coupe les images d'avant : le ratio
+reste presque à plat sur plusieurs dates et son minimum tombe souvent
+trop tard. En simulation (\code{docs/analyses/precision-date.md}, mission 008 ;
+fenêtre 3, chute de -6 dB, cadence 12 j), la date est exacte pour 15,6 \%
+des pixels coupés à \code{xb = Inf} contre 96,4 \% à \code{xb = 5}, sans changer ce
+qui est détecté. \strong{Provisoire (\code{xb_date = 5}, repli 10), gèle au jalon 2.}
+Si \code{xb_date == xb}, un seul ratio est calculé et la date est celle du
+ratio de détection (comportement d'avant la mission 010 avec
+\code{xb = xb_date = Inf}).
+
+Un pixel a une date si et seulement s'il a un ratio de détection : les
+deux ratios sont calculés aux mêmes dates (celles qui ont \code{xa} images
+valides après elles).
+}
+
 \section{Date retenue }{
  La coupe a lieu entre \code{d_i} (dernière image avant
 la chute) et \code{d_(i+1)} (première image après) : B18, § 2.3.2, p. 11,
 intervalle \verb{[d_k, d_(k+1)]}. M24 retient « la date correspondant au RCR
 le plus bas » sans dire laquelle des deux. \code{date_min} est la \strong{première
-image valide après la chute}, \code{d_(i+1)} ; \code{date_avant} donne \code{d_i}.
+image valide après la chute}, \code{d_(i+1)} ; \code{date_avant} donne \code{d_i}, où
+\code{d_i} est la date du minimum du ratio de \strong{datation} (voir plus haut).
 \strong{Provisoire (non précisé dans M24), gèle au jalon 2} : à confronter aux
 dates de la carte SUFOSAT v3.0.1.
 
@@ -98,7 +127,9 @@ sans image manquante, il vaut \code{\link[=xa_en_jours]{xa_en_jours()}}.
 \section{Mémoire }{
  Le calcul est vectorisé sur les pixels, avec une boucle
 sur les dates. Il garde en mémoire environ trois fois la taille de
-\code{serie} (sommes cumulées et positions des images valides).
+\code{serie} (sommes cumulées et positions des images valides). Le ratio de
+datation réutilise les mêmes sommes cumulées : il n'ajoute que quelques
+vecteurs de la taille d'une image.
 }
 
 \examples{

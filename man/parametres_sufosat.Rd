@@ -9,6 +9,7 @@ parametres_sufosat(
   polarisation = "VH",
   xa = 3L,
   xb = Inf,
+  xb_date = 5L,
   facteur_seuil = 1.15,
   ts_db = -4.5,
   tp_db = -3,
@@ -37,7 +38,20 @@ jours, voir \code{\link[=xa_en_jours]{xa_en_jours()}}.}
 
 \item{xb}{Nombre d'images avant la date pour la moyenne Mb ; \code{Inf} pour
 toutes les images antérieures. Défaut \code{Inf} : B18, § 2.3.2, p. 10 ; non
-précisé dans M24. \strong{Provisoire, gèle au jalon 2.}}
+précisé dans M24. \strong{Provisoire, gèle au jalon 2.} Sert au ratio de
+\strong{détection} (\code{ratio_min_db} de \code{\link[=rcr_compute]{rcr_compute()}}).}
+
+\item{xb_date}{Nombre d'images avant la date pour la moyenne Mb du ratio
+qui sert à \strong{dater} la coupe ; \code{Inf} pour toutes les images
+antérieures. Entier au moins égal à 1, ou \code{Inf}. La détection reste
+calculée avec \code{xb} ; la date retenue est celle du minimum du ratio calculé
+avec \code{xb_date} (voir \code{\link[=rcr_compute]{rcr_compute()}}, section « Date retenue »). Défaut 5 :
+non précisé dans M24 ni B18. \strong{Provisoire : simulation
+\code{docs/analyses/precision-date.md} (mission 008 ; fenêtre 3, chute de
+-6 dB, cadence 12 j), 96,4 \% de dates exactes contre 15,6 \% à
+\code{xb = Inf} ; repli 10 ; gèle au jalon 2} (mesure sur données réelles).
+Avec \code{xb_date = xb}, la date est celle du ratio de détection (comportement
+d'avant la mission 010 si \code{xb = xb_date = Inf}).}
 
 \item{facteur_seuil}{Facteur multiplicatif appliqué à \code{ts_db} et \code{tp_db}.
 Défaut 1,15 : M24, § III-A, p. 13750 (plage étudiée 0,8 à 1,2).}

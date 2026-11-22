@@ -4,6 +4,7 @@ test_that("les défauts sont ceux de la spec et de la table de la mission 001", 
   expect_identical(p$polarisation, "VH")
   expect_identical(p$xa, 3L)
   expect_identical(p$xb, Inf)
+  expect_identical(p$xb_date, 5)
   expect_identical(p$facteur_seuil, 1.15)
   expect_identical(p$ts_db, -4.5)
   expect_identical(p$tp_db, -3)
@@ -30,6 +31,9 @@ test_that("les entiers donnés en double sont rangés en entiers", {
   expect_identical(p$fenetre_filtre, 5L)
   expect_identical(p$annee_noyau, 2019L)
   expect_identical(parametres_sufosat(xb = 5L)$xb, 5)
+  expect_identical(parametres_sufosat(xb_date = 10L)$xb_date, 10)
+  expect_identical(parametres_sufosat(xb_date = Inf)$xb_date, Inf)
+  expect_identical(parametres_sufosat(xb_date = 1)$xb_date, 1)
 })
 
 test_that("ts = 1,15 x -4,5 dB et tp = 1,15 x -3 dB, sans arrondi", {
@@ -62,6 +66,12 @@ test_that("un paramètre invalide est refusé avec un message clair", {
   expect_error(parametres_sufosat(xb = 0), "`xb`")
   expect_error(parametres_sufosat(xb = 2.5), "`xb`")
   expect_error(parametres_sufosat(xb = -Inf), "`xb`")
+  expect_error(parametres_sufosat(xb_date = 0), "`xb_date`")
+  expect_error(parametres_sufosat(xb_date = 2.5), "`xb_date`")
+  expect_error(parametres_sufosat(xb_date = -Inf), "`xb_date`")
+  expect_error(parametres_sufosat(xb_date = NA_real_), "`xb_date`")
+  expect_error(parametres_sufosat(xb_date = c(5, 10)), "`xb_date`")
+  expect_error(parametres_sufosat(xb_date = "5"), "`xb_date`")
   expect_error(parametres_sufosat(ts_db = 1), "`ts_db`")
   expect_error(parametres_sufosat(tp_db = 0), "`tp_db`")
   expect_error(parametres_sufosat(ts_db = -3, tp_db = -4.5), "plus sombres")
@@ -111,6 +121,12 @@ test_that("une liste modifiée à la main est refusée", {
   q <- p
   q$en_trop <- 1
   expect_error(seuils_db(q), "exactement")
+  q <- p
+  q$xb_date <- NULL
+  expect_error(seuils_db(q), "exactement")
+  q <- p
+  q$xb_date <- 0.5
+  expect_error(seuils_db(q), "`xb_date`")
 })
 
 test_that("capteurs_a_la_date bascule de S1A à S1C + S1D le 30 juin 2026", {
@@ -141,6 +157,10 @@ test_that("l'affichage montre les valeurs du brief et les seuils effectifs", {
   expect_true(any(grepl("-5.175 dB, -3.45 dB", sortie, fixed = TRUE)))
   expect_true(any(grepl("S1A depuis le 2014-04-03 ; S1C+S1D depuis le 2026-06-30", sortie, fixed = TRUE)))
   expect_true(any(grepl("VH", sortie, fixed = TRUE)))
+  expect_true(any(grepl("xb                  : Inf", sortie, fixed = TRUE)))
+  expect_true(any(grepl("xb_date             : 5 images", sortie, fixed = TRUE)))
+  sortie_inf <- capture.output(print(parametres_sufosat(xb_date = Inf)))
+  expect_true(any(grepl("xb_date             : Inf", sortie_inf, fixed = TRUE)))
   capture.output(v <- withVisible(print(parametres_sufosat())))
   expect_false(v$visible)
 })
