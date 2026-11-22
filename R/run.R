@@ -3,7 +3,8 @@
 #' Enchaîne toute la méthode SUFOSAT sur une zone d'intérêt (AOI) et une
 #' période : préparation de l'AOI et découpage en tuiles ([aoi_preparer()]),
 #' puis, **par tuile** : recherche et lecture des images Sentinel-1
-#' ([s1_rechercher()], [s1_lire()]), masque forêt ([masque_foret()]),
+#' ([s1_rechercher()], [s1_lire()]), masque forêt ([masque_foret()] ou
+#' [masque_foret_bdforet()]),
 #' détection ([nemetonsar_detecter()], argument `foret`) ; enfin
 #' assemblage des tuiles en Lambert-93, où la graine, la surface minimale et
 #' la fermeture sont jugées sur les objets entiers, masque feu
@@ -17,8 +18,9 @@
 #'      les images antérieures (`xb = Inf`). Avec les défauts (noyau 2018),
 #'      une période en 2025 lit donc toutes les images depuis 2018. Une
 #'      orbite sans image de l'année du noyau est écartée (dit au journal).
-#'   2. **Masque.** Le masque de la tuile est le masque forêt (TCD, si
-#'      `tcd` est donné) **et** le morceau d'AOI de la tuile (cellules dont
+#'   2. **Masque.** Le masque de la tuile est le masque forêt (TCD si
+#'      `tcd` est donné, BD Forêt v2 de l'IGN si `bdforet` est donné, lue
+#'      sur l'emprise de la tuile) **et** le morceau d'AOI de la tuile (cellules dont
 #'      le centre est dans le morceau, [terra::rasterize()]). Il est passé à
 #'      la détection de la tuile (option B : ratio et date à `NA` hors
 #'      masque après la passe 1). Un objet est mesuré (0,1 ha, graine) sur
@@ -34,12 +36,12 @@
 #'      0,1 ha, fermeture) : mêmes résultats, aux pixels de forêt sans
 #'      ratio près (voir l'assemblage). La carte finale, elle, est jugée
 #'      après l'assemblage.
-#'   4. **Correction 2019** (si `tcd` est donné, `correction_2019 = TRUE`,
+#'   4. **Correction 2019** (si `tcd` ou `bdforet` est donné, `correction_2019 = TRUE`,
 #'      `annee_noyau` antérieure à 2019 et des images de 2019 lues) : une
 #'      première détection, sur les images jusqu'au 31 décembre 2019 et les
-#'      `xa` suivantes, avec le seul masque TCD ; ses pixels datés de 2019
+#'      `xa` suivantes, avec le seul masque forêt ; ses pixels datés de 2019
 #'      (codes `19xxx` de `dates.tif`) sont retirés de la forêt
-#'      ([masque_foret()], `detections_2019`) ; la détection principale
+#'      ([masque_foret()], [masque_foret_bdforet()], `detections_2019`) ; la détection principale
 #'      tourne avec ce masque corrigé. On garde les objets de la première
 #'      détection dont la date médiane est en 2019 et ceux de la détection
 #'      principale dont elle ne l'est pas (M24 : la méthode est appliquée
@@ -126,7 +128,14 @@
 #' @param dossier Dossier de sortie.
 #' @param tcd `NULL` (pas de masque forêt : **toute l'AOI est traitée comme
 #'   forêt**, dit au journal), ou le Tree Cover Density 2018 : chemin d'un
-#'   raster ou `SpatRaster` (voir [masque_foret()]).
+#'   raster ou `SpatRaster` (voir [masque_foret()]). Exclusif avec
+#'   `bdforet`.
+#' @param bdforet `NULL` (défaut), ou la BD Forêt v2 de l'IGN comme masque
+#'   forêt (décision du 2026-11-22, à la place du TCD de M24) : chemin d'un
+#'   fichier vecteur, `SpatVector` de polygones, ou `"wfs"` pour lire le
+#'   service WFS de la Géoplateforme tuile par tuile, sur l'emprise de
+#'   chaque tuile (voir [masque_foret_bdforet()], codes TFV par défaut).
+#'   Exclusif avec `tcd`.
 #' @param effis `NULL` (pas de masque feu, dit au journal), ou les surfaces
 #'   brûlées EFFIS : chemin d'un fichier vecteur ou `SpatVector` de
 #'   polygones, avec une colonne d'année (voir `effis_annee`).
@@ -156,7 +165,8 @@
 #'   du journal).
 #'
 #' @seealso [aoi_preparer()], [s1_rechercher()], [s1_lire()],
-#'   [masque_foret()], [nemetonsar_detecter()], [masque_feu()].
+#'   [masque_foret()], [masque_foret_bdforet()], [nemetonsar_detecter()],
+#'   [masque_feu()].
 #'
 #' @examples
 #' \dontrun{
@@ -179,7 +189,8 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
                            effis_annee = "annee",
                            correction_2019 = TRUE,
                            lignes_par_bloc = NULL,
-                           lire_images = NULL) {
+                           lire_images = NULL,
+                           bdforet = NULL) {
   debut_calcul <- Sys.time()
   p <- valide_parametres(parametres)
   periode <- valide_periode(date_debut, date_fin)
@@ -201,6 +212,35 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
       }
     }
     valide_raster_une_couche(tcd, "tcd")
+  }
+  source_bdforet <- NA_character_
+  if (!is.null(bdforet)) {
+    if (!is.null(tcd)) {
+      stop("`tcd` et `bdforet` sont exclusifs : donner un seul masque for\u00eat.", call. = FALSE)
+    }
+    if (is.character(bdforet) && length(bdforet) == 1L && !is.na(bdforet)) {
+      if (identical(tolower(bdforet), "wfs") && !file.exists(bdforet)) {
+        bdforet <- "wfs"
+        source_bdforet <- paste0("service WFS de la G\u00e9oplateforme (", .bdforet_wfs_url,
+                                 ", couche ", .bdforet_wfs_couche, "), lu tuile par tuile le ",
+                                 format(Sys.Date()))
+      } else if (file.exists(bdforet)) {
+        source_bdforet <- bdforet
+      } else {
+        stop("`bdforet` : fichier introuvable : ", bdforet, call. = FALSE)
+      }
+    } else if (inherits(bdforet, "SpatVector")) {
+      if (nrow(bdforet) > 0L && terra::geomtype(bdforet) != "polygons") {
+        stop("`bdforet` doit contenir des polygones.", call. = FALSE)
+      }
+      if (!nzchar(terra::crs(bdforet))) {
+        stop("`bdforet` doit avoir un syst\u00e8me de coordonn\u00e9es.", call. = FALSE)
+      }
+      source_bdforet <- "SpatVector fourni"
+    } else {
+      stop("`bdforet` doit \u00eatre NULL, \"wfs\", un chemin ou un SpatVector de polygones.",
+           call. = FALSE)
+    }
   }
   source_effis <- NA_character_
   if (!is.null(effis)) {
@@ -277,8 +317,15 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   ecrire("## Masques")
   ecrire("Masque neige : non appliqu\u00e9 (report\u00e9 le 2026-11-22 : MODIS en fin de vie, ",
          "identifiants Earthdata) ; images \u00e9cart\u00e9es pour neige : aucune.")
-  if (is.null(tcd)) {
-    ecrire("Masque for\u00eat : aucun (`tcd` non fourni) : toute l'AOI est trait\u00e9e comme for\u00eat.")
+  if (!is.null(bdforet)) {
+    ecrire("Masque for\u00eat : BD For\u00eat v2 de l'IGN (", source_bdforet, "), for\u00eat si le code TFV ",
+           "est un des 30 postes du niveau I \u00ab For\u00eat \u00bb (FF..., FO..., FP ; LA4 et LA6 exclus) ; ",
+           "cellule for\u00eat si son centre est dans un polygone forestier ; hors polygone = non-for\u00eat ; ",
+           "appliqu\u00e9 au ratio et \u00e0 la date apr\u00e8s la passe 1 (option B). \u00c9cart \u00e0 M24 ",
+           "(TCD 2018) : d\u00e9cision du 2026-11-22.")
+    ecrire("Correction 2019 : ", if (correction_2019) "demand\u00e9e" else "non demand\u00e9e")
+  } else if (is.null(tcd)) {
+    ecrire("Masque for\u00eat : aucun (`tcd` et `bdforet` non fournis) : toute l'AOI est trait\u00e9e comme for\u00eat.")
   } else {
     ecrire("Masque for\u00eat : Tree Cover Density 2018 (", source_tcd, "), for\u00eat si couvert >= ",
            format(p$seuil_tcd), " % ; sans donn\u00e9e = non-for\u00eat ; appliqu\u00e9 au ratio et \u00e0 la date ",
@@ -300,7 +347,7 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
     tuile <- prep$tuiles[i, , drop = FALSE]
     resultats[[tuile$mgrs]] <- run_tuile(
       tuile, prep$aoi[[tuile$mgrs]], periode, debut_images, dossier, p,
-      tcd, correction_2019, lignes_par_bloc, lire_images, ecrire
+      tcd, correction_2019, lignes_par_bloc, lire_images, ecrire, bdforet
     )
   }
 
@@ -354,6 +401,10 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
     ecrire("Entr\u00e9e Tree Cover Density 2018 (CLMS, politique de donn\u00e9es Copernicus) :")
     ecrire("  [FOR] ", attribution_tcd)
   }
+  if (!is.null(bdforet)) {
+    ecrire("Entr\u00e9e BD For\u00eat v2 (IGN, Licence Ouverte 2.0) :")
+    ecrire("  [FOR] ", attribution_bdforet)
+  }
   if (!is.null(effis)) {
     ecrire("Entr\u00e9e EFFIS, surfaces br\u00fbl\u00e9es (CC BY 4.0) :")
     ecrire("  [FEU] ", attribution_effis(p))
@@ -362,14 +413,17 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   ecrire("M\u00e9thode :")
   ecrire("  [MET] ", attribution_methode)
   ecrire("\u00c0 reproduire avec les rasters et le GeoPackage : [S1]",
-         if (!is.null(tcd)) " [FOR]" else "", if (!is.null(effis)) " [FEU]" else "",
+         if (!is.null(tcd) || !is.null(bdforet)) " [FOR]" else "", if (!is.null(effis)) " [FEU]" else "",
          ". Aucune donn\u00e9e SUFOSAT v3.0.1 lue : pas de clause non commerciale h\u00e9rit\u00e9e (ADR 0002).")
   ecrire("")
   ecrire("## Valeurs provisoires")
   ecrire("Assemblage en Lambert-93 (ADR 0003), plus proche voisin, pixel attribu\u00e9 \u00e0 la tuile ",
          "dont le morceau d'AOI contient son centre ; r\u00e8gle de la correction 2019 ; ",
          "appariement EFFIS (ann\u00e9e et ann\u00e9e pr\u00e9c\u00e9dente) ; nom de la colonne d'ann\u00e9e EFFIS ; ",
-         "masque for\u00eat apr\u00e8s la passe 1 ; voir aussi les r\u00e9glages marqu\u00e9s provisoires de parametres_sufosat().")
+         "masque for\u00eat apr\u00e8s la passe 1 ; ",
+         if (!is.null(bdforet)) paste0("BD For\u00eat : rast\u00e9risation au centre des cellules, ",
+                                       "postes FF0 et FO0 (sans couvert arbor\u00e9) compt\u00e9s for\u00eat ; ") else "",
+         "voir aussi les r\u00e9glages marqu\u00e9s provisoires de parametres_sufosat().")
 
   j$statut <- "termin\u00e9"
   tuiles <- do.call(rbind, lapply(resultats, `[[`, "resume"))
@@ -389,7 +443,8 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
 # elle s'applique), garde les objets de la période ; écrit dans
 # dossier/tuiles/<mgrs>/. Rend list(fichiers, resume, attribution).
 run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
-                      correction_2019, lignes_par_bloc, lire_images, ecrire) {
+                      correction_2019, lignes_par_bloc, lire_images, ecrire,
+                      bdforet = NULL) {
   mgrs <- tuile$mgrs
   dt <- file.path(dossier, "tuiles", mgrs)
   dir.create(dt, showWarnings = FALSE, recursive = TRUE)
@@ -448,7 +503,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     return(vide)
   }
 
-  # Masque : forêt (TCD) et morceau d'AOI.
+  # Masque : forêt (TCD ou BD Forêt) et morceau d'AOI.
   modele <- terra::rast(orbites[[1]], nlyrs = 1)
   dans_aoi <- terra::rasterize(morceau, modele, field = 1, background = 0, touches = FALSE) == 1
   masque_aoi <- function(foret) {
@@ -458,13 +513,26 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     terra::rast(f)
   }
   foret0 <- if (is.null(tcd)) NULL else masque_foret(tcd, modele, p)
+  if (!is.null(bdforet)) {
+    foret0 <- masque_foret_bdforet(bdforet, modele)
+    info <- attr(foret0, "bdforet")
+    cod <- info$codes
+    ecrire("Masque for\u00eat BD For\u00eat : ", info$nb_polygones, " polygone(s) lu(s) sur l'emprise",
+           if (nrow(cod) > 0L) paste0(" ; codes TFV : ",
+                                      paste0(ifelse(is.na(cod$code), "NA", cod$code), " (", cod$nb,
+                                             ifelse(cod$foret, ", for\u00eat", ""), ")",
+                                             collapse = ", ")) else "",
+           " ; cellules for\u00eat : ", sum(terra::values(foret0, mat = FALSE) %in% TRUE),
+           " sur ", terra::ncell(foret0))
+  }
+  a_foret <- !is.null(foret0)
   # Forêt de toute la grille (sans le morceau d'AOI), pour l'assemblage.
   f_foret <- file.path(dt, "foret.tif")
   terra::writeRaster(if (is.null(foret0)) terra::rast(modele, vals = 1L) else terra::ifel(is.na(foret0), 0L, foret0),
                      f_foret, overwrite = TRUE, datatype = "INT1U", names = "foret")
   pb <- parametres_bruts(p)
 
-  passe_2019 <- !is.null(tcd) && correction_2019 && p$annee_noyau < 2019L &&
+  passe_2019 <- a_foret && correction_2019 && p$annee_noyau < 2019L &&
     any(vapply(dates, function(d) any(format(d, "%Y") == "2019"), logical(1)))
   res_a <- NULL
   brut_a <- NULL
@@ -483,7 +551,11 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
                              p, file.path(dt, "passe_2019"), lignes_par_bloc, gpkg = TRUE)
     d19 <- terra::rast(res_a$fichiers[["dates"]])
     det19 <- d19 >= 19000 & d19 <= 19999
-    foret1 <- masque_foret(tcd, modele, p, detections_2019 = det19)
+    foret1 <- if (!is.null(tcd)) {
+      masque_foret(tcd, modele, p, detections_2019 = det19)
+    } else {
+      corriger_2019(foret0, det19, modele) # même règle que masque_foret()
+    }
     n19 <- sum(terra::values(det19, mat = FALSE) %in% TRUE)
     ecrire("Correction 2019 : premi\u00e8re d\u00e9tection sur ", sum(lengths(dates_a)),
            " image(s) (jusqu'au 2019-12-31 et ", p$xa, " suivantes), ", nrow(res_a$objets),
@@ -492,7 +564,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     resume$objets_2019 <- nrow(res_a$objets)
   } else {
     foret1 <- foret0
-    if (!is.null(tcd) && correction_2019) {
+    if (a_foret && correction_2019) {
       ecrire("Correction 2019 : non faite (aucune image de 2019 lue, ou noyau post\u00e9rieur \u00e0 2018).")
     }
   }
@@ -924,6 +996,17 @@ attribution_tcd <- paste0(
   "Generated using European Union's Copernicus Land Monitoring Service information; ",
   "https://doi.org/10.2909/486f77da-d605-423e-93a9-680760ab6791 ",
   "(Tree Cover Density 2018, adapted)."
+)
+
+# BD Forêt v2 : Licence Ouverte 2.0 (fiche IGNF_BD-FORET de la
+# Géoplateforme, lue le 2026-11-22) : mentionner la source (au moins le nom
+# du concédant) et la date de dernière mise à jour ; ne pas suggérer d'aval.
+# La date de mise à jour par département n'est pas lue ici : on reprend la
+# période du titre de la couche WFS (« BD Forêt v2 (2006-2019) »).
+attribution_bdforet <- paste0(
+  "Source : IGN, BD For\u00eat\u00ae version 2.0 (2006-2019), Licence Ouverte 2.0 ; ",
+  "https://cartes.gouv.fr/rechercher-une-donnee/dataset/IGNF_BD-FORET. ",
+  "Donn\u00e9es modifi\u00e9es : codes TFV regroup\u00e9s en for\u00eat / non-for\u00eat, rast\u00e9ris\u00e9s sur la grille de calcul."
 )
 
 attribution_effis <- function(p) {

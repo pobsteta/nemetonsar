@@ -511,6 +511,96 @@ test_that("ann\u00e9e EFFIS lue d'un entier, d'une Date ou d'un texte", {
   expect_equal(annee_effis(c("2018-08-12 00:00:00", "x", NA)), c(2018L, NA, NA))
 })
 
+# BD Forêt v2 comme masque forêt (mission 020) ---------------------------------
+
+# BD Forêt synthétique en Lambert-93 : pin maritime pur sur toute l'AOI,
+# lande (LA4) sur c2 élargie de 30 m (même rôle que le TCD à 5 % de tcd_run).
+bdforet_run <- local({
+  e <- terra::ext(terra::project(aoi_2z, "EPSG:2154")) + 200
+  tout <- terra::as.polygons(e, crs = "EPSG:2154")
+  lande <- terra::buffer(terra::project(coupes_run$c2$v, "EPSG:2154"), 30)
+  foret <- terra::erase(tout, lande)
+  v <- rbind(foret, lande)
+  v$CODE_TFV <- c("FF2-51-51", "LA4")
+  v
+})
+
+test_that("nemetonsar_run(bdforet = ...) : lande exclue, journal et attribution IGN", {
+  dossier <- tempfile("run-bdf-")
+  r <- nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", dossier,
+                      bdforet = bdforet_run, effis = effis_run(),
+                      lire_images = lire_synthetique)
+  expect_length(objets_sur(r, "c2"), 0L)  # dans la lande : hors forêt
+  expect_length(objets_sur(r, "c3"), 0L)  # brûlée
+  expect_length(objets_sur(r, "c4"), 1L)
+  expect_length(objets_sur(r, "c1"), 1L)
+  expect_true(all(r$tuiles$passe_2019))   # correction 2019 faite
+  j <- paste(readLines(r$journal, encoding = "UTF-8"), collapse = "\n")
+  expect_match(j, "BD For\u00eat v2 de l'IGN (SpatVector fourni)", fixed = TRUE, useBytes = TRUE)
+  expect_match(j, "LA4 (", fixed = TRUE, useBytes = TRUE)
+  expect_match(j, "Correction 2019 : premi\u00e8re d\u00e9tection", fixed = TRUE, useBytes = TRUE)
+  expect_match(j, "[FOR] Source : IGN, BD For\u00eat\u00ae version 2.0", fixed = TRUE, useBytes = TRUE)
+  expect_match(j, "Licence Ouverte 2.0", fixed = TRUE, useBytes = TRUE)
+  expect_false(grepl("Copernicus Land Monitoring", j, fixed = TRUE, useBytes = TRUE))
+  expect_match(j, "reproduire avec les rasters et le GeoPackage : [S1] [FOR] [FEU]", fixed = TRUE,
+               useBytes = TRUE)
+})
+
+test_that("nemetonsar_run(bdforet = ...) \u00e9quivaut \u00e0 un TCD qui donne le m\u00eame masque", {
+  aoi_1 <- rect_ll(0.001, 0.006, 44.500, 44.505)
+  # Lande sur c4 : exclue par les deux masques.
+  lande <- terra::buffer(terra::project(coupes_run$c4$v, "EPSG:2154"), 20)
+  tout <- terra::as.polygons(terra::ext(terra::project(aoi_1, "EPSG:2154")) + 200,
+                             crs = "EPSG:2154")
+  bdf <- rbind(terra::erase(tout, lande), lande)
+  bdf$CODE_TFV <- c("FF1-00-00", "LA6")
+  # TCD sur la grille de la tuile : 60 % là où la BD Forêt dit forêt, 5 % ailleurs.
+  g <- aoi_grille(aoi_preparer(aoi_1))
+  m <- masque_foret_bdforet(bdf, g)
+  tcd <- terra::ifel(m, 60, 5)
+  d_b <- tempfile("run-bdf-")
+  d_t <- tempfile("run-tcd-")
+  rb <- nemetonsar_run(aoi_1, "2019-01-01", "2020-06-30", d_b, bdforet = bdf,
+                       lire_images = lire_synthetique)
+  rt <- nemetonsar_run(aoi_1, "2019-01-01", "2020-06-30", d_t, tcd = tcd,
+                       lire_images = lire_synthetique)
+  expect_equal(rb$objets, rt$objets)
+  expect_length(objets_sur(rb, "c4"), 0L)
+  expect_length(objets_sur(rb, "c3"), 1L)
+  for (n in c("dates", "ratio", "objets_raster")) {
+    expect_equal(terra::values(terra::rast(rb$fichiers[[n]])),
+                 terra::values(terra::rast(rt$fichiers[[n]])))
+  }
+  mgrs <- rb$tuiles$mgrs
+  for (f in c("masque.tif", "foret.tif")) {
+    expect_equal(terra::values(terra::rast(file.path(d_b, "tuiles", mgrs, f))),
+                 terra::values(terra::rast(file.path(d_t, "tuiles", mgrs, f))))
+  }
+  # Fichier vecteur : même résultat que le SpatVector.
+  fich <- tempfile(fileext = ".gpkg")
+  terra::writeVector(bdf, fich)
+  rf <- nemetonsar_run(aoi_1, "2019-01-01", "2020-06-30", tempfile("run-bdf-"), bdforet = fich,
+                       lire_images = lire_synthetique)
+  expect_equal(rf$objets, rb$objets)
+  expect_match(paste(readLines(rf$journal), collapse = "\n"), fich, fixed = TRUE, useBytes = TRUE)
+})
+
+test_that("tcd et bdforet exclusifs ; bdforet invalide refus\u00e9", {
+  d <- tempfile("run-")
+  expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", d, tcd = tcd_run,
+                              bdforet = bdforet_run, lire_images = lire_synthetique),
+               "exclusifs")
+  expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", d, bdforet = 42,
+                              lire_images = lire_synthetique), "bdforet")
+  expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", d,
+                              bdforet = tempfile(fileext = ".gpkg"),
+                              lire_images = lire_synthetique), "introuvable")
+  expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", d,
+                              bdforet = terra::centroids(bdforet_run),
+                              lire_images = lire_synthetique), "polygones")
+  expect_false(dir.exists(d))
+})
+
 # Essai réel (réseau) -----------------------------------------------------------
 
 test_that("essai r\u00e9el : 1 km x 1 km dans les Landes, premier trimestre 2025", {

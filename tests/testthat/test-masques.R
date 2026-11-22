@@ -135,6 +135,192 @@ test_that("masque_foret refuse les entr\u00e9es invalides", {
   expect_error(masque_foret(tcd, g, parametres = list()), "parametres_sufosat")
 })
 
+# Masque forêt BD Forêt v2 ---------------------------------------------------
+
+# Grille UTM 30N, 10 m, dans les Landes (6 lignes x 8 colonnes).
+grille_l <- function(nl = 6, nc = 8, x0 = 680000, y0 = 4900000) {
+  terra::rast(nrows = nl, ncols = nc, xmin = x0, xmax = x0 + 10 * nc,
+              ymin = y0, ymax = y0 + 10 * nl, crs = "EPSG:32630")
+}
+# Rectangle de cellules de grille_l() (colonnes c1..c2, lignes l1..l2,
+# lignes comptées du haut), densifié et passé en Lambert-93 (comme la BD
+# Forêt) : ses bords tombent sur des limites de cellules, loin des centres.
+bloc_l93 <- function(c1, c2, l1, l2, g = grille_l()) {
+  x1 <- terra::xmin(g) + 10 * (c1 - 1); x2 <- terra::xmin(g) + 10 * c2
+  y2 <- terra::ymax(g) - 10 * (l1 - 1); y1 <- terra::ymax(g) - 10 * l2
+  v <- carre(x1, y1, x2 - x1, y2 - y1, crs = "EPSG:32630")
+  terra::project(terra::densify(v, 2), "EPSG:2154")
+}
+# Cinq polygones : FF2-51-51 (colonnes 1-2), LA4 (3-4), FP (5), LA6
+# (6, lignes 1-3), code absent (6, lignes 4-6) ; colonnes 7-8 hors polygone.
+bdf_l <- function() {
+  v <- rbind(bloc_l93(1, 2, 1, 6), bloc_l93(3, 4, 1, 6), bloc_l93(5, 5, 1, 6),
+             bloc_l93(6, 6, 1, 3), bloc_l93(6, 6, 4, 6))
+  v$CODE_TFV <- c("FF2-51-51", "LA4", "FP", "LA6", NA)
+  v$ESSENCE <- c("Pin maritime", "NC", "Peuplier", "NC", NA)
+  v
+}
+matrice <- function(r) matrix(vals(r), terra::nrow(r), terra::ncol(r), byrow = TRUE)
+
+test_that("BD For\u00eat : 32 postes, 30 rattach\u00e9s au niveau I For\u00eat (descriptif de contenu)", {
+  expect_equal(nrow(.bdforet_tfv), 32L)
+  expect_false(anyDuplicated(.bdforet_tfv$code) > 0)
+  expect_equal(length(.bdforet_codes_foret), 30L)
+  expect_setequal(setdiff(.bdforet_tfv$code, .bdforet_codes_foret), c("LA4", "LA6"))
+  expect_true(all(grepl("^(FF|FO|FP)", .bdforet_codes_foret)))
+})
+
+test_that("BD For\u00eat en Lambert-93 sur une grille UTM 10 m : masque juste, trois \u00e9tats", {
+  g <- grille_l()
+  f <- masque_foret_bdforet(bdf_l(), g)
+  expect_true(terra::is.bool(f))
+  expect_identical(names(f), "foret")
+  expect_true(terra::compareGeom(f, g))
+  ligne_haut <- c(TRUE, TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE)
+  ligne_bas <- c(TRUE, TRUE, FALSE, FALSE, TRUE, NA, FALSE, FALSE)
+  attendu <- rbind(ligne_haut, ligne_haut, ligne_haut, ligne_bas, ligne_bas, ligne_bas)
+  dimnames(attendu) <- NULL
+  expect_equal(matrice(f), attendu)
+  info <- attr(f, "bdforet")
+  expect_equal(info$source, "SpatVector fourni")
+  expect_equal(info$nb_polygones, 5L)
+  expect_equal(info$codes$foret[match(c("FF2-51-51", "LA4", "FP", "LA6"), info$codes$code)],
+               c(TRUE, FALSE, TRUE, FALSE))
+})
+
+test_that("BD For\u00eat : codes non forestiers exclus, codes r\u00e9glables, champ sans casse", {
+  g <- grille_l()
+  v <- bdf_l()
+  # Champ en minuscules (comme le WFS) : même résultat.
+  w <- v
+  names(w) <- tolower(names(w))
+  expect_equal(vals(masque_foret_bdforet(w, g)), vals(masque_foret_bdforet(v, g)))
+  # Peupleraie retirée des codes forêt.
+  f <- masque_foret_bdforet(v, g, codes_foret = "FF2-51-51")
+  expect_equal(matrice(f)[1, ], c(TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE))
+  # Lande comptée forêt si on le demande.
+  f <- masque_foret_bdforet(v, g, codes_foret = c("FF2-51-51", "LA4"))
+  expect_equal(matrice(f)[1, 1:5], c(TRUE, TRUE, TRUE, TRUE, FALSE))
+  # Code hors nomenclature : avertissement, non-forêt.
+  v$CODE_TFV[1] <- "XX9"
+  expect_warning(f <- masque_foret_bdforet(v, g), "XX9")
+  expect_equal(matrice(f)[1, 1:2], c(FALSE, FALSE))
+  # Champ des codes absent.
+  expect_error(masque_foret_bdforet(v, g, champ_code = "TFV_INCONNU"), "TFV_INCONNU")
+})
+
+test_that("BD For\u00eat : couverture, aucun polygone, correction 2019 comme masque_foret()", {
+  g <- grille_l()
+  v <- bdf_l()
+  # Couverture limitée aux colonnes 1-4 : le reste est sans donnée.
+  cv <- bloc_l93(1, 4, 1, 6)
+  f <- masque_foret_bdforet(v, g, couverture = cv)
+  expect_true(all(is.na(matrice(f)[, 5:8])))
+  expect_equal(matrice(f)[, 1:4], matrice(masque_foret_bdforet(v, g))[, 1:4])
+  # Aucun polygone sur l'emprise : tout non-forêt.
+  f0 <- masque_foret_bdforet(v[0], g)
+  expect_true(terra::is.bool(f0))
+  expect_true(all(vals(f0) %in% FALSE))
+  # Correction 2019 : même règle et même résultat que masque_foret() sur le
+  # TCD équivalent.
+  f <- masque_foret_bdforet(v, g)
+  tcd <- terra::ifel(is.na(f), 255, terra::ifel(f, 60, 5))
+  det <- terra::rast(g, vals = 0)
+  det[1, 1] <- 19150
+  det[4, 5] <- 19200
+  for (m in 0:1) {
+    expect_equal(vals(masque_foret_bdforet(v, g, detections_2019 = det, marge_2019 = m)),
+                 vals(masque_foret(tcd, g, detections_2019 = det, marge_2019 = m)))
+  }
+  expect_false(vals(masque_foret_bdforet(v, g, detections_2019 = det))[1])
+})
+
+test_that("BD For\u00eat lue d'un fichier sur la seule emprise de la grille", {
+  g <- grille_l()
+  loin <- terra::project(carre(700000, 4950000, 100, crs = "EPSG:32630"), "EPSG:2154")
+  v <- rbind(bdf_l(), loin)
+  v$CODE_TFV[6] <- "FF31"
+  fich <- tempfile(fileext = ".gpkg")
+  terra::writeVector(v, fich)
+  f <- masque_foret_bdforet(fich, g)
+  expect_equal(vals(f), vals(masque_foret_bdforet(bdf_l(), g)))
+  expect_equal(attr(f, "bdforet")$nb_polygones, 5L) # le polygone lointain n'est pas lu
+  expect_equal(attr(f, "bdforet")$source, fich)
+  # Écriture.
+  sortie <- tempfile(fileext = ".tif")
+  f2 <- masque_foret_bdforet(fich, g, fichier = sortie)
+  expect_true(file.exists(sortie))
+  expect_equal(vals(f2), vals(f))
+})
+
+test_that("WFS BD For\u00eat : URL de la couche IGN, pages lues jusqu'\u00e0 la derni\u00e8re", {
+  e <- terra::ext(400000, 402000, 6350000, 6352000)
+  u <- bdforet_wfs_url(e, debut = 10L, nb = 5L)
+  expect_match(u, "^https://data\\.geopf\\.fr/wfs/ows\\?")
+  expect_match(u, "TYPENAMES=LANDCOVER.FORESTINVENTORY.V2:formation_vegetale", fixed = TRUE)
+  expect_match(u, "BBOX=400000.00,6350000.00,402000.00,6352000.00,urn:ogc:def:crs:EPSG::2154",
+               fixed = TRUE)
+  expect_match(u, "SRSNAME=EPSG:2154", fixed = TRUE)
+  expect_match(u, "COUNT=5&STARTINDEX=10&SORTBY=id", fixed = TRUE)
+  # Lecteur simulé : 5 objets, pages de 2 ; un doublon entre pages.
+  tous <- rbind(bdf_l())
+  tous$id <- c("a", "b", "c", "d", "e")
+  appels <- character(0)
+  lecteur <- function(url) {
+    appels <<- c(appels, url)
+    debut <- as.integer(sub(".*STARTINDEX=([0-9]+).*", "\\1", url))
+    k <- seq(debut + 1L, length.out = 2L)
+    k <- k[k <= 5L]
+    if (debut == 2L) k <- c(2L, 3L) # doublon "b"
+    tous[k]
+  }
+  v <- lire_bdforet_wfs(e, nb = 2L, lecteur = lecteur)
+  expect_length(appels, 3L)
+  expect_equal(v$id, c("a", "b", "c", "e"))
+  # Réponse vide : SpatVector vide.
+  vide <- lire_bdforet_wfs(e, nb = 2L, lecteur = function(url) tous[0])
+  expect_equal(nrow(vide), 0L)
+  # Erreur du service : message clair avec l'URL.
+  expect_error(lire_bdforet_wfs(e, lecteur = function(url) stop("HTTP 400")),
+               "Lecture du WFS BD For")
+})
+
+test_that("masque_foret_bdforet refuse les entr\u00e9es invalides", {
+  g <- grille_l()
+  v <- bdf_l()
+  expect_error(masque_foret_bdforet(v, "grille"), "grille")
+  expect_error(masque_foret_bdforet(42, g), "bdforet")
+  expect_error(masque_foret_bdforet(tempfile(fileext = ".gpkg"), g), "introuvable")
+  expect_error(masque_foret_bdforet(terra::centroids(v), g), "polygones")
+  expect_error(masque_foret_bdforet(v, g, codes_foret = c("FF0", NA)), "codes_foret")
+  expect_error(masque_foret_bdforet(v, g, codes_foret = character(0)), "codes_foret")
+  expect_error(masque_foret_bdforet(v, g, marge_2019 = -1), "marge_2019")
+  expect_error(masque_foret_bdforet(v, g, couverture = "x"), "couverture")
+  sans_crs <- v
+  terra::crs(sans_crs) <- ""
+  expect_error(masque_foret_bdforet(sans_crs, g), "coordonn")
+})
+
+test_that("essai r\u00e9el : BD For\u00eat v2 par le WFS sur 1 km2 des Landes", {
+  skip_if(Sys.getenv("NEMETONSAR_TESTS_RESEAU") != "true",
+          "test r\u00e9seau : d\u00e9finir NEMETONSAR_TESTS_RESEAU=true")
+  skip_on_cran()
+  skip_if_offline("data.geopf.fr")
+  centre <- terra::crds(terra::project(terra::vect(cbind(-0.80, 44.20), crs = "EPSG:4326"),
+                                       "EPSG:32630"))
+  x0 <- floor(centre[1] / 10) * 10 - 500
+  y0 <- floor(centre[2] / 10) * 10 - 500
+  g <- terra::rast(xmin = x0, xmax = x0 + 1000, ymin = y0, ymax = y0 + 1000,
+                   resolution = 10, crs = "EPSG:32630")
+  f <- masque_foret_bdforet(NULL, g)
+  info <- attr(f, "bdforet")
+  expect_gt(info$nb_polygones, 0L)
+  expect_match(info$source, "LANDCOVER.FORESTINVENTORY.V2:formation_vegetale", fixed = TRUE)
+  expect_true(all(info$codes$code %in% .bdforet_tfv$code))
+  # Massif landais : la forêt domine.
+  expect_gt(mean(vals(f) %in% TRUE), 0.5)
+})
+
 # Masquer hors forêt -------------------------------------------------------
 
 test_that("masquer_hors_foret met NA hors for\u00eat et sans donn\u00e9e, sur toutes les couches", {

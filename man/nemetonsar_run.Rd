@@ -15,7 +15,8 @@ nemetonsar_run(
   effis_annee = "annee",
   correction_2019 = TRUE,
   lignes_par_bloc = NULL,
-  lire_images = NULL
+  lire_images = NULL,
+  bdforet = NULL
 )
 }
 \arguments{
@@ -29,7 +30,8 @@ polygones (voir \code{\link[=aoi_preparer]{aoi_preparer()}}).}
 
 \item{tcd}{\code{NULL} (pas de masque forêt : \strong{toute l'AOI est traitée comme
 forêt}, dit au journal), ou le Tree Cover Density 2018 : chemin d'un
-raster ou \code{SpatRaster} (voir \code{\link[=masque_foret]{masque_foret()}}).}
+raster ou \code{SpatRaster} (voir \code{\link[=masque_foret]{masque_foret()}}). Exclusif avec
+\code{bdforet}.}
 
 \item{effis}{\code{NULL} (pas de masque feu, dit au journal), ou les surfaces
 brûlées EFFIS : chemin d'un fichier vecteur ou \code{SpatVector} de
@@ -55,6 +57,13 @@ sur la grille de la tuile), ou une fonction
 une liste comme \code{\link[=s1_lire]{s1_lire()}} (\code{orbites}, \code{dates}, \code{attribution},
 \code{items} avec au moins les colonnes \code{id}, \code{date}, \code{serie}). Sert aux
 tests et à des images déjà téléchargées.}
+
+\item{bdforet}{\code{NULL} (défaut), ou la BD Forêt v2 de l'IGN comme masque
+forêt (décision du 2026-11-22, à la place du TCD de M24) : chemin d'un
+fichier vecteur, \code{SpatVector} de polygones, ou \code{"wfs"} pour lire le
+service WFS de la Géoplateforme tuile par tuile, sur l'emprise de
+chaque tuile (voir \code{\link[=masque_foret_bdforet]{masque_foret_bdforet()}}, codes TFV par défaut).
+Exclusif avec \code{tcd}.}
 }
 \value{
 (invisible) Une liste : \code{fichiers} (chemins écrits, nommés),
@@ -69,7 +78,8 @@ du journal).
 Enchaîne toute la méthode SUFOSAT sur une zone d'intérêt (AOI) et une
 période : préparation de l'AOI et découpage en tuiles (\code{\link[=aoi_preparer]{aoi_preparer()}}),
 puis, \strong{par tuile} : recherche et lecture des images Sentinel-1
-(\code{\link[=s1_rechercher]{s1_rechercher()}}, \code{\link[=s1_lire]{s1_lire()}}), masque forêt (\code{\link[=masque_foret]{masque_foret()}}),
+(\code{\link[=s1_rechercher]{s1_rechercher()}}, \code{\link[=s1_lire]{s1_lire()}}), masque forêt (\code{\link[=masque_foret]{masque_foret()}} ou
+\code{\link[=masque_foret_bdforet]{masque_foret_bdforet()}}),
 détection (\code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}}, argument \code{foret}) ; enfin
 assemblage des tuiles en Lambert-93, où la graine, la surface minimale et
 la fermeture sont jugées sur les objets entiers, masque feu
@@ -85,8 +95,9 @@ l'année \code{annee_noyau} (\code{\link[=s1_filter_multitemp]{s1_filter_multite
 les images antérieures (\code{xb = Inf}). Avec les défauts (noyau 2018),
 une période en 2025 lit donc toutes les images depuis 2018. Une
 orbite sans image de l'année du noyau est écartée (dit au journal).
-\item \strong{Masque.} Le masque de la tuile est le masque forêt (TCD, si
-\code{tcd} est donné) \strong{et} le morceau d'AOI de la tuile (cellules dont
+\item \strong{Masque.} Le masque de la tuile est le masque forêt (TCD si
+\code{tcd} est donné, BD Forêt v2 de l'IGN si \code{bdforet} est donné, lue
+sur l'emprise de la tuile) \strong{et} le morceau d'AOI de la tuile (cellules dont
 le centre est dans le morceau, \code{\link[terra:rasterize]{terra::rasterize()}}). Il est passé à
 la détection de la tuile (option B : ratio et date à \code{NA} hors
 masque après la passe 1). Un objet est mesuré (0,1 ha, graine) sur
@@ -102,12 +113,12 @@ code que les passes 2 et 3 de \code{\link[=nemetonsar_detecter]{nemetonsar_detec
 0,1 ha, fermeture) : mêmes résultats, aux pixels de forêt sans
 ratio près (voir l'assemblage). La carte finale, elle, est jugée
 après l'assemblage.
-\item \strong{Correction 2019} (si \code{tcd} est donné, \code{correction_2019 = TRUE},
+\item \strong{Correction 2019} (si \code{tcd} ou \code{bdforet} est donné, \code{correction_2019 = TRUE},
 \code{annee_noyau} antérieure à 2019 et des images de 2019 lues) : une
 première détection, sur les images jusqu'au 31 décembre 2019 et les
-\code{xa} suivantes, avec le seul masque TCD ; ses pixels datés de 2019
+\code{xa} suivantes, avec le seul masque forêt ; ses pixels datés de 2019
 (codes \verb{19xxx} de \code{dates.tif}) sont retirés de la forêt
-(\code{\link[=masque_foret]{masque_foret()}}, \code{detections_2019}) ; la détection principale
+(\code{\link[=masque_foret]{masque_foret()}}, \code{\link[=masque_foret_bdforet]{masque_foret_bdforet()}}, \code{detections_2019}) ; la détection principale
 tourne avec ce masque corrigé. On garde les objets de la première
 détection dont la date médiane est en 2019 et ceux de la détection
 principale dont elle ne l'est pas (M24 : la méthode est appliquée
@@ -216,5 +227,6 @@ cat(readLines(res$journal), sep = "\n")
 }
 \seealso{
 \code{\link[=aoi_preparer]{aoi_preparer()}}, \code{\link[=s1_rechercher]{s1_rechercher()}}, \code{\link[=s1_lire]{s1_lire()}},
-\code{\link[=masque_foret]{masque_foret()}}, \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}}, \code{\link[=masque_feu]{masque_feu()}}.
+\code{\link[=masque_foret]{masque_foret()}}, \code{\link[=masque_foret_bdforet]{masque_foret_bdforet()}}, \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}},
+\code{\link[=masque_feu]{masque_feu()}}.
 }
