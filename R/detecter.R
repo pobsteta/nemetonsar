@@ -52,6 +52,15 @@
 #'   par couple (objet, date) : ces tables grandissent avec le nombre de
 #'   composantes de la tuile, pas avec sa surface.
 #'
+#' @section Masque forêt : Avec `foret`, le ratio et la date sont mis à `NA`
+#'   hors forêt (cellules du masque qui ne valent pas `TRUE`) **après la
+#'   passe 1** : le filtre multitemporel et le ratio des pixels de forêt sont
+#'   calculés sur les piles entières, puis les pixels hors forêt deviennent
+#'   « sans donnée » pour la segmentation et le post-traitement (option B,
+#'   décision du 2026-11-22). Masquer le ratio plutôt que les piles ne change
+#'   pas le filtre en lisière (voir [masquer_hors_foret()]). M24 ne dit pas où
+#'   le masque s'applique dans la chaîne : **provisoire, gèle au jalon 2.**
+#'
 #' @section Sorties : Écrits dans `dossier` (créé s'il manque ; les fichiers
 #'   existants du même nom sont écrasés), sur la grille et dans le système de
 #'   coordonnées des piles d'entrée :
@@ -90,6 +99,11 @@
 #'   à revoir sur une tuile pilote.
 #' @param resolution_m Côté du pixel, en mètres, pour les surfaces. `NULL` :
 #'   lu dans le raster (pixels carrés exigés).
+#' @param foret `NULL` (pas de masque) ou masque forêt : `SpatRaster` à une
+#'   couche sur la même grille que les piles (par exemple [masque_foret()]),
+#'   à trois états : `TRUE` (ou 1) forêt, `FALSE` (ou 0) non-forêt, `NA`
+#'   sans donnée, **traité comme non-forêt**. Voir la section « Masque
+#'   forêt ».
 #' @return Une liste : `fichiers`, vecteur nommé des chemins écrits
 #'   (`dates`, `ratio`, `objets_raster`, `objets`) ; `objets`, la table des
 #'   objets (mêmes colonnes que celle de [postprocess()]) ; `lignes_par_bloc`,
@@ -126,10 +140,21 @@
 nemetonsar_detecter <- function(orbites, dates, dossier,
                                 parametres = parametres_sufosat(),
                                 lignes_par_bloc = NULL,
-                                resolution_m = NULL) {
+                                resolution_m = NULL,
+                                foret = NULL) {
   p <- valide_parametres(parametres)
   valide_orbites(orbites, dates)
   modele <- orbites[[1]]
+  if (!is.null(foret)) {
+    if (!inherits(foret, "SpatRaster") || terra::nlyr(foret) != 1L) {
+      stop("`foret` doit \u00eatre NULL ou un SpatRaster \u00e0 une couche (voir masque_foret()).",
+           call. = FALSE)
+    }
+    if (!isTRUE(terra::compareGeom(modele, foret, stopOnError = FALSE))) {
+      stop("`foret` doit \u00eatre sur la m\u00eame grille et dans le m\u00eame syst\u00e8me que les piles de `orbites`.",
+           call. = FALSE)
+    }
+  }
   if (is.null(resolution_m)) {
     resolution_m <- resolution_carree(modele)
   } else if (!est_scalaire_num(resolution_m) || !is.finite(resolution_m) ||
@@ -174,6 +199,7 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
   ecr_ratio <- ecrivain(modele, tmp[["ratio"]], "FLT8S")
   ecr_date <- ecrivain(modele, tmp[["date"]], "INT4S")
   for (o in orbites) terra::readStart(o)
+  if (!is.null(foret)) terra::readStart(foret)
   for (b in seq_len(nrow(blocs))) {
     lu <- bande_bordee(blocs$debut[b], blocs$n[b], rf, nl)
     resultats <- lapply(seq_along(orbites), function(k) {
@@ -189,13 +215,22 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
     comb <- rcr_combine_orbites(resultats, p)
     rm(resultats)
     garde <- lu$centre
-    terra::writeValues(ecr_ratio, as.vector(comb$ratio_min_db[, garde, drop = FALSE]),
-                       blocs$debut[b], blocs$n[b])
-    terra::writeValues(ecr_date, as.vector(comb$date_min[, garde, drop = FALSE]),
-                       blocs$debut[b], blocs$n[b])
+    ratio_b <- comb$ratio_min_db[, garde, drop = FALSE]
+    date_b <- comb$date_min[, garde, drop = FALSE]
     rm(comb)
+    if (!is.null(foret)) {
+      # Masque forêt (option B) : NA hors forêt ; NA du masque = non-forêt.
+      f <- lire_bande(foret, blocs$debut[b], blocs$n[b], nc)
+      hors <- is.na(f) | f == 0
+      ratio_b[hors] <- NA_real_
+      date_b[hors] <- NA_integer_
+    }
+    terra::writeValues(ecr_ratio, as.vector(ratio_b), blocs$debut[b], blocs$n[b])
+    terra::writeValues(ecr_date, as.vector(date_b), blocs$debut[b], blocs$n[b])
+    rm(ratio_b, date_b)
   }
   for (o in orbites) terra::readStop(o)
+  if (!is.null(foret)) terra::readStop(foret)
   terra::writeStop(ecr_ratio)
   terra::writeStop(ecr_date)
   r_ratio <- terra::rast(tmp[["ratio"]])

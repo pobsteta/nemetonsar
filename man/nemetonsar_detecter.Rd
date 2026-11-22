@@ -10,7 +10,8 @@ nemetonsar_detecter(
   dossier,
   parametres = parametres_sufosat(),
   lignes_par_bloc = NULL,
-  resolution_m = NULL
+  resolution_m = NULL,
+  foret = NULL
 )
 }
 \arguments{
@@ -34,6 +35,12 @@ mesure, un pic de l'ordre de 1,5 Go pour la passe 1. \strong{Provisoire},
 
 \item{resolution_m}{Côté du pixel, en mètres, pour les surfaces. \code{NULL} :
 lu dans le raster (pixels carrés exigés).}
+
+\item{foret}{\code{NULL} (pas de masque) ou masque forêt : \code{SpatRaster} à une
+couche sur la même grille que les piles (par exemple \code{\link[=masque_foret]{masque_foret()}}),
+à trois états : \code{TRUE} (ou 1) forêt, \code{FALSE} (ou 0) non-forêt, \code{NA}
+sans donnée, \strong{traité comme non-forêt}. Voir la section « Masque
+forêt ».}
 }
 \value{
 Une liste : \code{fichiers}, vecteur nommé des chemins écrits
@@ -100,6 +107,17 @@ et 3 ne gardent qu'une bande de quelques matrices pixels, plus une
 entrée par composante connexe (étiquettes, tailles, première cellule) et
 par couple (objet, date) : ces tables grandissent avec le nombre de
 composantes de la tuile, pas avec sa surface.
+}
+
+\section{Masque forêt }{
+ Avec \code{foret}, le ratio et la date sont mis à \code{NA}
+hors forêt (cellules du masque qui ne valent pas \code{TRUE}) \strong{après la
+passe 1} : le filtre multitemporel et le ratio des pixels de forêt sont
+calculés sur les piles entières, puis les pixels hors forêt deviennent
+« sans donnée » pour la segmentation et le post-traitement (option B,
+décision du 2026-11-22). Masquer le ratio plutôt que les piles ne change
+pas le filtre en lisière (voir \code{\link[=masquer_hors_foret]{masquer_hors_foret()}}). M24 ne dit pas où
+le masque s'applique dans la chaîne : \strong{provisoire, gèle au jalon 2.}
 }
 
 \section{Sorties }{

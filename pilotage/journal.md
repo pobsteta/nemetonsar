@@ -136,3 +136,4 @@
 2026-11-22 · Claude (orchestrateur, par délégation) · 011 · décidé : mission 011 terminée ; « masquer chaque tuile par son morceau d'AOI » versé à la mission d'intégration · ce que Pascal peut défaire : `R/aoi.R`
 2026-11-22 · Claude (orchestrateur, par délégation) · 014 · décidé : cycle 5 = mission 014 (`nemetonsar_run()`, intégration bout en bout), `dev` opus · pourquoi : premier critère de réussite du brief
 2026-11-22 · Claude (orchestrateur) · 013 · écart · attendu : CI verte · vu : R CMD check WARNING « Missing link » : « [S1] » dans le roxygen de s1_rechercher() lu comme un lien markdown · vérifié : journal de CI · décision : garder ; « [S1] » mis entre accents graves par l'orchestrateur (doc seule), man/ régénéré
+2026-11-22 · Claude (orchestrateur) · 014 · rouge attendu : travail en cours de 014 poussé pour le hook de la session ; CI rouge possible jusqu'au rendu

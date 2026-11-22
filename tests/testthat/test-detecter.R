@@ -210,3 +210,106 @@ test_that("entr\u00e9es invalides refus\u00e9es", {
   expect_error(nemetonsar_detecter(orbites, dates, d, resolution_m = -1), "resolution_m")
   expect_false(dir.exists(d))
 })
+
+# Masque forêt (option B) -----------------------------------------------------
+
+# Référence sur le tableau entier : ratio et date mis à NA hors forêt après
+# la combinaison des orbites, puis segmentation et post-traitement.
+reference_foret <- function(orbites, dates, p, garde) {
+  res <- lapply(seq_along(orbites), function(k) {
+    v <- terra::values(orbites[[k]])
+    serie <- array(v, dim = c(terra::ncol(orbites[[k]]), terra::nrow(orbites[[k]]), ncol(v)))
+    rcr_compute(s1_filter_multitemp(serie, dates[[k]], p), dates[[k]], p)
+  })
+  names(res) <- names(orbites)
+  comb <- rcr_combine_orbites(res, p)
+  comb$ratio_min_db[!garde] <- NA_real_
+  comb$date_min[!garde] <- NA_integer_
+  seg <- rcr_segment(comb, p)
+  post <- postprocess(seg, comb, p, resolution_m = 10)
+  p_sf <- p
+  p_sf$fermeture <- FALSE
+  avant <- postprocess(seg, comb, p_sf, resolution_m = 10)$detection
+  list(comb = comb, post = post, avant = avant)
+}
+
+# Masque à trois états : non-forêt (FALSE) sur les colonnes 1 à 7, sans
+# donnée (NA) sur les lignes 25 à 30, forêt ailleurs.
+ligne_c <- rep(seq_len(nl), each = nc)
+colonne_c <- rep(seq_len(nc), nl)
+etat <- ifelse(colonne_c <= 7, 0, 1)
+etat[ligne_c >= 25] <- NA
+foret_3 <- terra::rast(grille_utm(nl, nc), vals = etat) == 1
+garde_3 <- matrix(!is.na(etat) & etat == 1, nrow = nc)
+
+test_that("foret : tout TRUE donne exactement le résultat sans masque", {
+  tout <- terra::rast(grille_utm(nl, nc), vals = TRUE)
+  d1 <- tempfile("detecter-")
+  d2 <- tempfile("detecter-")
+  sans <- nemetonsar_detecter(orbites, dates, d1, lignes_par_bloc = 7)
+  avec <- nemetonsar_detecter(orbites, dates, d2, lignes_par_bloc = 7, foret = tout)
+  expect_equal(avec$objets, sans$objets)
+  for (nom in c("dates", "ratio", "objets_raster")) {
+    expect_equal(lire(avec$fichiers[[nom]]), lire(sans$fichiers[[nom]]))
+  }
+  unlink(c(d1, d2), recursive = TRUE)
+})
+
+for (lpb in c(1L, 4L, 30L)) {
+  test_that(paste("foret à trois états, blocs de", lpb, "lignes : identique au tableau entier masqué"), {
+    r <- reference_foret(orbites, dates, p_def, garde_3)
+    dossier <- tempfile("detecter-")
+    res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = lpb,
+                               foret = foret_3)
+    expect_equal(res$objets, r$post$table)
+    expect_equal(lire(res$fichiers[["objets_raster"]]), as.vector(r$post$objet))
+    d <- lire(res$fichiers[["dates"]])
+    expect_equal(d, ifelse(as.vector(r$avant), as.vector(r$comb$date_min), NA_integer_))
+    # Rien hors forêt : ni date, ni ratio, ni objet (NA du masque = non-forêt).
+    hors <- !as.vector(garde_3)
+    expect_true(all(is.na(d[hors])))
+    expect_true(all(is.na(lire(res$fichiers[["ratio"]])[hors])))
+    expect_true(all(is.na(lire(res$fichiers[["objets_raster"]])[hors])))
+    unlink(dossier, recursive = TRUE)
+  })
+}
+
+test_that("foret : la coupe hors forêt disparaît, la coupe en forêt reste", {
+  dossier <- tempfile("detecter-")
+  sans <- nemetonsar_detecter(orbites, dates, tempfile("detecter-"), lignes_par_bloc = 5)
+  res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = 5, foret = foret_3)
+  # Sans masque : 3 objets ; la coupe en L (lignes 25-30, NA du masque) et
+  # la coupe de l'orbite descendante (colonnes 1-7, non-forêt) disparaissent ;
+  # la grande coupe (colonnes 4-11) garde sa partie en forêt (colonnes 8-11).
+  expect_equal(nrow(sans$objets), 3L)
+  expect_equal(nrow(res$objets), 1L)
+  expect_equal(res$objets$date_mediane, date_vers_yyddd(as.Date("2019-06-15")),
+               tolerance = 30)
+  o <- matrix(lire(res$fichiers[["objets_raster"]]), nrow = nc)
+  expect_true(all(is.na(o[1:7, ])))
+  expect_true(any(!is.na(o[8:11, 6:17])))
+  unlink(dossier, recursive = TRUE)
+})
+
+test_that("foret : FALSE partout et NA partout donnent le même résultat vide", {
+  for (v in list(FALSE, NA)) {
+    f <- terra::rast(grille_utm(nl, nc), vals = v)
+    if (isFALSE(v)) f <- f == 1
+    dossier <- tempfile("detecter-")
+    res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = 6, foret = f)
+    expect_equal(nrow(res$objets), 0L)
+    expect_true(all(is.na(lire(res$fichiers[["dates"]]))))
+    expect_false("objets" %in% names(res$fichiers))
+    unlink(dossier, recursive = TRUE)
+  }
+})
+
+test_that("foret : entrées invalides refusées", {
+  d <- tempfile("detecter-")
+  expect_error(nemetonsar_detecter(orbites, dates, d, foret = TRUE), "foret")
+  deux <- terra::rast(grille_utm(nl, nc), nlyrs = 2, vals = 1)
+  expect_error(nemetonsar_detecter(orbites, dates, d, foret = deux), "une couche")
+  autre <- terra::rast(grille_utm(nl, nc + 1), vals = 1)
+  expect_error(nemetonsar_detecter(orbites, dates, d, foret = autre), "grille")
+  expect_false(dir.exists(d))
+})
