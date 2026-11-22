@@ -270,6 +270,32 @@ for (fin in c("2020-12-31", "2021-06-30", "2021-12-31")) {
   }
 }
 
+# --- Contrôle : erreurs précoces et bruit du ratio (causes n° 1 et 2) ---------
+filtres <- tab$fenetre > 1
+cat("\n## Erreurs précoces (date du minimum avant la vraie date)\n\n")
+cat("Cas filtrés (", sum(filtres), ") : max des erreurs précoces =",
+    pct(max(tab$precoce[filtres] / tab$n_coupe[filtres])), "% ;",
+    "cas sans filtre : de", pct(min(tab$precoce[!filtres] / tab$n_coupe[!filtres])),
+    "à", pct(max(tab$precoce[!filtres] / tab$n_coupe[!filtres])), "%\n")
+
+# Écart-type du saut de ratio dû à Ma entre d_k et d_(k+1) (fenêtres de Ma
+# décalées d'une image), sur une zone coupée homogène ; attendu :
+# 4,343 * sqrt(2 / (9 * ENL_eff)), ENL_eff = ENL * fenetre^2.
+cat("\n## Bruit du saut de ratio (part de Ma) et ENL des images filtrées\n\n")
+set.seed(GRAINE + 2L)
+dates_b <- seq(DEBUT, FIN, by = 12L); nt_b <- length(dates_b)
+k1_b <- which(dates_b > DATE_COUPE)[1]
+for (w in facteurs$fenetre) {
+  sb <- array(SIGMA0 * rgamma(60 * 60 * nt_b, shape = ENL, rate = ENL), c(60, 60, nt_b))
+  sb[, , k1_b:nt_b] <- sb[, , k1_b:nt_b] * db_vers_lineaire(-6)
+  fb <- if (w == 1L) sb else s1_filter_multitemp(sb, dates_b, parametres_sufosat(fenetre_filtre = w))
+  xbm <- matrix(fb[10:50, 10:50, ], ncol = nt_b)
+  saut <- 10 * log10(rowMeans(xbm[, (k1_b + 1):(k1_b + 3)]) / rowMeans(xbm[, k1_b:(k1_b + 2)]))
+  enl_img <- mean(xbm[, nt_b])^2 / stats::var(xbm[, nt_b])
+  cat(sprintf("fenêtre %d : écart-type mesuré %.3f dB, attendu %.3f dB ; ENL de l'image filtrée %.1f\n",
+              w, stats::sd(saut), 10 / log(10) * sqrt(2 / (9 * ENL * w^2)), enl_img))
+}
+
 # --- Figures (PNG, hors dépôt) ----------------------------------------------
 png(file.path(dossier_fig, "precision-date-erreurs.png"), width = 1400, height = 900, res = 130)
 op <- par(mfrow = c(2, 4), mar = c(4, 4, 3, 1))

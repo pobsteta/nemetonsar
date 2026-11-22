@@ -34,9 +34,9 @@
 #'      `surface_min_ha`.
 #'   3. **Fermeture et réétiquetage.** La fermeture (dilatation puis érosion
 #'      par un carré de côté `taille_fermeture`, de rayon
-#'      `r = (taille_fermeture - 1) / 2`) d'un pixel dépend des pixels à
-#'      moins de `2 r` : chaque bande est lue avec une bordure de `2 r`
-#'      lignes. Les objets fermés sont étiquetés puis fusionnés entre bandes
+#'      `(taille_fermeture - 1) / 2`) d'un pixel dépend des pixels à moins de
+#'      deux rayons : chaque bande est lue avec une bordure de
+#'      `taille_fermeture - 1` lignes. Les objets fermés sont étiquetés puis fusionnés entre bandes
 #'      comme en 2 ; un objet coupé par une limite de bloc n'est donc compté
 #'      qu'une fois.
 #'
