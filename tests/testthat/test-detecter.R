@@ -442,7 +442,7 @@ sorties_detecter <- function(res) {
     list(objets = res$objets, lignes_par_bloc = res$lignes_par_bloc))
 }
 
-test_that("mission 021 : nombre de processus (défaut, bornes, entrées invalides)", {
+test_that("mission 021 : nombre de processus (d\u00e9faut, bornes, entr\u00e9es invalides)", {
   ancien <- Sys.getenv("_R_CHECK_LIMIT_CORES_", NA)
   on.exit(if (is.na(ancien)) Sys.unsetenv("_R_CHECK_LIMIT_CORES_") else
     Sys.setenv("_R_CHECK_LIMIT_CORES_" = ancien), add = TRUE)
@@ -468,7 +468,7 @@ test_that("mission 021 : nombre de processus (défaut, bornes, entrées invalide
 })
 
 for (k in 1:3) {
-  test_that(paste("mission 021 :", k, "orbite(s), série et parallèle identiques au bit près"), {
+  test_that(paste("mission 021 :", k, "orbite(s), s\u00e9rie et parall\u00e8le identiques au bit pr\u00e8s"), {
     skip_on_os("windows")
     o <- orbites3[seq_len(k)]
     d <- dates3[seq_len(k)]
@@ -487,7 +487,7 @@ for (k in 1:3) {
   })
 }
 
-test_that("mission 021 : parallèle avec masque forêt identique à la série", {
+test_that("mission 021 : parall\u00e8le avec masque for\u00eat identique \u00e0 la s\u00e9rie", {
   skip_on_os("windows")
   set.seed(21)
   foret <- terra::rast(grille_utm(nl, nc),
@@ -502,12 +502,12 @@ test_that("mission 021 : parallèle avec masque forêt identique à la série", 
   }
 })
 
-test_that("mission 021 : sans fork, repli en série, identique", {
+test_that("mission 021 : sans fork, repli en s\u00e9rie, identique", {
   serie <- nemetonsar_detecter(orbites3, dates3, tempfile("det-"), lignes_par_bloc = 7L,
                                processus = 1L)
   local_mocked_bindings(
     fork_disponible = function() FALSE,
-    orbites_en_parallele = function(...) stop("le repli en série n'a pas joué")
+    orbites_en_parallele = function(...) stop("le repli en s\u00e9rie n'a pas jou\u00e9")
   )
   for (np in list(NULL, 3L)) {
     repli <- nemetonsar_detecter(orbites3, dates3, tempfile("det-"), lignes_par_bloc = 7L,
@@ -518,18 +518,18 @@ test_that("mission 021 : sans fork, repli en série, identique", {
 
 test_that("mission 021 : une erreur dans un processus enfant remonte clairement", {
   skip_on_os("windows")
-  local_mocked_bindings(rcr_compute = function(...) stop("panne simulée"))
+  local_mocked_bindings(rcr_compute = function(...) stop("panne simul\u00e9e"))
   expect_error(
     nemetonsar_detecter(orbites, dates, tempfile("det-"), lignes_par_bloc = 7L, processus = 2L),
-    "Orbite asc \\(lignes 1 à 8\\) : erreur dans le processus enfant.*panne simulée"
+    "Orbite asc \\(lignes 1 .+ 8\\) : erreur dans le processus enfant.*panne simul"
   )
 })
 
-test_that("mission 021 : un processus enfant mort sans résultat remonte clairement", {
+test_that("mission 021 : un processus enfant mort sans r\u00e9sultat remonte clairement", {
   skip_on_os("windows")
   local_mocked_bindings(rcr_compute = function(...) tools::pskill(Sys.getpid(), tools::SIGKILL))
   expect_error(
     nemetonsar_detecter(orbites, dates, tempfile("det-"), lignes_par_bloc = 7L, processus = 2L),
-    "Orbite asc .*sans résultat"
+    "Orbite asc \\(lignes 1 .+ 8\\) : le processus enfant .*sans r"
   )
 })
