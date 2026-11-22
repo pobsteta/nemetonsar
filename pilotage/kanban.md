@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 1 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 2 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -28,6 +28,14 @@ _Modèle de carte :_
 
 ## Terminé
 
+- [006-postprocess](missions/006-postprocess.md) · depuis le cycle 2
+  - Homme : `dev` (opus)
+  - Mission : objets < 0,1 ha retirés, fermeture, table des objets
+  - Moyens : table 001, testthat
+- [007-filtre-quegan](missions/007-filtre-quegan.md) · depuis le cycle 2
+  - Homme : `dev` (opus)
+  - Mission : filtre multitemporel de Quegan et Yu, noyau sur annee_noyau
+  - Moyens : arXiv:2207.11111, code CNES OTB, testthat
 - [001-parametres-methode](missions/001-parametres-methode.md) · depuis le cycle 1
   - Homme : `acquereur`
   - Mission : table des paramètres sourcés, cycle 1
@@ -71,3 +79,4 @@ l'inscrit avec ce qu'elle nous apprend._
 ```
 
 - cycle 1 · le cœur de la détection testé sur données synthétiques : paramètres sourcés (`parametres_sufosat()`), ratio de changement radar et date du minimum (`rcr_compute()`, `rcr_combine_orbites()`), segmentation en deux seuils (`rcr_segment()`), plus les référentiels des paramètres et des licences · pour Pascal · première livraison : on peut voir, sur une série synthétique, une coupe datée et segmentée selon la méthode ; pas encore sur une vraie image
+- cycle 2 · la chaîne de détection complète sur données synthétiques : filtre de Quegan et Yu (`s1_filter_multitemp()`), ratio, segmentation, post-traitement (`postprocess()`) et table des objets (surface, date, ratio) · pour Pascal · de plus que le cycle 1 : une série synthétique donne maintenant des objets de coupe filtrés, nettoyés et datés, et l'on sait que la date reste imprécise avec les réglages provisoires
