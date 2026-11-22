@@ -142,11 +142,12 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
   x <- serie
   rm(serie)
   dim(x) <- c(npix, nt)
-  if (isTRUE(min(x, na.rm = TRUE) <= 0)) {
+  # min() sans copie ; le masque n'est construit que s'il sert.
+  if (isTRUE(suppressWarnings(min(x, na.rm = TRUE)) <= 0)) {
     negatif <- !is.na(x) & x <= 0
     warning(
-      sum(negatif), " valeur(s) linéaire(s) nulle(s) ou négative(s) ",
-      "traitée(s) comme images écartées (NA).",
+      sum(negatif), " valeur(s) lin\u00e9aire(s) nulle(s) ou n\u00e9gative(s) ",
+      "trait\u00e9e(s) comme images \u00e9cart\u00e9es (NA).",
       call. = FALSE
     )
     x[negatif] <- NA_real_

@@ -91,7 +91,11 @@ le nombre, comme dans \code{\link[=rcr_compute]{rcr_compute()}}. Une valeur infi
 
 \section{Calcul }{
  Moyennes locales par sommes cumulées en deux dimensions,
-une image à la fois (pas de boucle sur les pixels). La mémoire tient
+une image à la fois (pas de boucle sur les pixels) ; la moyenne locale
+d'une image de référence sert au noyau et à l'image filtrée (calculée
+une seule fois). Les sommes cumulées le long d'un axe court sont prises
+par sommes de lignes (\code{.rowSums()}), qui accumulent comme \code{\link[=cumsum]{cumsum()}} :
+le résultat est identique au bit près (mission 016). La mémoire tient
 environ deux fois la taille de \code{serie}.
 }
 

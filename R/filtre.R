@@ -106,16 +106,17 @@ s1_filter_multitemp <- function(serie, dates, parametres = parametres_sufosat())
   valide_dates_serie(dates, nt)
   cote <- p$fenetre_filtre
 
-  negatif <- !is.na(serie) & serie <= 0
-  if (any(negatif)) {
+  # min() sans copie ; le masque n'est construit que s'il sert.
+  if (isTRUE(suppressWarnings(min(serie, na.rm = TRUE)) <= 0)) {
+    negatif <- !is.na(serie) & serie <= 0
     warning(
       sum(negatif), " valeur(s) lin\u00e9aire(s) nulle(s) ou n\u00e9gative(s) ",
       "trait\u00e9e(s) comme images \u00e9cart\u00e9es (NA).",
       call. = FALSE
     )
     serie[negatif] <- NA_real_
+    rm(negatif)
   }
-  rm(negatif)
 
   annees <- as.integer(format(dates, "%Y"))
   reference <- which(annees == p$annee_noyau)
@@ -231,4 +232,4 @@ cumul_lignes <- function(m) {
   for (j in seq_len(n2)) sortie[, j] <- .rowSums(m, n1, j)
   sortie
 }
-cumul_lignes_max <- 48L
+cumul_lignes_max <- 20L
