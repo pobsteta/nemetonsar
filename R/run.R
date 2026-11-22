@@ -555,7 +555,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     names(imgs$dates) <- names(imgs$orbites)
     for (o in imgs$orbites) {
       if (!isTRUE(terra::compareGeom(o, g, stopOnError = FALSE))) {
-        stop("`lire_images` doit rendre des piles sur la grille demandée (celle de la tuile ",
+        stop("`lire_images` doit rendre des piles sur la grille demand\u00e9e (celle de la tuile ",
              "ou de la bande).", call. = FALSE)
       }
     }
@@ -575,7 +575,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   noyau <- vapply(dates, function(d) any(format(d, "%Y") == as.character(p$annee_noyau)),
                   logical(1))
   if (any(!noyau)) {
-    ecrire("Orbite(s) écartée(s), sans image de l'année du noyau (", p$annee_noyau, ") : ",
+    ecrire("Orbite(s) \u00e9cart\u00e9e(s), sans image de l'ann\u00e9e du noyau (", p$annee_noyau, ") : ",
            paste(names(orbites)[!noyau], collapse = ", "))
   }
   resume$orbites_ecartees <- sum(!noyau)
@@ -585,7 +585,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   resume$nb_images <- sum(lengths(dates))
   vide$resume <- resume
 
-  ecrire("Images utilisées : ", resume$nb_images, " sur ", length(orbites), " orbite(s)")
+  ecrire("Images utilis\u00e9es : ", resume$nb_images, " sur ", length(orbites), " orbite(s)")
   for (s in names(orbites)) {
     d <- dates[[s]]
     ecrire("  ", s, " : ", length(d), " image(s), du ", format(min(d)), " au ", format(max(d)))
@@ -598,7 +598,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     ecrire(paste0("    ", capturer(liste, row.names = FALSE)))
   }
   if (length(orbites) == 0L) {
-    ecrire("Aucune image utilisable : tuile sans détection.")
+    ecrire("Aucune image utilisable : tuile sans d\u00e9tection.")
     ecrire("")
     vide$resume$disque_max_mo <- resume$disque_max_mo
     return(vide)
@@ -618,12 +618,12 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     foret0 <- masque_foret_bdforet(bdforet, modele)
     info <- attr(foret0, "bdforet")
     cod <- info$codes
-    ecrire("Masque forêt BD Forêt : ", info$nb_polygones, " polygone(s) lu(s) sur l'emprise",
+    ecrire("Masque for\u00eat BD For\u00eat : ", info$nb_polygones, " polygone(s) lu(s) sur l'emprise",
            if (nrow(cod) > 0L) paste0(" ; codes TFV : ",
                                       paste0(ifelse(is.na(cod$code), "NA", cod$code), " (", cod$nb,
-                                             ifelse(cod$foret, ", forêt", ""), ")",
+                                             ifelse(cod$foret, ", for\u00eat", ""), ")",
                                              collapse = ", ")) else "",
-           " ; cellules forêt : ", sum(terra::values(foret0, mat = FALSE) %in% TRUE),
+           " ; cellules for\u00eat : ", sum(terra::values(foret0, mat = FALSE) %in% TRUE),
            " sur ", terra::ncell(foret0))
   }
   a_foret <- !is.null(foret0)
@@ -659,7 +659,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
                               lignes_par_bloc, foret0)
     resume$nb_bandes <- 1L
     ecrire("Lecture d'un seul tenant ; disque des images : ",
-           format(round(resume$disque_max_mo, 1), nsmall = 1), " Mo (effacées ensuite)")
+           format(round(resume$disque_max_mo, 1), nsmall = 1), " Mo (effac\u00e9es ensuite)")
   } else {
     noms_1 <- names(imgs$orbites)
     dates_1 <- imgs$dates
@@ -676,7 +676,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
       x <- if (b == 1L) x1 else lire_images_bande(b)
       if (b > 1L && (!identical(names(x$imgs$orbites), noms_1) ||
                      !identical(unname(x$imgs$dates), unname(dates_1)))) {
-        stop("`lire_images` doit rendre les mêmes orbites et les mêmes dates pour chaque ",
+        stop("`lire_images` doit rendre les m\u00eames orbites et les m\u00eames dates pour chaque ",
              "bande de la tuile.", call. = FALSE)
       }
       orbs <- x$imgs$orbites[noyau]
@@ -728,7 +728,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     resume$nb_bandes <- nrow(bandes)
     ecrire("Lecture par bandes : ", nrow(bandes), " bande(s) de ", bandes$n[1], " ligne(s) (bordure de ",
            rf, " ligne(s)) ; disque maximal des images d'une bande : ",
-           format(round(resume$disque_max_mo, 1), nsmall = 1), " Mo (effacées après chaque bande)")
+           format(round(resume$disque_max_mo, 1), nsmall = 1), " Mo (effac\u00e9es apr\u00e8s chaque bande)")
   }
   unlink(d_s1, recursive = TRUE)
 
@@ -745,15 +745,15 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
       corriger_2019(foret0, det19, modele) # même règle que masque_foret()
     }
     n19 <- sum(terra::values(det19, mat = FALSE) %in% TRUE)
-    ecrire("Correction 2019 : première détection sur ", sum(lengths(dates_a)),
+    ecrire("Correction 2019 : premi\u00e8re d\u00e9tection sur ", sum(lengths(dates_a)),
            " image(s) (jusqu'au 2019-12-31 et ", p$xa, " suivantes), ", nrow(res_a$objets),
-           " objet(s) ; ", n19, " pixel(s) daté(s) de 2019 retiré(s) de la forêt")
+           " objet(s) ; ", n19, " pixel(s) dat\u00e9(s) de 2019 retir\u00e9(s) de la for\u00eat")
     resume$passe_2019 <- TRUE
     resume$objets_2019 <- nrow(res_a$objets)
   } else {
     foret1 <- foret0
     if (a_foret && correction_2019) {
-      ecrire("Correction 2019 : non faite (aucune image de 2019 lue, ou noyau postérieur à 2018).")
+      ecrire("Correction 2019 : non faite (aucune image de 2019 lue, ou noyau post\u00e9rieur \u00e0 2018).")
     }
   }
   m1 <- masque_aoi(foret1)

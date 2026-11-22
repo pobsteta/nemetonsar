@@ -601,6 +601,154 @@ test_that("tcd et bdforet exclusifs ; bdforet invalide refus\u00e9", {
   expect_false(dir.exists(d))
 })
 
+# Lecture par bandes (mission 022) -----------------------------------------------
+
+# Lecteur synthétique dont chaque valeur ne dépend que des coordonnées du
+# centre de la cellule, de la date et de l'orbite (pas de la grille lue) :
+# une bande lit exactement les valeurs de la tuile entière. Note la hauteur
+# des grilles demandées.
+lecteur_coord <- function(coupes, journal = new.env()) {
+  function(grille, date_debut, date_fin, parametres, dossier) {
+    journal$lignes <- c(journal$lignes, terra::nrow(grille))
+    dir.create(dossier, showWarnings = FALSE, recursive = TRUE)
+    series <- list(A030 = dates_asc, D008 = dates_desc)
+    xy <- terra::xyFromCell(grille, seq_len(terra::ncell(grille)))
+    i <- round(xy[, 1] / 5)
+    j <- round(xy[, 2] / 5)
+    orbites <- list()
+    dates <- list()
+    for (k in seq_along(series)) {
+      s <- names(series)[k]
+      d <- series[[s]]
+      d <- d[d >= date_debut & d <= date_fin]
+      v <- vapply(seq_along(d), function(t) {
+        h <- (i * 7919 + j * 104729 + as.numeric(d[t]) * 15485863 + k * 49979687) %% 999983
+        0.05 * stats::qgamma((h + 0.5) / 999983, 200, 200)
+      }, numeric(length(i)))
+      for (cp in coupes) {
+        dedans <- terra::values(terra::rasterize(terra::project(cp$v, terra::crs(grille)), grille,
+                                                 background = 0, touches = FALSE),
+                                mat = FALSE) == 1
+        apres <- d >= cp$date
+        v[dedans, apres] <- v[dedans, apres] * 10^(-6 / 10)
+      }
+      r <- terra::rast(grille, nlyrs = length(d))
+      terra::values(r) <- v
+      f <- file.path(dossier, paste0("s1_", s, ".tif"))
+      terra::writeRaster(r, f, overwrite = TRUE, datatype = "FLT4S")
+      orbites[[s]] <- terra::rast(f)
+      dates[[s]] <- d
+    }
+    items <- data.frame(id = paste0("C_", rep(names(dates), lengths(dates)), "_",
+                                    format(do.call(c, unname(dates)), "%Y%m%d")),
+                        date = do.call(c, unname(dates)),
+                        serie = rep(names(dates), lengths(dates)), stringsAsFactors = FALSE)
+    list(orbites = orbites, dates = dates, attribution = s1_attribution(items$date), items = items)
+  }
+}
+
+# Fichiers d'un dossier de sortie (chemins relatifs), fichiers cachés compris.
+fichiers_de <- function(d) sort(list.files(d, recursive = TRUE, all.files = TRUE))
+
+valeurs <- function(f) terra::values(terra::rast(f), mat = FALSE)
+
+test_that("par bandes ou d'un seul tenant : r\u00e9sultats identiques au bit pr\u00e8s", {
+  lec <- lecteur_coord(coupes_run)
+  executer <- function(h) {
+    d <- tempfile("run-bandes-")
+    r <- nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", d, tcd = tcd_run,
+                        effis = effis_run(), lire_images = lec, hauteur_bande = h)
+    list(r = r, d = d)
+  }
+  ref <- executer(NULL)
+  expect_true(all(ref$r$tuiles$passe_2019))
+  expect_equal(ref$r$tuiles$nb_bandes, c(1L, 1L))
+  expect_gt(nrow(ref$r$objets), 1L)
+  for (h in c(7L, 23L, 1000L)) {
+    x <- executer(h)
+    expect_identical(x$r$objets, ref$r$objets)
+    expect_identical(x$r$feu, ref$r$feu)
+    garde <- setdiff(names(ref$r$tuiles), c("nb_bandes", "disque_max_mo"))
+    expect_identical(x$r$tuiles[garde], ref$r$tuiles[garde])
+    expect_equal(x$r$tuiles$nb_bandes, rep(ceiling(58 / min(h, 58)), 2))
+    # Mêmes fichiers, mêmes valeurs (sorties finales et par tuile, brutes comprises).
+    expect_identical(fichiers_de(x$d), fichiers_de(ref$d))
+    rasters <- grep("\\.tif$", fichiers_de(ref$d), value = TRUE)
+    expect_true(all(c("dates.tif", "tuiles/30TYQ/detection/brut/ratio.tif",
+                      "tuiles/31TBK/passe_2019/brut/dates.tif") %in% rasters))
+    for (f in rasters) {
+      expect_identical(valeurs(file.path(x$d, f)), valeurs(file.path(ref$d, f)), label = f)
+    }
+    g1 <- terra::vect(file.path(x$d, "objets.gpkg"))
+    g0 <- terra::vect(file.path(ref$d, "objets.gpkg"))
+    expect_identical(as.data.frame(g1), as.data.frame(g0))
+    expect_identical(terra::geom(g1), terra::geom(g0))
+  }
+})
+
+test_that("bandes : grilles demand\u00e9es, disque par bande, images et fichiers de bande effac\u00e9s", {
+  j <- new.env()
+  d <- tempfile("run-bandes-")
+  r <- nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", d, tcd = tcd_run,
+                      lire_images = lecteur_coord(coupes_run, j), hauteur_bande = 10L)
+  # Deux tuiles de 58 lignes : 6 bandes chacune, de 10 lignes + 1 ligne de
+  # bordure de chaque côté (rayon du filtre 3 x 3), rognées au bord.
+  expect_equal(j$lignes, rep(c(11L, 12L, 12L, 12L, 12L, 9L), 2))
+  expect_equal(r$tuiles$nb_bandes, c(6L, 6L))
+  j0 <- new.env()
+  d0 <- tempfile("run-bandes-")
+  r0 <- nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", d0, tcd = tcd_run,
+                       lire_images = lecteur_coord(coupes_run, j0), hauteur_bande = NULL)
+  expect_equal(j0$lignes, c(58L, 58L))
+  # Disque maximal des images : celui d'une bande, bien moindre que la tuile.
+  expect_true(all(r$tuiles$disque_max_mo > 0))
+  expect_true(all(r$tuiles$disque_max_mo < r0$tuiles$disque_max_mo / 3))
+  # Rien ne reste des images ni des fichiers temporaires.
+  for (x in c(d, d0)) {
+    f <- fichiers_de(x)
+    expect_false(any(grepl("(^|/)s1(/|$)", f)), label = x)
+    expect_false(any(grepl(".nemetonsar_tmp", f, fixed = TRUE)), label = x)
+    expect_false(any(dir.exists(file.path(x, "tuiles", r$tuiles$mgrs, "s1"))))
+  }
+  jt <- paste(readLines(r$journal), collapse = "\n")
+  expect_match(jt, "Lecture par bandes : 6 bande(s) de 10 ligne(s)", fixed = TRUE, useBytes = TRUE)
+  expect_match(jt, "disque maximal des images d'une bande", fixed = TRUE, useBytes = TRUE)
+  expect_match(jt, "par bandes de 10 lignes de la tuile", fixed = TRUE, useBytes = TRUE)
+  expect_match(paste(readLines(r0$journal), collapse = "\n"), "d'un seul tenant", fixed = TRUE,
+               useBytes = TRUE)
+})
+
+test_that("bandes : lecteur incoh\u00e9rent ou hors grille refus\u00e9, images effac\u00e9es sur erreur", {
+  lec <- lecteur_coord(coupes_run)
+  n <- 0L
+  change <- function(grille, date_debut, date_fin, parametres, dossier) {
+    n <<- n + 1L
+    x <- lec(grille, date_debut, date_fin, parametres, dossier)
+    if (n > 1L) {
+      x$orbites$D008 <- x$orbites$D008[[-1]]
+      x$dates$D008 <- x$dates$D008[-1]
+    }
+    x
+  }
+  d <- tempfile("run-bandes-")
+  expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", d, lire_images = change,
+                              hauteur_bande = 20L), "orbites et les")
+  expect_false(any(grepl("(^|/)s1(/|$)", fichiers_de(d))))
+  expect_false(any(grepl(".nemetonsar_tmp", fichiers_de(d), fixed = TRUE)))
+  tuile_entiere <- function(grille, date_debut, date_fin, parametres, dossier) {
+    g <- terra::rast(terra::ext(grille) + c(0, 0, 10, 10), resolution = 10, crs = terra::crs(grille))
+    lec(g, date_debut, date_fin, parametres, dossier)
+  }
+  expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", tempfile("run-"),
+                              lire_images = tuile_entiere, hauteur_bande = 20L), "grille demand")
+  for (h in list(0L, 2.5, "a", c(1L, 2L), NA)) {
+    expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", tempfile("run-"),
+                                lire_images = lec, hauteur_bande = h), "hauteur_bande")
+  }
+  expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", tempfile("run-"),
+                              lire_images = lec, flux = 0), "flux")
+})
+
 # Essai réel (réseau) -----------------------------------------------------------
 
 test_that("essai r\u00e9el : 1 km x 1 km dans les Landes, premier trimestre 2025", {

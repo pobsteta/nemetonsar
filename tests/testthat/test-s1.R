@@ -282,7 +282,7 @@ test_that("l'amplitude est mise au carr\u00e9 ; une unit\u00e9 inconnue arr\u00e
   expect_error(s1_lire(items, grille, signer = FALSE), "Scale=log")
 })
 
-test_that("s1_lire() \u00e9crit une pile par orbite dans `dossier`", {
+test_that("s1_lire() \u00e9crit un fichier par date dans `dossier`, DEFLATE + pr\u00e9dicteur 3", {
   d <- tempfile("s1-")
   dir.create(d)
   on.exit(unlink(d, recursive = TRUE), add = TRUE)
@@ -290,12 +290,88 @@ test_that("s1_lire() \u00e9crit une pile par orbite dans `dossier`", {
   grille <- terra::rast(xmin = 0, xmax = 100, ymin = 0, ymax = 100,
                         resolution = 10, crs = "EPSG:32630")
   f <- image_locale(0.03, 0, d, "x.tif", "linear")
-  items <- data.frame(date = as.Date("2025-06-01"),
-                      heure = as.POSIXct("2025-06-01 06:00:00", tz = "UTC"),
-                      serie = "D008", url = f, stringsAsFactors = FALSE)
+  g <- image_locale(0.05, 0, d, "y.tif", "linear")
+  items <- data.frame(date = as.Date(c("2025-06-13", "2025-06-01")),
+                      heure = as.POSIXct(c("2025-06-13 06:00:00", "2025-06-01 06:00:00"), tz = "UTC"),
+                      serie = "D008", url = c(g, f), stringsAsFactors = FALSE)
   s <- s1_lire(items, grille, signer = FALSE, dossier = sortie)
-  expect_true(file.exists(file.path(sortie, "s1_D008.tif")))
-  expect_equal(terra::sources(s$orbites$D008), normalizePath(file.path(sortie, "s1_D008.tif")))
+  attendus <- file.path(sortie, "s1_D008", c("2025-06-01.tif", "2025-06-13.tif"))
+  expect_true(all(file.exists(attendus)))
+  expect_equal(terra::sources(s$orbites$D008), normalizePath(attendus))
+  expect_equal(names(s$orbites$D008), c("2025-06-01", "2025-06-13"))
+  expect_equal(unname(colMeans(terra::values(s$orbites$D008))), c(0.03, 0.05), tolerance = 1e-6)
+  info <- terra::describe(attendus[1])
+  expect_true(any(grepl("COMPRESSION=DEFLATE", info, fixed = TRUE)))
+  expect_true(any(grepl("PREDICTOR=3", info, fixed = TRUE)))
+  expect_true(any(grepl("Type=Float32", info, fixed = TRUE)))
+})
+
+test_that("s1_lire() : m\u00eames piles avec 1 ou plusieurs flux ; erreur d'un processus remont\u00e9e", {
+  d <- tempfile("s1-")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  grille <- terra::rast(xmin = 55, xmax = 355, ymin = 55, ymax = 355,
+                        resolution = 10, crs = "EPSG:32630")
+  urls <- vapply(1:6, function(i) image_locale(0.01 * i, 0, d, paste0("i", i, ".tif"), "linear"),
+                 character(1))
+  items <- data.frame(date = as.Date("2025-06-01") + 12 * (0:5),
+                      heure = as.POSIXct("2025-06-01 06:00:00", tz = "UTC") + 12 * 86400 * (0:5),
+                      serie = rep(c("A030", "D008"), 3), url = urls, stringsAsFactors = FALSE)
+  s1 <- s1_lire(items, grille, signer = FALSE, flux = 1L, dossier = file.path(d, "f1"))
+  s3 <- s1_lire(items, grille, signer = FALSE, flux = 3L, dossier = file.path(d, "f3"))
+  expect_equal(s1$dates, s3$dates)
+  for (o in names(s1$orbites)) {
+    expect_identical(terra::values(s1$orbites[[o]]), terra::values(s3$orbites[[o]]))
+  }
+  # Sans `dossier` : fichiers temporaires, mêmes valeurs.
+  s0 <- s1_lire(items, grille, signer = FALSE, flux = 2L)
+  expect_identical(terra::values(s0$orbites$A030), terra::values(s1$orbites$A030))
+  bizarre <- image_locale(0.2, 0, d, "biz.tif", "log")
+  items$url[4] <- bizarre
+  expect_error(s1_lire(items, grille, signer = FALSE, flux = 3L), "Scale=log")
+  expect_error(s1_lire(items, grille, signer = FALSE, flux = 0), "flux")
+  expect_error(s1_lire(items, grille, signer = FALSE, flux = 1.5), "flux")
+})
+
+test_that("reprojection exacte : valeur bilin\u00e9aire au centre exact, identique par bandes", {
+  d <- tempfile("s1-")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  # Image en UTM 31N (comme l'orbite D008), grille en UTM 30N : vraie
+  # reprojection (rotation).
+  centre <- terra::crds(terra::project(terra::vect(cbind(-0.2, 44.2), crs = "EPSG:4326"),
+                                       "EPSG:32631"))
+  img <- terra::rast(xmin = round(centre[1], -1) - 1500, xmax = round(centre[1], -1) + 1500,
+                     ymin = round(centre[2], -1) - 1500, ymax = round(centre[2], -1) + 1500,
+                     resolution = 10, crs = "EPSG:32631")
+  set.seed(3)
+  terra::values(img) <- 0.05 * stats::rgamma(terra::ncell(img), 5, 5)
+  f <- file.path(d, "img31.tif")
+  terra::writeRaster(img, f, datatype = "FLT4S")
+  writeLines(c("<PAMDataset>", "<PAMRasterBand band=\"1\">", "<Metadata>",
+               "<MDI key=\"SARPixelContent\">intensity</MDI>", "<MDI key=\"Scale\">linear</MDI>",
+               "</Metadata>", "</PAMRasterBand>", "</PAMDataset>"), paste0(f, ".aux.xml"))
+  c30 <- round(terra::crds(terra::project(terra::vect(cbind(-0.2, 44.2), crs = "EPSG:4326"),
+                                          "EPSG:32630")), -1)
+  grille <- terra::rast(xmin = c30[1] - 800, xmax = c30[1] + 800, ymin = c30[2] - 800,
+                        ymax = c30[2] + 800, resolution = 10, crs = "EPSG:32630")
+  items <- data.frame(date = as.Date("2025-06-01"), heure = as.POSIXct("2025-06-01 06:00:00", tz = "UTC"),
+                      serie = "D008", url = f, stringsAsFactors = FALSE)
+  v <- terra::values(s1_lire(items, grille, signer = FALSE, flux = 1L)$orbites$D008, mat = FALSE)
+  # Valeur attendue : interpolation bilinéaire au centre de chaque cellule,
+  # projeté exactement dans le système de l'image.
+  centres <- terra::project(terra::vect(terra::xyFromCell(grille, seq_len(terra::ncell(grille))),
+                                        crs = terra::crs(grille)), "EPSG:32631")
+  attendu <- terra::extract(terra::rast(f), centres, method = "bilinear")[[2]]
+  expect_equal(v, as.numeric(as.vector(attendu)), tolerance = 1e-6)
+  # Bandes de 23 lignes : mêmes valeurs au bit près.
+  nl <- terra::nrow(grille)
+  for (de in seq(1L, nl, by = 23L)) {
+    n <- min(23L, nl - de + 1L)
+    gb <- grille_lignes(grille, de, n)
+    vb <- terra::values(s1_lire(items, gb, signer = FALSE, flux = 1L)$orbites$D008, mat = FALSE)
+    expect_identical(vb, v[(de - 1L) * terra::ncol(grille) + seq_len(n * terra::ncol(grille))])
+  }
 })
 
 test_that("s1_lire() refuse les entr\u00e9es mal form\u00e9es", {
