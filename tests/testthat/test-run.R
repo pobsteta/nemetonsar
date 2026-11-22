@@ -33,46 +33,52 @@ dates_desc <- seq(as.Date("2018-01-09"), as.Date("2020-06-30"), by = 12)
 # Lecteur d'images injecté : deux orbites, fond 0,05 (linéaire) et bruit
 # gamma faible, coupes rasterisées sur la grille de la tuile (centres des
 # cellules), une pile GeoTIFF par orbite dans `dossier`. Note les appels.
+# Chaque coupe baisse le signal de `db` dB (défaut -6) à partir de sa date ;
+# des coupes qui se recouvrent cumulent leurs baisses.
 appels <- new.env()
-lire_synthetique <- function(grille, date_debut, date_fin, parametres, dossier) {
-  appels$debut <- c(appels$debut, format(date_debut))
-  appels$fin <- c(appels$fin, format(date_fin))
-  dir.create(dossier, showWarnings = FALSE, recursive = TRUE)
-  series <- list(A030 = dates_asc, D008 = dates_desc)
-  orbites <- list()
-  dates <- list()
-  items <- list()
-  for (k in seq_along(series)) {
-    s <- names(series)[k]
-    d <- series[[s]]
-    d <- d[d >= date_debut & d <= date_fin]
-    set.seed(round(terra::xmin(grille)) %% 100000 + k)
-    n <- terra::ncell(grille)
-    v <- matrix(0.05 * stats::rgamma(n * length(d), 200, 200), nrow = n)
-    for (cp in coupes_run) {
-      dedans <- terra::values(terra::rasterize(terra::project(cp$v, terra::crs(grille)), grille,
-                                               background = 0, touches = FALSE),
-                              mat = FALSE) == 1
-      apres <- d >= cp$date
-      v[dedans, apres] <- v[dedans, apres] * 10^(-6 / 10)
+lecteur <- function(coupes) {
+  function(grille, date_debut, date_fin, parametres, dossier) {
+    appels$debut <- c(appels$debut, format(date_debut))
+    appels$fin <- c(appels$fin, format(date_fin))
+    dir.create(dossier, showWarnings = FALSE, recursive = TRUE)
+    series <- list(A030 = dates_asc, D008 = dates_desc)
+    orbites <- list()
+    dates <- list()
+    items <- list()
+    for (k in seq_along(series)) {
+      s <- names(series)[k]
+      d <- series[[s]]
+      d <- d[d >= date_debut & d <= date_fin]
+      set.seed(round(terra::xmin(grille)) %% 100000 + k)
+      n <- terra::ncell(grille)
+      v <- matrix(0.05 * stats::rgamma(n * length(d), 200, 200), nrow = n)
+      for (cp in coupes) {
+        dedans <- terra::values(terra::rasterize(terra::project(cp$v, terra::crs(grille)), grille,
+                                                 background = 0, touches = FALSE),
+                                mat = FALSE) == 1
+        apres <- d >= cp$date
+        db <- if (is.null(cp$db)) -6 else cp$db
+        v[dedans, apres] <- v[dedans, apres] * 10^(db / 10)
+      }
+      r <- terra::rast(grille, nlyrs = length(d))
+      terra::values(r) <- v
+      names(r) <- format(d)
+      f <- file.path(dossier, paste0("s1_", s, ".tif"))
+      terra::writeRaster(r, f, overwrite = TRUE, datatype = "FLT4S")
+      orbites[[s]] <- terra::rast(f)
+      dates[[s]] <- d
+      items[[s]] <- data.frame(id = paste0("SYNTH_", s, "_", format(d, "%Y%m%d")), date = d,
+                               capteur = "S1A", orbite = as.integer(substr(s, 2, 4)),
+                               direction = if (k == 1) "ascendante" else "descendante",
+                               serie = s, stringsAsFactors = FALSE)
     }
-    r <- terra::rast(grille, nlyrs = length(d))
-    terra::values(r) <- v
-    names(r) <- format(d)
-    f <- file.path(dossier, paste0("s1_", s, ".tif"))
-    terra::writeRaster(r, f, overwrite = TRUE, datatype = "FLT4S")
-    orbites[[s]] <- terra::rast(f)
-    dates[[s]] <- d
-    items[[s]] <- data.frame(id = paste0("SYNTH_", s, "_", format(d, "%Y%m%d")), date = d,
-                             capteur = "S1A", orbite = as.integer(substr(s, 2, 4)),
-                             direction = if (k == 1) "ascendante" else "descendante",
-                             serie = s, stringsAsFactors = FALSE)
+    items <- do.call(rbind, items)
+    rownames(items) <- NULL
+    list(orbites = orbites, dates = dates, attribution = s1_attribution(items$date),
+         items = items)
   }
-  items <- do.call(rbind, items)
-  rownames(items) <- NULL
-  list(orbites = orbites, dates = dates, attribution = s1_attribution(items$date),
-       items = items)
 }
+lire_synthetique <- lecteur(coupes_run)
 
 # TCD synthétique (EPSG:3035, 10 m) : 60 % partout, 5 % autour de c2.
 tcd_run <- local({
@@ -169,9 +175,10 @@ test_that("coupe \u00e0 cheval sur deux tuiles : un seul objet, entier", {
     v <- terra::extract(r, terra::project(coupes_run$c1$v, terra::crs(r)))[[2]]
     sum(!is.na(v))
   }, numeric(1))
-  # Au plus proche voisin, un pixel L93 de la limite peut prendre la valeur
-  # des deux tuiles (limite dite) : au plus un pixel par ligne de la coupe.
-  expect_lte(abs(o$surface_ha - sum(parties) * 100 / 1e4), 0.12)
+  # Chaque pixel Lambert-93 est pris à une seule tuile : la surface est
+  # celle des deux parties, à un pixel près (mission 015 ; 014 tolérait un
+  # pixel en double par ligne, 0,12 ha).
+  expect_lte(abs(o$nb_pixels - sum(parties)), 1)
   attendu_ha <- terra::expanse(coupes_run$c1$v, unit = "ha")
   expect_gt(o$surface_ha, 0.6 * attendu_ha)
   expect_lt(o$surface_ha, 1.05 * attendu_ha)
@@ -182,6 +189,84 @@ test_that("coupe \u00e0 cheval sur deux tuiles : un seul objet, entier", {
     v <- terra::extract(r, terra::project(coupes_run$c1$v, terra::crs(r)))
     expect_true(any(!is.na(v[[2]])))
   }
+})
+
+# Coupes à la limite de deux tuiles (mission 015) ----------------------------
+# Sans TCD ni EFFIS. c5 : 0,18 ha détectés, 0,09 ha de chaque côté du
+# méridien 0 ; c6 : zone à -4 dB à cheval (sans graine), graine (-7 dB)
+# seulement à l'est.
+coupes_lim <- list(
+  c5 = list(v = rect_ll(-0.00032, 0.00032, 44.5010, 44.50150), date = as.Date("2019-06-15")),
+  c6 = list(v = rect_ll(-0.0008, 0.0008, 44.5030, 44.5036), date = as.Date("2019-09-01"), db = -4),
+  c6g = list(v = rect_ll(0.0002, 0.0006, 44.50310, 44.50350), date = as.Date("2019-09-01"), db = -3)
+)
+dossier_lim <- tempfile("run-lim-")
+res_lim <- nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", dossier_lim,
+                          lire_images = lecteur(coupes_lim))
+
+# Identifiants des objets de la carte finale qui touchent un polygone.
+objets_dans <- function(res, v) {
+  if (nrow(res$objets) == 0L) return(integer(0))
+  o <- terra::rast(res$fichiers[["objets_raster"]])
+  sort(unique(stats::na.omit(terra::extract(o, terra::project(v, "EPSG:2154"))[[2]])))
+}
+# Longitudes des centres des pixels d'un objet de la carte finale.
+longitudes <- function(res, id) {
+  o <- terra::rast(res$fichiers[["objets_raster"]])
+  xy <- terra::xyFromCell(o, which(terra::values(o, mat = FALSE) %in% id))
+  terra::crds(terra::project(terra::vect(xy, crs = "EPSG:2154"), "EPSG:4326"))[, 1]
+}
+# Pixels d'un polygone dans les objets de la détection d'une tuile.
+pixels_tuile <- function(dossier, m, v) {
+  r <- terra::rast(file.path(dossier, "tuiles", m, "detection", "objets.tif"))
+  sum(!is.na(terra::extract(r, terra::project(v, terra::crs(r)))[[2]]))
+}
+
+test_that("coupe de 0,18 ha en deux parties de 0,09 ha : un seul objet", {
+  # Chaque tuile n'en voit que 0,09 ha : sa détection la perd.
+  for (m in res_lim$tuiles$mgrs) expect_equal(pixels_tuile(dossier_lim, m, coupes_lim$c5$v), 0)
+  ids <- objets_dans(res_lim, coupes_lim$c5$v)
+  expect_length(ids, 1L)
+  o <- res_lim$objets[res_lim$objets$identifiant == ids, ]
+  expect_gte(o$surface_ha, 0.1)
+  expect_true(o$date_mediane_date %in% candidats(coupes_lim$c5$date))
+  lon <- longitudes(res_lim, ids)
+  expect_true(any(lon < 0) && any(lon > 0))
+})
+
+test_that("coupe dont la seule graine est d'un côté : sortie entière", {
+  ouest <- res_lim$tuiles$mgrs[substr(res_lim$tuiles$mgrs, 1, 2) == "30"]
+  est <- res_lim$tuiles$mgrs[substr(res_lim$tuiles$mgrs, 1, 2) == "31"]
+  # La tuile ouest n'a pas de graine : elle ne garde rien ; la tuile est garde sa partie.
+  expect_equal(pixels_tuile(dossier_lim, ouest, coupes_lim$c6$v), 0)
+  expect_gt(pixels_tuile(dossier_lim, est, coupes_lim$c6$v), 0)
+  ids <- objets_dans(res_lim, coupes_lim$c6$v)
+  expect_length(ids, 1L)
+  o <- res_lim$objets[res_lim$objets$identifiant == ids, ]
+  expect_true(o$date_mediane_date %in% candidats(coupes_lim$c6$date))
+  # Les deux moitiés : autant de pixels à l'ouest qu'à l'est, à la graine près.
+  lon <- longitudes(res_lim, ids)
+  expect_gte(sum(lon < 0), 25L)
+  expect_lte(abs(sum(lon < 0) - sum(lon > 0)), 0.25 * length(lon))
+  expect_length(objets_dans(res_lim, coupes_lim$c5$v), 1L)
+  expect_equal(nrow(res_lim$objets), 2L)
+})
+
+test_that("aucun pixel compté deux fois : AOI entièrement coupée, à cheval", {
+  aoi_p <- rect_ll(-0.0015, 0.0015, 44.5000, 44.5015)
+  tout <- list(t = list(v = rect_ll(-0.01, 0.01, 44.49, 44.51), date = as.Date("2019-06-15")))
+  r <- nemetonsar_run(aoi_p, "2019-01-01", "2020-06-30", tempfile("run-"),
+                      lire_images = lecteur(tout))
+  expect_equal(nrow(r$tuiles), 2L)
+  expect_equal(nrow(r$objets), 1L)
+  o <- terra::rast(r$fichiers[["objets_raster"]])
+  # Pixels Lambert-93 dont le centre est dans l'AOI : chacun une fois, aucun autre.
+  dans <- terra::values(terra::rasterize(terra::project(terra::densify(aoi_p, 10), "EPSG:2154"),
+                                         o, background = 0, touches = FALSE), mat = FALSE) == 1
+  v <- terra::values(o, mat = FALSE)
+  expect_true(all(!is.na(v[dans])))
+  expect_true(all(is.na(v[!dans])))
+  expect_equal(r$objets$nb_pixels, sum(dans))
 })
 
 test_that("coupe hors for\u00eat absente, coupe br\u00fbl\u00e9e retir\u00e9e, coupe ordinaire gard\u00e9e", {
