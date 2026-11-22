@@ -71,8 +71,9 @@ période : préparation de l'AOI et découpage en tuiles (\code{\link[=aoi_prepa
 puis, \strong{par tuile} : recherche et lecture des images Sentinel-1
 (\code{\link[=s1_rechercher]{s1_rechercher()}}, \code{\link[=s1_lire]{s1_lire()}}), masque forêt (\code{\link[=masque_foret]{masque_foret()}}),
 détection (\code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}}, argument \code{foret}) ; enfin
-assemblage des tuiles en Lambert-93, masque feu (\code{\link[=masque_feu]{masque_feu()}}) et
-journal d'exécution.
+assemblage des tuiles en Lambert-93, où la graine, la surface minimale et
+la fermeture sont jugées sur les objets entiers, masque feu
+(\code{\link[=masque_feu]{masque_feu()}}) et journal d'exécution.
 }
 \section{Déroulé par tuile }{
 
@@ -87,11 +88,19 @@ orbite sans image de l'année du noyau est écartée (dit au journal).
 \item \strong{Masque.} Le masque de la tuile est le masque forêt (TCD, si
 \code{tcd} est donné) \strong{et} le morceau d'AOI de la tuile (cellules dont
 le centre est dans le morceau, \code{\link[terra:rasterize]{terra::rasterize()}}). Il est passé à
-\code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} (option B : ratio et date à \code{NA} hors masque
-après la passe 1). Ainsi, deux tuiles de zones UTM voisines, qui se
-recouvrent sur le terrain, ne comptent jamais deux fois le même
-pixel ; un objet est mesuré (0,1 ha, graine) sur sa partie dans
-l'AOI.
+la détection de la tuile (option B : ratio et date à \code{NA} hors
+masque après la passe 1). Un objet est mesuré (0,1 ha, graine) sur
+sa partie dans l'AOI.
+\item \strong{Détection.} \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} tourne une fois par passe,
+avec le seul masque forêt (toute la grille) et des paramètres
+\strong{bruts} : les zones \code{ratio <= tp}, sans exiger de graine (seuil
+des graines porté à \code{tp}), sans surface minimale ni fermeture
+(\verb{detection/brut/}, \verb{passe_2019/brut/}). La détection de la tuile
+(\verb{detection/}, \verb{passe_2019/}) en est tirée avec le masque de la
+tuile, par les passes 2 et 3 de \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} (graine,
+0,1 ha, fermeture) : mêmes résultats, au ratio près relu en réel 32
+bits et aux pixels de forêt sans ratio (voir l'assemblage). La
+carte finale, elle, est jugée après l'assemblage.
 \item \strong{Correction 2019} (si \code{tcd} est donné, \code{correction_2019 = TRUE},
 \code{annee_noyau} antérieure à 2019 et des images de 2019 lues) : une
 première détection, sur les images jusqu'au 31 décembre 2019 et les
@@ -112,21 +121,38 @@ prolongeant la période).
 }
 
 \section{Assemblage }{
- Les rasters gardés de chaque tuile (UTM) sont
-reprojetés au plus proche voisin sur une grille Lambert-93 (EPSG:2154,
-ADR 0003, \strong{provisoire}) de même résolution, alignée sur les multiples
-de la résolution, qui couvre l'AOI ; là où deux tuiles se recouvrent
-après reprojection (bords), la tuile au plus petit identifiant
-l'emporte. Les objets sont ensuite \strong{réétiquetés} sur la carte
-assemblée (composantes connexes, \code{parametres$connexite}) : une coupe à
-cheval sur deux tuiles est \strong{un seul objet}. Sa table (surface, date
-médiane, ratio moyen) est recalculée sur la grille Lambert-93, avec les
-règles de \code{\link[=postprocess]{postprocess()}}. \strong{Limites} : la surface minimale et la
-graine sont jugées dans chaque tuile, sur la partie de la coupe qu'elle
-contient (une partie de moins de 0,1 ha d'un côté de la limite est
-perdue) ; le plus proche voisin peut, au pixel près, souder deux objets
-voisins ou couper un objet filiforme ; les surfaces sont celles de la
-grille Lambert-93 (nombre de pixels x 100 m²).
+ Les sorties \strong{brutes} de chaque tuile (UTM : zones
+\code{ratio <= tp}, ratio et date) et son masque forêt sont reprojetés au
+plus proche voisin sur une grille Lambert-93 (EPSG:2154, ADR 0003,
+\strong{provisoire}) de même résolution, alignée sur les multiples de la
+résolution, qui couvre l'AOI. \strong{Chaque pixel Lambert-93 est pris à une
+seule tuile : celle dont le morceau d'AOI, reprojeté, contient son
+centre} (\code{\link[terra:rasterize]{terra::rasterize()}}) ; hors de l'AOI, aucun pixel (règle
+\strong{provisoire}, mission 015). Aucun pixel n'est donc compté deux fois
+à la limite de deux tuiles.
+
+Sur la carte assemblée, et non plus tuile par tuile, sont alors
+appliquées les règles de \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} : zones \code{ratio <= tp}
+(forêt de l'AOI), gardées si \strong{l'objet entier} contient une graine
+(\code{ratio < ts}) et atteint \code{surface_min_ha}, puis fermeture (pixels
+hors forêt ou hors AOI neutres). Une coupe à cheval sur deux tuiles est
+ainsi \strong{un seul objet}, gardée même si chaque partie fait moins de
+0,1 ha ou si sa graine est d'un seul côté. La correction 2019 (pixels
+datés de 2019 par la première détection retirés de la forêt de la
+détection principale) et le choix des objets (période ; objets de 2019
+pris de la première détection si toutes les tuiles l'ont faite) se
+font aussi sur la carte assemblée. Les objets gardés sont
+\strong{réétiquetés} (composantes connexes, \code{parametres$connexite}) ; leur
+table (surface, date médiane, ratio moyen) suit les règles de
+\code{\link[=postprocess]{postprocess()}}.
+
+\strong{Limites} : un pixel de forêt sans ratio (images manquantes) n'est
+pas neutre pour la fermeture, contrairement à \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} ;
+le ratio est relu en réel 32 bits (une graine ou une zone à moins de
+1e-6 dB d'un seuil peut basculer) ; le plus proche voisin peut, au
+pixel près, souder deux objets voisins ou couper un objet filiforme ;
+les surfaces sont celles de la grille Lambert-93 (nombre de pixels x
+100 m²).
 }
 
 \section{Masque feu }{
@@ -160,10 +186,13 @@ feu, fichiers écrits, licences et attributions de chaque entrée lue
 calcul s'arrête sur une erreur (statut « interrompu ») ;
 \item \verb{tuiles/<mgrs>/} : par tuile, sur sa grille UTM (celle des fichiers
 SUFOSAT publiés) : \verb{s1/} (piles lues), \code{masque.tif} (1 forêt dans
-l'AOI, 0 sinon, \code{NA} sans donnée TCD), \verb{detection/} (sorties de
-\code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}}), \verb{passe_2019/} (première détection, si
-faite), et \code{dates.tif}, \code{ratio.tif}, \code{objets.tif} des objets gardés
-de la tuile.
+l'AOI, 0 sinon, \code{NA} sans donnée TCD), \code{foret.tif} (1 forêt, 0
+sinon, sur toute la grille), \verb{detection/} (détection de la tuile,
+comme \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} ; \verb{detection/brut/} : zones brutes,
+entrée de l'assemblage), \verb{passe_2019/} (première détection, si
+faite, et \verb{passe_2019/brut/}), et \code{dates.tif}, \code{ratio.tif},
+\code{objets.tif} des objets gardés de la tuile (jugés dans la tuile : ils
+peuvent différer de la carte finale à la limite de deux tuiles).
 }
 
 Rien n'est écrit hors de \code{dossier}, sauf les fichiers temporaires de

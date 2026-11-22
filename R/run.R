@@ -5,8 +5,9 @@
 #' puis, **par tuile** : recherche et lecture des images Sentinel-1
 #' ([s1_rechercher()], [s1_lire()]), masque forêt ([masque_foret()]),
 #' détection ([nemetonsar_detecter()], argument `foret`) ; enfin
-#' assemblage des tuiles en Lambert-93, masque feu ([masque_feu()]) et
-#' journal d'exécution.
+#' assemblage des tuiles en Lambert-93, où la graine, la surface minimale et
+#' la fermeture sont jugées sur les objets entiers, masque feu
+#' ([masque_feu()]) et journal d'exécution.
 #'
 #' @section Déroulé par tuile :
 #'   1. **Images.** Les images sont lues du 1er janvier de
@@ -827,11 +828,11 @@ run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc, periode,
     res_b$objets$identifiant[dans_periode(res_b$objets) & !(tous_a & de_2019(res_b$objets))]
   ids_a <- if (is.null(res_a)) integer(0) else
     res_a$objets$identifiant[dans_periode(res_a$objets) & de_2019(res_a$objets)]
-  ecrire("Sur la carte assemblée (zones <= tp, graine, surface minimale et fermeture jugées sur l'objet entier) : ",
-         if (!is.null(res_a)) paste0(nrow(res_a$objets), " objet(s) de la première détection (", length(ids_a),
-                                     " de 2019 gardés), ") else "",
-         if (is.null(res_b)) 0L else nrow(res_b$objets), " objet(s) de la détection principale (",
-         length(ids_b), " gardés)")
+  ecrire("Sur la carte assembl\u00e9e (zones <= tp, graine, surface minimale et fermeture jug\u00e9es sur l'objet entier) : ",
+         if (!is.null(res_a)) paste0(nrow(res_a$objets), " objet(s) de la premi\u00e8re d\u00e9tection (", length(ids_a),
+                                     " de 2019 gard\u00e9s), ") else "",
+         if (is.null(res_b)) 0L else nrow(res_b$objets), " objet(s) de la d\u00e9tection principale (",
+         length(ids_b), " gard\u00e9s)")
   garder <- function(res, ids, decalage) {
     if (length(ids) == 0L) return(NULL)
     o <- terra::subst(terra::rast(res$fichiers[["objets_raster"]]), from = ids,
