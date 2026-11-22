@@ -55,7 +55,11 @@
 #'   le nombre, comme dans [rcr_compute()]. Une valeur infinie est refusée.
 #'
 #' @section Calcul : Moyennes locales par sommes cumulées en deux dimensions,
-#'   une image à la fois (pas de boucle sur les pixels). La mémoire tient
+#'   une image à la fois (pas de boucle sur les pixels) ; la moyenne locale
+#'   d'une image de référence sert au noyau et à l'image filtrée (calculée
+#'   une seule fois). Les sommes cumulées le long d'un axe court sont prises
+#'   par sommes de lignes (`.rowSums()`), qui accumulent comme [cumsum()] :
+#'   le résultat est identique au bit près (mission 016). La mémoire tient
 #'   environ deux fois la taille de `serie`.
 #'
 #' @param serie Tableau numérique à trois dimensions (lignes x colonnes x
@@ -123,24 +127,35 @@ s1_filter_multitemp <- function(serie, dates, parametres = parametres_sufosat())
     )
   }
 
-  # Noyau (« outcore ») : moyenne des I_i / E[I_i] sur les images de référence.
+  # Noyau (« outcore ») : moyenne des I_i / E[I_i] sur les images de référence,
+  # sommés dans l'ordre des dates. E[I_i] est gardé dans `serie` pour l'image
+  # filtrée (une seule moyenne locale par image).
   somme <- matrix(0, nrow = d[1], ncol = d[2])
   compte <- matrix(0L, nrow = d[1], ncol = d[2])
   for (t in reference) {
-    image <- matrix(serie[, , t], nrow = d[1], ncol = d[2])
-    r <- image / moyenne_locale(image, cote)
+    image <- serie[, , t, drop = FALSE]
+    dim(image) <- d[1:2]
+    e <- moyenne_locale(image, cote)
+    r <- image / e
     ok <- !is.na(r)
     somme[ok] <- somme[ok] + r[ok]
     compte[ok] <- compte[ok] + 1L
+    serie[, , t] <- e
   }
   noyau <- somme / compte
   noyau[compte == 0L] <- NA_real_
-  rm(somme)
+  rm(somme, image, e, r, ok)
 
   # Images filtrées : J_t = E[I_t] * noyau.
+  est_reference <- seq_len(nt) %in% reference
   for (t in seq_len(nt)) {
-    image <- matrix(serie[, , t], nrow = d[1], ncol = d[2])
-    serie[, , t] <- moyenne_locale(image, cote) * noyau
+    if (est_reference[t]) {
+      serie[, , t] <- serie[, , t] * noyau
+    } else {
+      image <- serie[, , t, drop = FALSE]
+      dim(image) <- d[1:2]
+      serie[, , t] <- moyenne_locale(image, cote) * noyau
+    }
   }
   dimnames(compte) <- dimnames(serie)[1:2]
   attr(serie, "nb_images_noyau") <- compte
@@ -158,27 +173,62 @@ moyenne_locale <- function(image, cote) {
   lignes <- c(rep(1L, r), seq_len(nr), rep(nr, r))
   colonnes <- c(rep(1L, r), seq_len(nc), rep(nc, r))
   etendue <- image[lignes, colonnes, drop = FALSE]
+  if (!anyNA(etendue)) {
+    # Fenêtre pleine partout : le compte vaut cote * cote (entier exact).
+    return(somme_fenetre(etendue, cote, nr, nc) / (cote * cote))
+  }
   valide <- !is.na(etendue)
   etendue[!valide] <- 0
   somme <- somme_fenetre(etendue, cote, nr, nc)
-  nombre <- somme_fenetre(valide * 1, cote, nr, nc)
+  nombre <- compte_fenetre(valide, cote, nr, nc)
   moyenne <- somme / nombre
-  moyenne[nombre == 0 | is.na(image)] <- NA_real_
+  moyenne[nombre == 0L | is.na(image)] <- NA_real_
   moyenne
 }
 
 # Somme sur chaque fenêtre cote x cote d'une matrice étendue, par sommes
-# cumulées en deux dimensions (table de sommes de zone).
+# cumulées en deux dimensions (table de sommes de zone) : cumul le long des
+# colonnes, puis le long des lignes, chaque cumul accumulé comme cumsum().
 somme_fenetre <- function(m, cote, nr, nc) {
   cumul <- matrix(0, nrow = nrow(m) + 1L, ncol = ncol(m) + 1L)
-  cumul[-1L, -1L] <- t(cumul_colonnes(t(cumul_colonnes(m))))
+  cumul[-1L, -1L] <- cumul_lignes(cumul_colonnes(m))
   i <- seq_len(nr)
   j <- seq_len(nc)
   cumul[i + cote, j + cote, drop = FALSE] - cumul[i, j + cote, drop = FALSE] -
     cumul[i + cote, j, drop = FALSE] + cumul[i, j, drop = FALSE]
 }
 
+# Nombre de valeurs `TRUE` de chaque fenêtre cote x cote d'une matrice logique
+# étendue, en entiers (exact : l'ordre des additions est indifférent).
+compte_fenetre <- function(valide, cote, nr, nc) {
+  v <- valide
+  storage.mode(v) <- "integer"
+  vertical <- v[seq_len(nr), , drop = FALSE]
+  for (a in seq_len(cote - 1L)) vertical <- vertical + v[a + seq_len(nr), , drop = FALSE]
+  n <- vertical[, seq_len(nc), drop = FALSE]
+  for (b in seq_len(cote - 1L)) n <- n + vertical[, b + seq_len(nc), drop = FALSE]
+  n
+}
+
+# Somme cumulée le long de chaque colonne (premier axe), par cumsum().
 cumul_colonnes <- function(m) {
-  m[] <- apply(m, 2L, cumsum)
+  for (j in seq_len(ncol(m))) m[, j] <- cumsum(m[, j])
   m
 }
+
+# Somme cumulée le long de chaque ligne (second axe). cumsum() et .rowSums()
+# accumulent tous deux en partant de 0, valeur après valeur, dans un
+# accumulateur long double (code C de R) : la colonne j de la somme cumulée
+# est exactement .rowSums() des j premières colonnes, lues sans copie. Cette
+# forme triangulaire (j colonnes relues pour la colonne j) est plus rapide que
+# n cumsum() courts tant que les lignes sont courtes (bandes de quelques
+# lignes du raster) ; au-delà de `cumul_lignes_max` colonnes, on transpose.
+cumul_lignes <- function(m) {
+  n1 <- nrow(m)
+  n2 <- ncol(m)
+  if (n2 > cumul_lignes_max) return(t(cumul_colonnes(t(m))))
+  sortie <- m
+  for (j in seq_len(n2)) sortie[, j] <- .rowSums(m, n1, j)
+  sortie
+}
+cumul_lignes_max <- 48L

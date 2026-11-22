@@ -277,7 +277,7 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
 
   # Assemblage en Lambert-93, réétiquetage, feu --------------------------------
   ecrire("## Assemblage")
-  assemblage <- run_assembler(resultats, prep, dossier, p, lignes_par_bloc)
+  assemblage <- run_assembler(resultats, prep, dossier, p, lignes_par_bloc, periode, ecrire)
   table <- assemblage$table
   ecrire("Grille : EPSG:2154 (Lambert-93, provisoire), ", terra::res(assemblage$modele)[1], " m, ",
          terra::ncol(assemblage$modele), " x ", terra::nrow(assemblage$modele),
@@ -427,10 +427,16 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     terra::rast(f)
   }
   foret0 <- if (is.null(tcd)) NULL else masque_foret(tcd, modele, p)
+  # Forêt de toute la grille (sans le morceau d'AOI), pour l'assemblage.
+  f_foret <- file.path(dt, "foret.tif")
+  terra::writeRaster(if (is.null(foret0)) terra::rast(modele, vals = 1L) else terra::ifel(is.na(foret0), 0L, foret0),
+                     f_foret, overwrite = TRUE, datatype = "INT1U", names = "foret")
+  pb <- parametres_bruts(p)
 
   passe_2019 <- !is.null(tcd) && correction_2019 && p$annee_noyau < 2019L &&
     any(vapply(dates, function(d) any(format(d, "%Y") == "2019"), logical(1)))
   res_a <- NULL
+  brut_a <- NULL
   if (passe_2019) {
     fin19 <- as.Date("2019-12-31")
     indices <- lapply(dates, function(d) {
@@ -439,9 +445,11 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     })
     orbites_a <- Map(function(o, k) o[[k]], orbites, indices)
     dates_a <- Map(function(d, k) d[k], dates, indices)
+    brut_a <- detection_brute(orbites_a, dates_a, file.path(dt, "passe_2019", "brut"), pb,
+                              lignes_par_bloc, foret0)
     m0 <- masque_aoi(foret0)
-    res_a <- nemetonsar_detecter(orbites_a, dates_a, file.path(dt, "passe_2019"), p,
-                                 lignes_par_bloc = lignes_par_bloc, foret = m0)
+    res_a <- segmenter_blocs(terra::rast(brut_a[["ratio"]]), terra::rast(brut_a[["dates"]]), m0,
+                             p, file.path(dt, "passe_2019"), lignes_par_bloc, gpkg = TRUE)
     d19 <- terra::rast(res_a$fichiers[["dates"]])
     det19 <- d19 >= 19000 & d19 <= 19999
     foret1 <- masque_foret(tcd, modele, p, detections_2019 = det19)
@@ -457,9 +465,11 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
       ecrire("Correction 2019 : non faite (aucune image de 2019 lue, ou noyau post\u00e9rieur \u00e0 2018).")
     }
   }
+  brut_b <- detection_brute(orbites, dates, file.path(dt, "detection", "brut"), pb,
+                            lignes_par_bloc, foret0)
   m1 <- masque_aoi(foret1)
-  res_b <- nemetonsar_detecter(orbites, dates, file.path(dt, "detection"), p,
-                               lignes_par_bloc = lignes_par_bloc, foret = m1)
+  res_b <- segmenter_blocs(terra::rast(brut_b[["ratio"]]), terra::rast(brut_b[["dates"]]), m1,
+                           p, file.path(dt, "detection"), lignes_par_bloc, gpkg = TRUE)
   resume$objets_detection <- nrow(res_b$objets)
 
   # Objets gardés : date médiane dans la période ; 2019 de la première
@@ -512,7 +522,169 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     terra::writeRaster(r, fichiers[[n]], overwrite = TRUE, datatype = types[[n]], names = n)
   }
   ecrire("")
-  list(fichiers = fichiers, resume = resume, attribution = attribution)
+  list(fichiers = fichiers, resume = resume, attribution = attribution,
+       brut = list(a = brut_a, b = brut_b), foret = f_foret, passe_2019 = passe_2019)
+}
+
+# Détection brute d'une tuile : nemetonsar_detecter() avec les paramètres
+# de parametres_bruts() et le masque forêt de toute la grille (sans le
+# morceau d'AOI). Rend les chemins de `dates.tif` et `ratio.tif` ; le
+# GeoPackage des zones brutes, inutile, est effacé.
+detection_brute <- function(orbites, dates, dossier, pb, lignes_par_bloc, foret) {
+  res <- nemetonsar_detecter(orbites, dates, dossier, pb, lignes_par_bloc = lignes_par_bloc,
+                             foret = foret)
+  if ("objets" %in% names(res$fichiers)) unlink(res$fichiers[["objets"]])
+  res$fichiers[c("dates", "ratio")]
+}
+
+# Paramètres de la détection brute : la passe 1 de nemetonsar_detecter()
+# (filtre, ratio, combinaison) est inchangée ; ses sorties gardent les zones
+# <= tp, chacune comme sa propre graine, sans surface minimale ni
+# fermeture. Seuil des graines = tp, seuil des zones relevé de 1e-9 en
+# valeur relative (la règle ts < tp l'exige) : les pixels du ratio dans
+# ]tp, tp (1 - 1e-9)] sont rendus aussi, et retirés par segmenter_blocs().
+# Seule perte : une zone de la tuile dont aucun pixel n'est strictement
+# sous tp (mesure nulle).
+parametres_bruts <- function(p) {
+  b <- p
+  b$ts_db <- p$tp_db
+  b$tp_db <- p$tp_db * (1 - 1e-9)
+  b$surface_min_ha <- 0
+  b$fermeture <- FALSE
+  valide_parametres(b)
+}
+
+# Passes 2 et 3 de nemetonsar_detecter(), par blocs de lignes, sur un ratio
+# et une date déjà calculés (sorties brutes) : zones <= tp gardées si elles
+# contiennent une graine (< ts) et atteignent surface_min_ha, fermeture,
+# objets étiquetés et fusionnés entre bandes, numérotés par première
+# cellule, table des objets. `donnee` : 1 là où il y a une donnée (forêt de
+# l'AOI), 0 ou NA ailleurs (hors zone et neutre pour la fermeture). Mêmes
+# règles et même code que nemetonsar_detecter(), à deux écarts près : le
+# ratio lu est en réel 32 bits (celui des sorties) et un pixel de forêt sans
+# ratio n'est pas « sans donnée » pour la fermeture. Écrit `dates.tif`,
+# `ratio.tif`, `objets.tif` (et `objets.gpkg` si `gpkg`) dans `dossier`.
+segmenter_blocs <- function(ratio, date, donnee, p, dossier, lignes_par_bloc, gpkg = FALSE) {
+  dir.create(dossier, showWarnings = FALSE, recursive = TRUE)
+  modele <- terra::rast(ratio, nlyrs = 1)
+  resolution_m <- resolution_carree(modele)
+  nl <- terra::nrow(modele)
+  nc <- terra::ncol(modele)
+  if (is.null(lignes_par_bloc)) lignes_par_bloc <- max(1L, as.integer(floor(2.5e7 / nc)))
+  lignes_par_bloc <- as.integer(min(lignes_par_bloc, nl))
+  debuts <- seq(1L, nl, by = lignes_par_bloc)
+  blocs <- data.frame(debut = debuts, n = pmin(lignes_par_bloc, nl - debuts + 1L))
+  s <- seuils_db(p)
+  tmp <- file.path(dossier, paste0(".nemetonsar_tmp_", c("zone", "objet"), ".tif"))
+  names(tmp) <- c("zone", "objet")
+  on.exit(unlink(tmp[file.exists(tmp)]), add = TRUE)
+  sorties <- c(dates = file.path(dossier, "dates.tif"), ratio = file.path(dossier, "ratio.tif"),
+               objets_raster = file.path(dossier, "objets.tif"),
+               objets = file.path(dossier, "objets.gpkg"))
+  avec_donnee <- function(d) !is.na(d) & d == 1
+
+  # Passe 2 : zones <= tp, étiquetées par bande, fusionnées entre bandes.
+  ecr_zone <- ecrivain(modele, tmp[["zone"]], "INT4S")
+  for (x in list(ratio, donnee)) terra::readStart(x)
+  z <- nouvelles_etiquettes()
+  graine_lab <- list()
+  for (b in seq_len(nrow(blocs))) {
+    rat <- lire_bande(ratio, blocs$debut[b], blocs$n[b], nc)
+    valide <- !is.na(rat) & avec_donnee(lire_bande(donnee, blocs$debut[b], blocs$n[b], nc))
+    zone <- valide & rat <= s[["tp"]]
+    graine <- valide & rat < s[["ts"]]
+    lab <- etiquette_bande(zone, p$connexite, z, blocs$debut[b], nc)
+    z <- lab$etat
+    graine_lab[[b]] <- unique(lab$matrice[graine])
+    terra::writeValues(ecr_zone, as.vector(lab$matrice), blocs$debut[b], blocs$n[b])
+  }
+  for (x in list(ratio, donnee)) terra::readStop(x)
+  terra::writeStop(ecr_zone)
+  r_zone <- terra::rast(tmp[["zone"]])
+  racine_z <- racines_equivalences(z$n, z$a, z$b)
+  taille_z <- somme_par(z$taille, racine_z, z$n)
+  seme <- logical(z$n)
+  seme[racine_z[unlist(graine_lab, use.names = FALSE)]] <- TRUE
+  petit <- taille_z * resolution_m^2 < p$surface_min_ha * 1e4 * (1 - 1e-9)
+  garde_z <- (seme & !petit)[racine_z]
+
+  # Passe 3 : fermeture par bande bordée, objets étiquetés et fusionnés.
+  rc <- if (p$fermeture && p$taille_fermeture > 1L) (p$taille_fermeture - 1L) %/% 2L else 0L
+  ecr_objet <- ecrivain(modele, tmp[["objet"]], "INT4S")
+  ecr_dates <- ecrivain(modele, sorties[["dates"]], "INT4S")
+  ecr_rsort <- ecrivain(modele, sorties[["ratio"]], "FLT4S")
+  for (x in list(ratio, date, donnee, r_zone)) terra::readStart(x)
+  ob <- nouvelles_etiquettes()
+  paires <- list()
+  somme_lin <- list()
+  for (b in seq_len(nrow(blocs))) {
+    lu <- bande_bordee(blocs$debut[b], blocs$n[b], 2L * rc, nl)
+    lab_z <- lire_bande(r_zone, lu$debut, lu$n, nc)
+    sans_donnee <- !avec_donnee(lire_bande(donnee, lu$debut, lu$n, nc))
+    avant <- !is.na(lab_z)
+    avant[avant] <- garde_z[lab_z[avant]]
+    ferme <- if (rc > 0L) fermeture_carre(avant, sans_donnee, p$taille_fermeture) else avant
+    ferme <- ferme[, lu$centre, drop = FALSE]
+    avant <- avant[, lu$centre, drop = FALSE]
+    rat <- lire_bande(ratio, blocs$debut[b], blocs$n[b], nc)
+    dat <- lire_bande(date, blocs$debut[b], blocs$n[b], nc)
+    lab <- etiquette_bande(ferme, p$connexite, ob, blocs$debut[b], nc)
+    ob <- lab$etat
+    dans <- avant & ferme
+    l <- lab$matrice[dans]
+    d <- dat[dans]
+    a_d <- !is.na(d)
+    rl <- rle(sort(l[a_d] * 1e5 + d[a_d]))
+    paires[[b]] <- list(cle = rl$values, n = rl$lengths)
+    rr <- rat[dans]
+    a_r <- !is.na(rr)
+    somme_lin[[b]] <- list(lab = l[a_r], lin = db_vers_lineaire(rr[a_r]))
+    dat[!dans] <- NA_integer_
+    rat[!dans] <- NA_real_
+    terra::writeValues(ecr_objet, as.vector(lab$matrice), blocs$debut[b], blocs$n[b])
+    terra::writeValues(ecr_dates, as.vector(dat), blocs$debut[b], blocs$n[b])
+    terra::writeValues(ecr_rsort, as.vector(rat), blocs$debut[b], blocs$n[b])
+  }
+  for (x in list(ratio, date, donnee, r_zone)) terra::readStop(x)
+  terra::writeStop(ecr_objet)
+  terra::writeStop(ecr_dates)
+  terra::writeStop(ecr_rsort)
+
+  # Objets : racines, numérotation par première cellule, table, raster.
+  racine_o <- racines_equivalences(ob$n, ob$a, ob$b)
+  racines <- unique(racine_o[order(ob$premiere)])
+  identifiant <- match(racine_o, racines)
+  k <- length(racines)
+  table <- table_objets_blocs(identifiant, k, ob$taille, resolution_m^2, paires, somme_lin)
+  r_objet <- terra::rast(tmp[["objet"]])
+  ecr_obj <- ecrivain(modele, sorties[["objets_raster"]], "INT4S")
+  terra::readStart(r_objet)
+  for (b in seq_len(nrow(blocs))) {
+    v <- terra::readValues(r_objet, row = blocs$debut[b], nrows = blocs$n[b],
+                           col = 1, ncols = nc, mat = FALSE)
+    a <- !is.na(v)
+    v[a] <- identifiant[v[a]]
+    terra::writeValues(ecr_obj, v, blocs$debut[b], blocs$n[b])
+  }
+  terra::readStop(r_objet)
+  terra::writeStop(ecr_obj)
+
+  if (gpkg && k > 0L) {
+    r_id <- terra::rast(sorties[["objets_raster"]])
+    names(r_id) <- "identifiant"
+    poly <- terra::as.polygons(r_id, dissolve = TRUE, values = TRUE, na.rm = TRUE)
+    attributs <- table
+    attributs$date_mediane_date <- format(attributs$date_mediane_date, "%Y-%m-%d")
+    attributs <- attributs[match(poly$identifiant, attributs$identifiant), , drop = FALSE]
+    terra::values(poly) <- attributs
+    poly <- poly[order(poly$identifiant), ]
+    terra::writeVector(poly, sorties[["objets"]], filetype = "GPKG", layer = "objets",
+                       overwrite = TRUE)
+  } else {
+    if (file.exists(sorties[["objets"]])) unlink(sorties[["objets"]])
+    sorties <- sorties[names(sorties) != "objets"]
+  }
+  list(fichiers = sorties, objets = table)
 }
 
 # Lecteur par défaut : recherche STAC puis lecture sur la grille.
@@ -527,10 +699,13 @@ lire_images_s1 <- function(grille, date_debut, date_fin, parametres, dossier) {
 
 # Assemblage -------------------------------------------------------------------
 
-# Reprojette et fusionne les rasters gardés des tuiles sur une grille
-# Lambert-93, puis réétiquette les objets par blocs. Rend le modèle, les
-# fichiers temporaires (dates, ratio, objets réétiquetés) et la table.
-run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc) {
+# Assemble les sorties brutes des tuiles sur une grille Lambert-93, chaque
+# pixel pris à une seule tuile (celle dont le morceau d'AOI contient son
+# centre), puis y fait la segmentation, la surface minimale et la fermeture
+# (segmenter_blocs()), la correction 2019 et la période, et réétiquette les
+# objets gardés. Rend le modèle, les fichiers temporaires (dates, ratio,
+# objets) et la table.
+run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc, periode, ecrire) {
   l93 <- "EPSG:2154"
   r <- prep$tuiles$resolution_m[1]
   v <- prep$aoi_origine
@@ -539,19 +714,40 @@ run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc) {
   modele <- terra::rast(xmin = floor(e[["xmin"]] / r) * r - r, xmax = ceiling(e[["xmax"]] / r) * r + r,
                         ymin = floor(e[["ymin"]] / r) * r - r, ymax = ceiling(e[["ymax"]] / r) * r + r,
                         resolution = r, crs = l93)
-  tmp <- file.path(dossier, paste0(".nemetonsar_tmp_", c("dates", "ratio", "presence", "objets"), ".tif"))
-  names(tmp) <- c("dates", "ratio", "presence", "objets")
-  types <- c(dates = "INT4S", ratio = "FLT4S", presence = "INT4S")
-  avec <- Filter(function(x) !is.null(x$fichiers), resultats)
-  for (n in c("dates", "ratio", "presence")) {
-    source <- if (n == "presence") "objets" else n
-    morceaux <- lapply(avec, function(x) {
-      ru <- terra::rast(x$fichiers[[source]])
+  noms <- c("qui", "foret", "donnee_a", "donnee_b", "a_ratio", "a_dates", "b_ratio", "b_dates",
+            "presence", "dates", "ratio", "objets")
+  tmp <- file.path(dossier, paste0(".nemetonsar_tmp_", noms, ".tif"))
+  names(tmp) <- noms
+  dossiers_seg <- file.path(dossier, paste0(".nemetonsar_tmp_seg_", c("a", "b")))
+  gardes <- c("dates", "ratio", "objets")
+  on.exit({
+    unlink(tmp[!names(tmp) %in% gardes & file.exists(tmp)])
+    unlink(dossiers_seg, recursive = TRUE)
+  }, add = TRUE)
+
+  # Attribution : la tuile dont le morceau d'AOI contient le centre du pixel.
+  ordre <- match(names(resultats), prep$tuiles$mgrs)
+  morceaux <- do.call(rbind, lapply(seq_along(ordre), function(k) {
+    m <- terra::project(prep$aoi[[ordre[k]]], l93)
+    terra::values(m) <- data.frame(tuile = k)
+    m
+  }))
+  terra::rasterize(morceaux, modele, field = "tuile", touches = FALSE, filename = tmp[["qui"]],
+                   overwrite = TRUE, datatype = "INT4S")
+  qui <- terra::rast(tmp[["qui"]])
+
+  # Une couche de chaque tuile, au plus proche voisin, sur ses seuls pixels.
+  assembler <- function(fichiers, nom, type) {
+    morceaux <- list()
+    for (k in seq_along(fichiers)) {
+      if (is.null(fichiers[[k]])) next
+      ru <- terra::rast(fichiers[[k]])
       zone <- terra::project(terra::densify(terra::as.polygons(terra::ext(ru), crs = terra::crs(ru)),
                                             10 * r), l93)
       sous <- terra::crop(modele, terra::ext(zone), snap = "out")
-      terra::project(ru, sous, method = "near")
-    })
+      x <- terra::project(ru, sous, method = "near")
+      morceaux[[length(morceaux) + 1L]] <- terra::ifel(terra::crop(qui, x) == k, x, NA)
+    }
     m <- if (length(morceaux) == 0L) {
       terra::rast(modele, vals = NA_real_)
     } else if (length(morceaux) == 1L) {
@@ -560,12 +756,79 @@ run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc) {
       terra::merge(terra::sprc(morceaux))
     }
     m <- terra::crop(terra::extend(m, modele), modele)
-    terra::writeRaster(m, tmp[[n]], overwrite = TRUE, datatype = types[[n]], names = n)
+    terra::writeRaster(m, tmp[[nom]], overwrite = TRUE, datatype = type, names = nom)
+    terra::rast(tmp[[nom]])
+  }
+  brut <- function(passe, champ) lapply(resultats, function(x) x$brut[[passe]][[champ]])
+  foret <- assembler(lapply(resultats, `[[`, "foret"), "foret", "INT1U")
+  avec_a <- vapply(resultats, function(x) !is.null(x$brut$a), logical(1))
+  avec_b <- vapply(resultats, function(x) !is.null(x$brut$b), logical(1))
+  donnee_a <- terra::writeRaster(!is.na(qui) & !is.na(foret) & foret == 1, tmp[["donnee_a"]],
+                                 overwrite = TRUE, datatype = "INT1U", names = "donnee")
+
+  dans_periode <- function(tab) {
+    d <- tab$date_mediane_date
+    !is.na(d) & d >= periode[1] & d <= periode[2]
+  }
+  de_2019 <- function(tab) !is.na(tab$date_mediane) & tab$date_mediane %/% 1000L == 19L
+  res_a <- NULL
+  donnee_b <- donnee_a
+  if (any(avec_a)) {
+    res_a <- segmenter_blocs(assembler(brut("a", "ratio"), "a_ratio", "FLT4S"),
+                             assembler(brut("a", "dates"), "a_dates", "INT4S"),
+                             donnee_a, p, dossiers_seg[1], lignes_par_bloc)
+    # Correction 2019 sur la carte assemblée : pixels datés de 2019 par la
+    # première détection retirés de la forêt de la détection principale.
+    d19 <- terra::rast(res_a$fichiers[["dates"]])
+    donnee_b <- terra::writeRaster(donnee_a == 1 & !(!is.na(d19) & d19 %/% 1000 == 19),
+                                   tmp[["donnee_b"]], overwrite = TRUE, datatype = "INT1U",
+                                   names = "donnee")
+  }
+  res_b <- NULL
+  if (any(avec_b)) {
+    res_b <- segmenter_blocs(assembler(brut("b", "ratio"), "b_ratio", "FLT4S"),
+                             assembler(brut("b", "dates"), "b_dates", "INT4S"),
+                             donnee_b, p, dossiers_seg[2], lignes_par_bloc)
+  }
+  # Objets gardés : date médiane dans la période ; ceux de 2019 pris de la
+  # première détection si toutes les tuiles l'ont faite.
+  tous_a <- any(avec_b) && all(avec_a[avec_b])
+  ids_b <- if (is.null(res_b)) integer(0) else
+    res_b$objets$identifiant[dans_periode(res_b$objets) & !(tous_a & de_2019(res_b$objets))]
+  ids_a <- if (is.null(res_a)) integer(0) else
+    res_a$objets$identifiant[dans_periode(res_a$objets) & de_2019(res_a$objets)]
+  ecrire("Sur la carte assemblée (zones <= tp, graine, surface minimale et fermeture jugées sur l'objet entier) : ",
+         if (!is.null(res_a)) paste0(nrow(res_a$objets), " objet(s) de la première détection (", length(ids_a),
+                                     " de 2019 gardés), ") else "",
+         if (is.null(res_b)) 0L else nrow(res_b$objets), " objet(s) de la détection principale (",
+         length(ids_b), " gardés)")
+  garder <- function(res, ids, decalage) {
+    if (length(ids) == 0L) return(NULL)
+    o <- terra::subst(terra::rast(res$fichiers[["objets_raster"]]), from = ids,
+                      to = ids + decalage, others = NA)
+    list(presence = o,
+         dates = terra::mask(terra::rast(res$fichiers[["dates"]]), o),
+         ratio = terra::mask(terra::rast(res$fichiers[["ratio"]]), o))
+  }
+  kb <- if (is.null(res_b)) NULL else garder(res_b, ids_b, 0L)
+  ka <- if (is.null(res_a)) NULL else garder(res_a, ids_a, nrow(res_b$objets))
+  types <- c(presence = "INT4S", dates = "INT4S", ratio = "FLT4S")
+  for (n in names(types)) {
+    x <- if (!is.null(kb) && !is.null(ka)) {
+      terra::cover(kb[[n]], ka[[n]])
+    } else if (!is.null(kb)) {
+      kb[[n]]
+    } else if (!is.null(ka)) {
+      ka[[n]]
+    } else {
+      terra::rast(modele, vals = NA_real_)
+    }
+    terra::writeRaster(x, tmp[[n]], overwrite = TRUE, datatype = types[[n]], names = n)
   }
   et <- reetiqueter_objets(terra::rast(tmp[["presence"]]), terra::rast(tmp[["dates"]]),
                            terra::rast(tmp[["ratio"]]), p$connexite, r, tmp[["objets"]],
                            lignes_par_bloc, dossier)
-  list(modele = modele, fichiers_tmp = tmp, table = et$table)
+  list(modele = modele, fichiers_tmp = tmp[gardes], table = et$table)
 }
 
 # Composantes connexes de `presence` (non NA), étiquetées par blocs de
