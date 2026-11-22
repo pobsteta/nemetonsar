@@ -81,7 +81,8 @@ test_that("un paramètre invalide est refusé avec un message clair", {
   expect_error(parametres_sufosat(seuil_feu = 75), "`seuil_feu`")
   expect_error(parametres_sufosat(source_neige = ""), "`source_neige`")
   expect_error(parametres_sufosat(source_neige = NA_character_), "`source_neige`")
-  expect_error(parametres_sufosat(inconnu = 1))
+  # message de R lui-même (« unused argument » ou sa traduction) : il nomme l'argument
+  expect_error(parametres_sufosat(inconnu = 1), "inconnu", class = "error")
 })
 
 test_that("les capteurs mal formés sont refusés", {

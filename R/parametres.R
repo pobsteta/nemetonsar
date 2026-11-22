@@ -60,7 +60,10 @@
 #'   période court jusqu'à la veille de la suivante. Défaut :
 #'   [capteurs_sufosat()], `"S1A"` depuis le 2014-04-03 puis
 #'   `c("S1C", "S1D")` depuis le 2026-06-30. M24, § II-B.1, p. 13746 pour 1A
-#'   seul ; dates de lancement et de fin de 1A : ESA.
+#'   seul ; fin de 1A le 29 juin 2026 : ESA (brief, arbitrage n° 2). La date
+#'   du 2014-04-03 n'est pas dans la table de la mission 001 : **Provisoire :
+#'   date de lancement de Sentinel-1A, à relever par l'acquereur ; gèle au
+#'   jalon 2.**
 #' @param source_neige Produit du masque neige. Défaut `"MOD10A1"` : M24,
 #'   Table I, p. 13744 et § II-D.1, p. 13748 ; fin de Terra annoncée, autre
 #'   source possible.
