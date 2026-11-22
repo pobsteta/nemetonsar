@@ -313,3 +313,81 @@ test_that("foret : entr\u00e9es invalides refus\u00e9es", {
   expect_error(nemetonsar_detecter(orbites, dates, d, foret = autre), "grille")
   expect_false(dir.exists(d))
 })
+
+# Mission 016 -------------------------------------------------------------------
+
+test_that("connexité 8 : deux coupes qui ne se touchent qu'en diagonale, de part et d'autre d'une limite de bloc", {
+  # Coupe A : lignes 5 à 10, colonnes 3 à 8 ; coupe B : lignes 11 à 16,
+  # colonnes 9 à 14. Elles ne se touchent que par le coin (10, 8)-(11, 9).
+  # Avec des blocs de 10 lignes, ce coin est à cheval sur la limite des
+  # deux premiers blocs : seule l'arête diagonale entre bandes les relie.
+  coupes_diag <- list(
+    list(lignes = 5:10, colonnes = 3:8, date = as.Date("2019-06-15")),
+    list(lignes = 11:16, colonnes = 9:14, date = as.Date("2019-06-15"))
+  )
+  o <- list(
+    asc = pile_synthetique(20, 16, dates_a, coupes_diag, 11),
+    desc = pile_synthetique(20, 16, dates_d, coupes_diag, 12)
+  )
+  for (cx in c(8L, 4L)) {
+    # Sans filtre spatial (fenêtre 1), les bords des coupes restent nets.
+    p <- parametres_sufosat(connexite = cx, fenetre_filtre = 1L)
+    r <- reference(o, list(dates_a, dates_d), p)
+    for (lpb in c(10L, 3L, 20L)) {
+      dossier <- tempfile("detecter-")
+      res <- nemetonsar_detecter(o, list(dates_a, dates_d), dossier, parametres = p,
+                                 lignes_par_bloc = lpb)
+      expect_equal(nrow(res$objets), if (cx == 8L) 1L else 2L)
+      expect_equal(lire(res$fichiers[["objets_raster"]]), as.vector(r$post$objet))
+      expect_equal(res$objets, r$post$table)
+      unlink(dossier, recursive = TRUE)
+    }
+  }
+  # En connexité 8, l'objet unique couvre les deux coupes (2 x 36 pixels).
+  res <- nemetonsar_detecter(o, list(dates_a, dates_d), tempfile("detecter-"),
+                             parametres = parametres_sufosat(fenetre_filtre = 1L),
+                             lignes_par_bloc = 10L)
+  expect_identical(res$objets$nb_pixels, 72L)
+})
+
+test_that("mission 016 : sorties figées avant optimisation (empreinte)", {
+  # Empreinte des sorties calculée avec le code d'avant la mission 016 (x86_64,
+  # R 4.3.3) ; cumsum() accumule en long double, d'où la restriction.
+  skip_if_not(R.version$arch == "x86_64", "empreinte calculée sur x86_64")
+  empreinte <- function(...) {
+    f <- tempfile()
+    con <- file(f, "wb")
+    for (x in list(...)) writeBin(as.vector(x), con, endian = "little")
+    close(con)
+    on.exit(unlink(f))
+    unname(tools::md5sum(f))
+  }
+  attendu <- c("7" = "1331e266ee09802e51d7ef3502b8a073", "30" = "dcb3811021ea89a0485800510704d14b")
+  for (lpb in c(7L, 30L)) {
+    dossier <- tempfile("detecter-")
+    res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = lpb)
+    expect_identical(
+      empreinte(lire(res$fichiers[["dates"]]), lire(res$fichiers[["ratio"]]),
+                lire(res$fichiers[["objets_raster"]]), res$objets$nb_pixels,
+                res$objets$nb_pixels_dates, res$objets$date_mediane,
+                res$objets$ratio_moyen_db),
+      attendu[[as.character(lpb)]]
+    )
+    unlink(dossier, recursive = TRUE)
+  }
+})
+
+test_that("mission 016 : médiane des dates par objet, cas limites", {
+  # Comptes agrégés à la main : objet 1 = dates 19100 (x2), 19200 (x3) ;
+  # objet 2 = 19050 (x1), 19300 (x1) -> médiane basse 19050 ; objet 3 sans
+  # date ; deux étiquettes de bande pour l'objet 1, réparties sur deux blocs.
+  paires <- list(
+    list(cle = c(1 * 1e5 + 19100, 1 * 1e5 + 19200, 3 * 1e5 + 19050), n = c(2L, 1L, 1L)),
+    list(cle = c(2 * 1e5 + 19200, 3 * 1e5 + 19300), n = c(2L, 1L))
+  )
+  somme_lin <- list(list(lab = integer(0), lin = numeric(0)))
+  tab <- table_objets_blocs(c(1L, 1L, 2L, 3L), 3L, c(4, 3, 2, 5), 100, paires, somme_lin)
+  expect_identical(tab$nb_pixels_dates, c(5L, 2L, 0L))
+  expect_identical(tab$date_mediane, c(19200L, 19050L, NA))
+  expect_equal(tab$date_mediane_date, yyddd_vers_date(c(19200L, 19050L, NA)))
+})

@@ -439,3 +439,184 @@ test_that("deux orbites : l'orbite au ratio de détection le plus bas donne ses 
   rx <- rcr_compute(desc, dates_desc, parametres_sufosat(xb = Inf, xb_date = 5))
   expect_error(rcr_combine_orbites(list(ra, rx), p), "autres r")
 })
+
+# Mission 016 (performance) ------------------------------------------------------
+# Référence figée : rcr_compute() tel qu'écrit avant la mission 016 (sommes
+# cumulées par matrice d'indices, un logarithme par date et par pixel). Le
+# calcul rapide doit la rendre au bit près, avertissements compris.
+rcr_016 <- function(serie, dates, parametres = parametres_sufosat()) {
+  p <- valide_parametres(parametres)
+  serie <- valide_serie(serie)
+  d <- dim(serie)
+  nt <- d[3]
+  codes <- valide_dates_serie(dates, nt)
+  npix <- d[1] * d[2]
+  xa <- p$xa
+  xb <- p$xb
+  xb_date <- p$xb_date
+  # Un seul calcul si la date se lit sur le ratio de détection.
+  dater_a_part <- !identical(xb_date, xb)
+  # Dates d_i admises pour un ratio (voir la section « Début des ratios »).
+  debut <- as.Date(sprintf("%d-01-01", p$annee_noyau + 1L))
+  admise <- dates >= debut
+
+  x <- matrix(serie, nrow = npix, ncol = nt)
+  noms <- dimnames(serie)[1:2]
+  rm(serie)
+  negatif <- !is.na(x) & x <= 0
+  if (any(negatif)) {
+    warning(
+      sum(negatif), " valeur(s) lin\u00e9aire(s) nulle(s) ou n\u00e9gative(s) ",
+      "trait\u00e9e(s) comme images \u00e9cart\u00e9es (NA).",
+      call. = FALSE
+    )
+    x[negatif] <- NA_real_
+  }
+  rm(negatif)
+
+  # Passe 1 : pour chaque pixel, somme cumulée des k premières images valides
+  # (colonne k + 1 de `cumul`) et position (index de date) de la k-ième.
+  cumul <- matrix(0, nrow = npix, ncol = nt + 1L)
+  position <- matrix(NA_integer_, nrow = npix, ncol = nt + 1L)
+  somme <- numeric(npix)
+  compte <- integer(npix)
+  for (t in seq_len(nt)) {
+    v <- which(!is.na(x[, t]))
+    if (length(v) == 0L) next
+    somme[v] <- somme[v] + x[v, t]
+    compte[v] <- compte[v] + 1L
+    cle <- cbind(v, compte[v] + 1L)
+    cumul[cle] <- somme[v]
+    position[cle] <- t
+  }
+  total <- compte
+  rm(somme)
+
+  lire <- function(m, pix, k) m[cbind(pix, k + 1L)]
+
+  # Ratio en dB à la k-ième image valide des pixels `pix`, Mb sur `nb_avant`
+  # images (Inf : toutes), à partir des sommes cumulées.
+  ratio_k <- function(pix, k, s_apres, nb_avant) {
+    nb <- if (is.infinite(nb_avant)) k else pmin(k, as.integer(nb_avant))
+    mb <- (lire(cumul, pix, k) - lire(cumul, pix, k - nb)) / nb
+    lineaire_vers_db((s_apres / xa) / mb)
+  }
+
+  # Passe 2 : ratio à chaque date valide suivie d'au moins xa images valides.
+  # `meilleur` : minimum du ratio de détection (xb) ; `meilleur_date` et
+  # `k_avant` : minimum du ratio de datation (xb_date) et sa position.
+  meilleur <- rep(Inf, npix)
+  meilleur_date <- if (dater_a_part) rep(Inf, npix) else NULL
+  k_avant <- rep(NA_integer_, npix)
+  compte <- integer(npix)
+  for (i in seq_len(nt)) {
+    v <- !is.na(x[, i])
+    compte[v] <- compte[v] + 1L
+    if (!admise[i]) next
+    pix <- which(v & compte + xa <= total)
+    if (length(pix) == 0L) next
+    k <- compte[pix]
+    s_apres <- lire(cumul, pix, k + xa) - lire(cumul, pix, k)
+    r <- ratio_k(pix, k, s_apres, xb)
+    mieux <- r < meilleur[pix]
+    meilleur[pix[mieux]] <- r[mieux]
+    if (dater_a_part) {
+      r <- ratio_k(pix, k, s_apres, xb_date)
+      mieux <- r < meilleur_date[pix]
+      meilleur_date[pix[mieux]] <- r[mieux]
+    }
+    k_avant[pix[mieux]] <- k[mieux]
+  }
+  rm(meilleur_date)
+
+  trouve <- which(!is.na(k_avant))
+  ratio <- rep(NA_real_, npix)
+  date_min <- rep(NA_integer_, npix)
+  date_avant <- rep(NA_integer_, npix)
+  duree <- rep(NA_integer_, npix)
+  if (length(trouve) > 0L) {
+    k <- k_avant[trouve]
+    i_avant <- lire(position, trouve, k)
+    i_apres <- lire(position, trouve, k + 1L)
+    i_fin <- lire(position, trouve, k + xa)
+    ratio[trouve] <- meilleur[trouve]
+    date_avant[trouve] <- codes[i_avant]
+    date_min[trouve] <- codes[i_apres]
+    duree[trouve] <- as.integer(dates[i_fin] - dates[i_avant])
+  }
+
+  en_matrice <- function(v) {
+    m <- matrix(v, nrow = d[1], ncol = d[2])
+    if (!is.null(noms)) dimnames(m) <- noms
+    m
+  }
+  list(
+    ratio_min_db = en_matrice(ratio),
+    date_min = en_matrice(date_min),
+    date_avant = en_matrice(date_avant),
+    duree_xa_jours = en_matrice(duree),
+    parametres = p
+  )
+}
+
+avec_avertissements <- function(expr) {
+  messages <- character(0)
+  valeur <- withCallingHandlers(expr, warning = function(w) {
+    messages <<- c(messages, conditionMessage(w))
+    invokeRestart("muffleWarning")
+  })
+  list(valeur = valeur, avertissements = messages)
+}
+
+test_that("mission 016 : rcr_compute() identique au bit près au calcul d'avant", {
+  set.seed(163)
+  for (cas in 1:12) {
+    nt <- sample(8:50, 1)
+    dates <- sort(as.Date("2018-03-01") + sample(0:1500, nt))
+    serie <- array(0.05 * stats::rgamma(7 * 3 * nt, 4.4, 4.4), dim = c(7, 3, nt))
+    j <- sample(nt, 1):nt
+    serie[2:5, 2, j] <- serie[2:5, 2, j] / 4
+    if (cas %% 3 == 0) serie[, 3, ] <- 0.05 # plateaux : ratios égaux
+    if (cas %% 2 == 1) serie[sample(length(serie), length(serie) %/% 5)] <- NA
+    if (cas %% 4 == 2) serie[sample(length(serie), 2)] <- 0
+    for (p in list(
+      parametres_sufosat(),
+      parametres_sufosat(xb = 4, xb_date = 4),
+      parametres_sufosat(xa = 1L, xb = 2, xb_date = Inf)
+    )) {
+      expect_identical(avec_avertissements(rcr_compute(serie, dates, p)),
+                       avec_avertissements(rcr_016(serie, dates, p)))
+    }
+  }
+  # Cas dégénéré : Ma nulle par annulation (valeurs infimes après de grandes),
+  # un ratio sans valeur et son avertissement, comme avant.
+  dates <- seq(as.Date("2019-01-05"), by = 12, length.out = 12)
+  serie <- array(1, dim = c(2, 3, 12))
+  serie[1, 1, 7:12] <- 1e-20
+  expect_identical(avec_avertissements(rcr_compute(serie, dates)),
+                   avec_avertissements(rcr_016(serie, dates)))
+})
+
+test_that("mission 016 : sorties figées avant optimisation (empreinte)", {
+  skip_if_not(R.version$arch == "x86_64", "empreinte calculée sur x86_64")
+  empreinte <- function(...) {
+    f <- tempfile()
+    con <- file(f, "wb")
+    for (x in list(...)) writeBin(as.vector(x), con, endian = "little")
+    close(con)
+    on.exit(unlink(f))
+    unname(tools::md5sum(f))
+  }
+  set.seed(17)
+  dates <- seq(as.Date("2018-06-03"), by = 12, length.out = 60)
+  serie <- array(0.05 * stats::rgamma(6 * 4 * 60, shape = 4.4, rate = 4.4), dim = c(6, 4, 60))
+  serie[2:4, 2:3, 40:60] <- serie[2:4, 2:3, 40:60] / 4
+  serie[c(5, 99, 100, 101, 1000)] <- NA
+  attendu <- c("8240f20ac3e9ab31456dde80ed51cd84", "80e5ac4169b5fa0f233c6dd698148da7")
+  reglages <- list(parametres_sufosat(), parametres_sufosat(xb = 10, xb_date = Inf, xa = 2L))
+  for (i in 1:2) {
+    r <- rcr_compute(serie, dates, reglages[[i]])
+    expect_identical(empreinte(r$ratio_min_db, r$date_min, r$date_avant, r$duree_xa_jours),
+                     attendu[i])
+  }
+})

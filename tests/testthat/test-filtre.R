@@ -252,3 +252,108 @@ test_that("signe : rcr_compute() sur la série filtrée retrouve mieux la date d
   # La coupe reste détectée sous le seuil des ombres
   expect_true(all(rf$ratio_min_db[dedans, dedans] < ts))
 })
+
+# Mission 016 (performance) ------------------------------------------------------
+# Référence figée : la moyenne locale telle qu'écrite avant la mission 016
+# (table de sommes de zone par apply(cumsum) en deux passes, compte des
+# valeurs valides par la même table). Le calcul rapide doit la rendre au bit
+# près, et non à une tolérance près.
+moyenne_locale_016 <- function(image, cote) {
+  nr <- nrow(image)
+  nc <- ncol(image)
+  r <- (cote - 1L) %/% 2L
+  etendue <- image[c(rep(1L, r), seq_len(nr), rep(nr, r)),
+                   c(rep(1L, r), seq_len(nc), rep(nc, r)), drop = FALSE]
+  valide <- !is.na(etendue)
+  etendue[!valide] <- 0
+  cumuls <- function(m) {
+    m[] <- apply(m, 2L, cumsum)
+    m
+  }
+  somme <- function(m) {
+    cumul <- matrix(0, nrow = nrow(m) + 1L, ncol = ncol(m) + 1L)
+    cumul[-1L, -1L] <- t(cumuls(t(cumuls(m))))
+    i <- seq_len(nr)
+    j <- seq_len(nc)
+    cumul[i + cote, j + cote, drop = FALSE] - cumul[i, j + cote, drop = FALSE] -
+      cumul[i + cote, j, drop = FALSE] + cumul[i, j, drop = FALSE]
+  }
+  s <- somme(etendue)
+  n <- somme(valide * 1)
+  moyenne <- s / n
+  moyenne[n == 0 | is.na(image)] <- NA_real_
+  moyenne
+}
+
+filtre_016 <- function(serie, dates, cote, annee = 2018L) {
+  d <- dim(serie)
+  ref <- which(as.integer(format(dates, "%Y")) == annee)
+  somme <- matrix(0, d[1], d[2])
+  compte <- matrix(0L, d[1], d[2])
+  for (t in ref) {
+    image <- matrix(serie[, , t], d[1], d[2])
+    r <- image / moyenne_locale_016(image, cote)
+    ok <- !is.na(r)
+    somme[ok] <- somme[ok] + r[ok]
+    compte[ok] <- compte[ok] + 1L
+  }
+  noyau <- somme / compte
+  noyau[compte == 0L] <- NA_real_
+  for (t in seq_len(d[3])) {
+    serie[, , t] <- moyenne_locale_016(matrix(serie[, , t], d[1], d[2]), cote) * noyau
+  }
+  serie
+}
+
+test_that("mission 016 : moyenne locale identique au bit près au calcul d'avant", {
+  set.seed(161)
+  # Formes : une ligne, une colonne, bandes larges et courtes (somme cumulée
+  # triangulaire, <= 20 colonnes étendues) et plus hautes (transposition).
+  for (forme in list(c(1, 9), c(9, 1), c(300, 7), c(250, 17), c(40, 19), c(30, 40))) {
+    for (cote in c(1L, 3L, 5L)) {
+      image <- matrix(stats::rgamma(prod(forme), 4.4, 88) * 10^stats::runif(prod(forme), -4, 4),
+                      forme[1], forme[2])
+      expect_identical(moyenne_locale(image, cote), moyenne_locale_016(image, cote))
+      image[sample(length(image), ceiling(length(image) / 6))] <- NA
+      expect_identical(moyenne_locale(image, cote), moyenne_locale_016(image, cote))
+    }
+  }
+})
+
+test_that("mission 016 : filtre identique au bit près au calcul d'avant", {
+  set.seed(162)
+  dates <- seq(as.Date("2017-10-01"), by = 12, length.out = 50)
+  for (forme in list(c(120, 9), c(8, 30), c(1, 6))) {
+    serie <- array(stats::rgamma(prod(forme) * 50, 4.4, 88), dim = c(forme, 50))
+    serie[sample(length(serie), length(serie) %/% 9)] <- NA
+    for (cote in c(3L, 5L)) {
+      obtenu <- s1_filter_multitemp(serie, dates, parametres_sufosat(fenetre_filtre = cote))
+      attr(obtenu, "nb_images_noyau") <- NULL
+      expect_identical(obtenu, filtre_016(serie, dates, cote))
+    }
+  }
+})
+
+# Empreinte MD5 des octets (petit-boutiste) des valeurs.
+empreinte_016 <- function(...) {
+  f <- tempfile()
+  con <- file(f, "wb")
+  for (x in list(...)) writeBin(as.vector(x), con, endian = "little")
+  close(con)
+  on.exit(unlink(f))
+  unname(tools::md5sum(f))
+}
+
+test_that("mission 016 : sorties figées avant optimisation (empreinte)", {
+  # cumsum() accumule en long double : l'empreinte n'est figée que sur la
+  # plateforme où elle a été calculée (x86_64, R 4.3.3, code d'avant 016).
+  skip_if_not(R.version$arch == "x86_64", "empreinte calculée sur x86_64")
+  set.seed(16)
+  dates <- seq(as.Date("2017-11-02"), by = 30, length.out = 24)
+  serie <- array(stats::rgamma(7 * 5 * 24, shape = 4.4, rate = 88), dim = c(7, 5, 24))
+  serie[c(3, 50, 51, 400, 700)] <- NA
+  f3 <- s1_filter_multitemp(serie, dates)
+  f5 <- s1_filter_multitemp(serie, dates, parametres_sufosat(fenetre_filtre = 5L))
+  expect_identical(empreinte_016(f3, attr(f3, "nb_images_noyau"), f5),
+                   "a70696bf533df701171cddd224fec6a7")
+})
