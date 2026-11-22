@@ -165,7 +165,9 @@ test_that("coupe \u00e0 cheval sur deux tuiles : un seul objet, entier", {
     v <- terra::extract(r, terra::project(coupes_run$c1$v, terra::crs(r)))[[2]]
     sum(!is.na(v))
   }, numeric(1))
-  expect_equal(o$surface_ha, sum(parties) * 100 / 1e4, tolerance = 0.05)
+  # Au plus proche voisin, un pixel L93 de la limite peut prendre la valeur
+  # des deux tuiles (limite dite) : au plus un pixel par ligne de la coupe.
+  expect_lte(abs(o$surface_ha - sum(parties) * 100 / 1e4), 0.12)
   attendu_ha <- terra::expanse(coupes_run$c1$v, unit = "ha")
   expect_gt(o$surface_ha, 0.6 * attendu_ha)
   expect_lt(o$surface_ha, 1.05 * attendu_ha)
