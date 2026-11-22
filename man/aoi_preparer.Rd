@@ -48,7 +48,8 @@ et contient des polygones dans un système de coordonnées déclaré ;
 \item une géométrie invalide est \strong{réparée} par \code{\link[terra:is.valid]{terra::makeValid()}}, avec un
 avertissement ; elle est refusée si la réparation échoue ;
 \item les polygones sont réunis en un seul (union) ; les attributs sont
-abandonnés ;
+abandonnés ; leurs côtés sont densifiés (un sommet tous les 100 m,
+droits dans le système d'origine) avant toute reprojection ;
 \item l'AOI doit tenir dans l'emprise de la France métropolitaine (Corse
 comprise) : longitude de -5,1413 à 9,5600, latitude de 41,3335 à 51,0892
 (EPSG:4326 ; emprise des 96 départements d'IGN Admin Express COG,

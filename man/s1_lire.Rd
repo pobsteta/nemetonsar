@@ -55,6 +55,14 @@ ces adresses avec \code{signer = FALSE}. Avec \code{signer = FALSE}, une adresse
 qui désigne un fichier local est lue telle quelle.
 }
 
+\section{Tranches d'une même acquisition }{
+ Quand l'emprise touche
+plusieurs tranches d'une même acquisition (même \code{serie}, même \code{date}),
+elles sont assemblées en une couche par \code{\link[terra:cover]{terra::cover()}} : la tranche la
+plus tôt (\code{heure}) l'emporte là où elles se recouvrent, les suivantes ne
+comblent que ses vides. \strong{Provisoire, non sourcé, gèle au jalon 2.}
+}
+
 \section{Unité }{
  Les images RTC sont des gamma0 (γ0) corrigés du
 terrain, en \strong{puissance linéaire} : la documentation de la collection
