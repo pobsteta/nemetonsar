@@ -25,6 +25,9 @@
 #'   B18, § 2.3.2, p. 11, repris par M24, § II-D.1, p. 13748.
 #' @param tp_db Seuil des zones modérément négatives, en dB, avant facteur.
 #'   Défaut -3 : B18, § 2.3.3, p. 12, repris par M24, § II-D.1, p. 13748.
+#'   La règle `ts_db < tp_db` (ombres plus sombres que les coupes) est une
+#'   règle de cohérence du package, **non sourcée** : aucun des deux articles
+#'   ne l'écrit comme contrainte.
 #' @param combinaison_orbites Combinaison des ratios des orbites ascendante et
 #'   descendante. Seule valeur permise : `"minimum"` (par pixel, l'orbite au
 #'   ratio le plus bas donne la détection et sa date). Non précisé dans M24
@@ -45,11 +48,13 @@
 #'   p. 13746 ; B18, § 2.2.1, p. 4.
 #' @param annee_noyau Année des images servant à calculer le noyau du filtre.
 #'   Défaut 2018 : M24, § II-B.1, p. 13746.
-#' @param seuil_tcd Couvert arborescent minimal (Tree Cover Density 2018), en
-#'   pourcentage de 0 à 100. Défaut 10 : M24, § II-D.1, p. 13747.
+#' @param seuil_tcd Couvert arborescent minimal (Tree Cover Density 2018),
+#'   **en pourcentage (de 0 à 100)**, comme les valeurs du produit TCD.
+#'   Défaut 10 : M24, § II-D.1, p. 13747. Attention : `seuil_feu`, lui, est
+#'   une fraction.
 #' @param seuil_feu Part de la surface d'un objet brûlée (EFFIS) à partir de
-#'   laquelle il est retiré, entre 0 (exclu) et 1. Défaut 0,75 : M24,
-#'   § II-D.1, p. 13748.
+#'   laquelle il est retiré, **en fraction (de 0 exclu à 1)**, et non en
+#'   pourcentage. Défaut 0,75 (soit 75 %) : M24, § II-D.1, p. 13748.
 #' @param capteurs Capteurs utilisés, sous forme de liste nommée par la date
 #'   de début (`"AAAA-MM-JJ"`, dates croissantes) de chaque période ; une
 #'   période court jusqu'à la veille de la suivante. Défaut :
