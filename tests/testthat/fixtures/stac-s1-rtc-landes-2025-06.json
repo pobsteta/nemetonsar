@@ -1,0 +1,828 @@
+{
+ "_note": "Reponse STAC du Planetary Computer (collection sentinel-1-rtc, point -0.80 E 44.20 N, 2025-06-01/2025-06-20), enregistree le 2026-11-22 et reduite (proprietes utiles, assets vh et vv sans jeton). Quatre items ajoutes a la main pour les tests : republication ancienne (_ANCIEN_), seconde tranche de la meme acquisition (TRANCHE2), item hors periode (HORS_PERIODE), item VV seul (VV_SEUL).",
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1C_IW_GRDH_1SDV_20250617T175439_20250617T175504_002826_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -2.0300001418653206,
+    42.55431847797914,
+    1.4147150609803194,
+    44.44228528018583
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.0300001418653206,
+       42.55431847797914
+      ],
+      [
+       1.4147150609803194,
+       42.55431847797914
+      ],
+      [
+       1.4147150609803194,
+       44.44228528018583
+      ],
+      [
+       -2.0300001418653206,
+       44.44228528018583
+      ],
+      [
+       -2.0300001418653206,
+       42.55431847797914
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-17T17:54:51.994667Z",
+    "start_datetime": "2025-06-17T17:54:39.495337Z",
+    "end_datetime": "2025-06-17T17:55:04.493996Z",
+    "platform": "sentinel-1c",
+    "sat:relative_orbit": 30,
+    "sat:orbit_state": "ascending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "s1:processing_datetime": "2025-06-17T18:48:33.000000Z",
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/17/IW/DV/S1C_IW_GRDH_1SDV_20250617T175439_20250617T175504_002826_005CC5_3D79/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/17/IW/DV/S1C_IW_GRDH_1SDV_20250617T175439_20250617T175504_002826_005CC5_3D79/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1C_IW_GRDH_1SDV_20250616T060758_20250616T060823_002804_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -2.03981098609431,
+    42.899784602285486,
+    1.401098364659244,
+    44.7843969510602
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.03981098609431,
+       42.899784602285486
+      ],
+      [
+       1.401098364659244,
+       42.899784602285486
+      ],
+      [
+       1.401098364659244,
+       44.7843969510602
+      ],
+      [
+       -2.03981098609431,
+       44.7843969510602
+      ],
+      [
+       -2.03981098609431,
+       42.899784602285486
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-16T06:08:11.283283Z",
+    "start_datetime": "2025-06-16T06:07:58.784265Z",
+    "end_datetime": "2025-06-16T06:08:23.782302Z",
+    "platform": "sentinel-1c",
+    "sat:relative_orbit": 8,
+    "sat:orbit_state": "descending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "s1:processing_datetime": "2025-06-16T07:02:33.000000Z",
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/16/IW/DV/S1C_IW_GRDH_1SDV_20250616T060758_20250616T060823_002804_005C24_964F/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/16/IW/DV/S1C_IW_GRDH_1SDV_20250616T060758_20250616T060823_002804_005C24_964F/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -3.8946034594302006,
+    43.87110541201297,
+    -0.3920563750941518,
+    45.75902142254009
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -3.8946034594302006,
+       43.87110541201297
+      ],
+      [
+       -0.3920563750941518,
+       43.87110541201297
+      ],
+      [
+       -0.3920563750941518,
+       45.75902142254009
+      ],
+      [
+       -3.8946034594302006,
+       45.75902142254009
+      ],
+      [
+       -3.8946034594302006,
+       43.87110541201297
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-15T06:17:17.904030Z",
+    "start_datetime": "2025-06-15 06:17:05.404658+00:00",
+    "end_datetime": "2025-06-15 06:17:30.403403+00:00",
+    "platform": "SENTINEL-1A",
+    "sat:relative_orbit": 81,
+    "sat:orbit_state": "descending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/15/IW/DV/S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_E2BE/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/15/IW/DV/S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_E2BE/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1A_IW_GRDH_1SDV_20250611T175608_20250611T175633_059602_07665C_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -2.339249286118082,
+    43.706774160998286,
+    1.156659313747412,
+    45.59521659033105
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.339249286118082,
+       43.706774160998286
+      ],
+      [
+       1.156659313747412,
+       43.706774160998286
+      ],
+      [
+       1.156659313747412,
+       45.59521659033105
+      ],
+      [
+       -2.339249286118082,
+       45.59521659033105
+      ],
+      [
+       -2.339249286118082,
+       43.706774160998286
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-11T17:56:20.593083Z",
+    "start_datetime": "2025-06-11 17:56:08.093751+00:00",
+    "end_datetime": "2025-06-11 17:56:33.092414+00:00",
+    "platform": "SENTINEL-1A",
+    "sat:relative_orbit": 30,
+    "sat:orbit_state": "ascending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/11/IW/DV/S1A_IW_GRDH_1SDV_20250611T175608_20250611T175633_059602_07665C_EDD2/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/11/IW/DV/S1A_IW_GRDH_1SDV_20250611T175608_20250611T175633_059602_07665C_EDD2/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1A_IW_GRDH_1SDV_20250610T060854_20250610T060919_059580_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -1.8648234000757171,
+    43.75012760825019,
+    1.6235074013741353,
+    45.637625856726714
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -1.8648234000757171,
+       43.75012760825019
+      ],
+      [
+       1.6235074013741353,
+       43.75012760825019
+      ],
+      [
+       1.6235074013741353,
+       45.637625856726714
+      ],
+      [
+       -1.8648234000757171,
+       45.637625856726714
+      ],
+      [
+       -1.8648234000757171,
+       43.75012760825019
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-10T06:09:06.530966Z",
+    "start_datetime": "2025-06-10T06:08:54.031474Z",
+    "end_datetime": "2025-06-10T06:09:19.030457Z",
+    "platform": "sentinel-1a",
+    "sat:relative_orbit": 8,
+    "sat:orbit_state": "descending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "s1:processing_datetime": "2025-06-10T06:50:16.000000Z",
+    "proj:epsg": 32631
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/10/IW/DV/S1A_IW_GRDH_1SDV_20250610T060854_20250610T060919_059580_0765A0_10AD/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/10/IW/DV/S1A_IW_GRDH_1SDV_20250610T060854_20250610T060919_059580_0765A0_10AD/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1C_IW_GRDH_1SDV_20250609T061550_20250609T061615_002702_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -3.822464792450654,
+    44.186376541124055,
+    -0.2992454206113264,
+    46.07420052451983
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -3.822464792450654,
+       44.186376541124055
+      ],
+      [
+       -0.2992454206113264,
+       44.186376541124055
+      ],
+      [
+       -0.2992454206113264,
+       46.07420052451983
+      ],
+      [
+       -3.822464792450654,
+       46.07420052451983
+      ],
+      [
+       -3.822464792450654,
+       44.186376541124055
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-09T06:16:03.180014Z",
+    "start_datetime": "2025-06-09T06:15:50.680360Z",
+    "end_datetime": "2025-06-09T06:16:15.679667Z",
+    "platform": "sentinel-1c",
+    "sat:relative_orbit": 81,
+    "sat:orbit_state": "descending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "s1:processing_datetime": "2025-06-09T07:09:14.000000Z",
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/9/IW/DV/S1C_IW_GRDH_1SDV_20250609T061550_20250609T061615_002702_00593B_CF6D/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/9/IW/DV/S1C_IW_GRDH_1SDV_20250609T061550_20250609T061615_002702_00593B_CF6D/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1C_IW_GRDH_1SDV_20250605T175438_20250605T175503_002651_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -2.0304994274883073,
+    42.55432582087754,
+    1.414226217809931,
+    44.44229425023944
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.0304994274883073,
+       42.55432582087754
+      ],
+      [
+       1.414226217809931,
+       42.55432582087754
+      ],
+      [
+       1.414226217809931,
+       44.44229425023944
+      ],
+      [
+       -2.0304994274883073,
+       44.44229425023944
+      ],
+      [
+       -2.0304994274883073,
+       42.55432582087754
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-05T17:54:51.412027Z",
+    "start_datetime": "2025-06-05T17:54:38.912685Z",
+    "end_datetime": "2025-06-05T17:55:03.911369Z",
+    "platform": "sentinel-1c",
+    "sat:relative_orbit": 30,
+    "sat:orbit_state": "ascending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "s1:processing_datetime": "2025-06-05T18:31:02.000000Z",
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/5/IW/DV/S1C_IW_GRDH_1SDV_20250605T175438_20250605T175503_002651_0057B7_7D6C/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/5/IW/DV/S1C_IW_GRDH_1SDV_20250605T175438_20250605T175503_002651_0057B7_7D6C/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1C_IW_GRDH_1SDV_20250604T060758_20250604T060823_002629_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -2.0395829166695334,
+    42.8996735261907,
+    1.4013420154259923,
+    44.78429701238642
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.0395829166695334,
+       42.8996735261907
+      ],
+      [
+       1.4013420154259923,
+       42.8996735261907
+      ],
+      [
+       1.4013420154259923,
+       44.78429701238642
+      ],
+      [
+       -2.0395829166695334,
+       44.78429701238642
+      ],
+      [
+       -2.0395829166695334,
+       42.8996735261907
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-04T06:08:10.604730Z",
+    "start_datetime": "2025-06-04T06:07:58.105709Z",
+    "end_datetime": "2025-06-04T06:08:23.103751Z",
+    "platform": "sentinel-1c",
+    "sat:relative_orbit": 8,
+    "sat:orbit_state": "descending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "s1:processing_datetime": "2025-06-04T07:12:34.000000Z",
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/4/IW/DV/S1C_IW_GRDH_1SDV_20250604T060758_20250604T060823_002629_005713_5366/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/4/IW/DV/S1C_IW_GRDH_1SDV_20250604T060758_20250604T060823_002629_005713_5366/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1A_IW_GRDH_1SDV_20250603T061706_20250603T061731_059478_076234_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -3.8940955901551453,
+    43.87110780757104,
+    -0.3916736568284738,
+    45.75902142254009
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -3.8940955901551453,
+       43.87110780757104
+      ],
+      [
+       -0.3916736568284738,
+       43.87110780757104
+      ],
+      [
+       -0.3916736568284738,
+       45.75902142254009
+      ],
+      [
+       -3.8940955901551453,
+       45.75902142254009
+      ],
+      [
+       -3.8940955901551453,
+       43.87110780757104
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-03T06:17:18.598671Z",
+    "start_datetime": "2025-06-03 06:17:06.099313+00:00",
+    "end_datetime": "2025-06-03 06:17:31.098030+00:00",
+    "platform": "SENTINEL-1A",
+    "sat:relative_orbit": 81,
+    "sat:orbit_state": "descending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/3/IW/DV/S1A_IW_GRDH_1SDV_20250603T061706_20250603T061731_059478_076234_4BAD/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/3/IW/DV/S1A_IW_GRDH_1SDV_20250603T061706_20250603T061731_059478_076234_4BAD/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_ANCIEN_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -3.8946034594302006,
+    43.87110541201297,
+    -0.3920563750941518,
+    45.75902142254009
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -3.8946034594302006,
+       43.87110541201297
+      ],
+      [
+       -0.3920563750941518,
+       43.87110541201297
+      ],
+      [
+       -0.3920563750941518,
+       45.75902142254009
+      ],
+      [
+       -3.8946034594302006,
+       45.75902142254009
+      ],
+      [
+       -3.8946034594302006,
+       43.87110541201297
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-15T06:17:17.904030Z",
+    "start_datetime": "2025-06-15 06:17:05.404658+00:00",
+    "end_datetime": "2025-06-15 06:17:30.403403+00:00",
+    "platform": "SENTINEL-1A",
+    "sat:relative_orbit": 81,
+    "sat:orbit_state": "descending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "proj:epsg": 32630,
+    "s1:processing_datetime": "2025-06-15T07:00:00.000000Z"
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/15/IW/DV/S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_E2BE/measurement/iw-vh-ancien.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/15/IW/DV/S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_E2BE/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1A_IW_GRDH_1SDV_20250611T175633_20250611T175658_059602_TRANCHE2_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -2.339249286118082,
+    43.706774160998286,
+    1.156659313747412,
+    45.59521659033105
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.339249286118082,
+       43.706774160998286
+      ],
+      [
+       1.156659313747412,
+       43.706774160998286
+      ],
+      [
+       1.156659313747412,
+       45.59521659033105
+      ],
+      [
+       -2.339249286118082,
+       45.59521659033105
+      ],
+      [
+       -2.339249286118082,
+       43.706774160998286
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-11T17:56:45.500000Z",
+    "start_datetime": "2025-06-11T17:56:33.000000Z",
+    "end_datetime": "2025-06-11 17:56:33.092414+00:00",
+    "platform": "SENTINEL-1A",
+    "sat:relative_orbit": 30,
+    "sat:orbit_state": "ascending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/11/IW/DV/S1A_IW_GRDH_1SDV_20250611T175608_20250611T175633_059602_07665C_EDD2/measurement/iw-vh-tranche2.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/11/IW/DV/S1A_IW_GRDH_1SDV_20250611T175608_20250611T175633_059602_07665C_EDD2/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1A_HORS_PERIODE_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -2.339249286118082,
+    43.706774160998286,
+    1.156659313747412,
+    45.59521659033105
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.339249286118082,
+       43.706774160998286
+      ],
+      [
+       1.156659313747412,
+       43.706774160998286
+      ],
+      [
+       1.156659313747412,
+       45.59521659033105
+      ],
+      [
+       -2.339249286118082,
+       45.59521659033105
+      ],
+      [
+       -2.339249286118082,
+       43.706774160998286
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-05-30T17:56:20.593083Z",
+    "start_datetime": "2025-05-30 17:56:08.093751+00:00",
+    "end_datetime": "2025-05-30 17:56:33.092414+00:00",
+    "platform": "SENTINEL-1A",
+    "sat:relative_orbit": 30,
+    "sat:orbit_state": "ascending",
+    "sar:polarizations": [
+     "VV",
+     "VH"
+    ],
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vh": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/11/IW/DV/S1A_IW_GRDH_1SDV_20250611T175608_20250611T175633_059602_07665C_EDD2/measurement/iw-vh.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    },
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/11/IW/DV/S1A_IW_GRDH_1SDV_20250611T175608_20250611T175633_059602_07665C_EDD2/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  },
+  {
+   "type": "Feature",
+   "stac_version": "1.0.0",
+   "id": "S1A_VV_SEUL_rtc",
+   "collection": "sentinel-1-rtc",
+   "bbox": [
+    -3.8946034594302006,
+    43.87110541201297,
+    -0.3920563750941518,
+    45.75902142254009
+   ],
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -3.8946034594302006,
+       43.87110541201297
+      ],
+      [
+       -0.3920563750941518,
+       43.87110541201297
+      ],
+      [
+       -0.3920563750941518,
+       45.75902142254009
+      ],
+      [
+       -3.8946034594302006,
+       45.75902142254009
+      ],
+      [
+       -3.8946034594302006,
+       43.87110541201297
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "datetime": "2025-06-12T06:17:17.904030Z",
+    "start_datetime": "2025-06-12 06:17:05.404658+00:00",
+    "end_datetime": "2025-06-12 06:17:30.403403+00:00",
+    "platform": "SENTINEL-1A",
+    "sat:relative_orbit": 81,
+    "sat:orbit_state": "descending",
+    "sar:polarizations": [
+     "VV"
+    ],
+    "proj:epsg": 32630
+   },
+   "assets": {
+    "vv": {
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/15/IW/DV/S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_E2BE/measurement/iw-vv.rtc.tiff",
+     "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+    }
+   },
+   "links": []
+  }
+ ],
+ "links": []
+}

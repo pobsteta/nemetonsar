@@ -268,8 +268,12 @@ s1_collection <- "sentinel-1-rtc"
 
 # Internes ------------------------------------------------------------------
 
+rstac_disponible <- function() {
+  requireNamespace("rstac", quietly = TRUE)
+}
+
 exiger_rstac <- function(appel) {
-  if (!requireNamespace("rstac", quietly = TRUE)) {
+  if (!rstac_disponible()) {
     stop("Le paquet 'rstac' est n\u00e9cessaire pour ", appel, " : ",
          "install.packages(\"rstac\").", call. = FALSE)
   }
