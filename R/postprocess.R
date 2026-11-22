@@ -32,15 +32,15 @@
 #' sans second tamisage.
 #'
 #' @section Bords et pixels sans donnée : **Convention provisoire, non
-#'   sourcée (choix du package), gèle au jalon 2.** Un pixel hors de l'image
-#'   et un pixel **sans donnée** sont traités de la même façon : ils ne
-#'   propagent rien à la dilatation et ne retirent rien à l'érosion (élément
-#'   neutre), et la fermeture ne les rend jamais détectés. Conséquences : la
-#'   fermeture ne retire aucun pixel détecté (un objet qui touche le bord
-#'   n'est pas rogné) et n'ajoute de pixels que dans l'image, là où il y a
-#'   une donnée. Un pixel est sans donnée s'il vaut `NA` dans la matrice
+#'   sourcée (choix du package), gèle au jalon 2.** L'image est traitée comme
+#'   une fenêtre sur un plan **vide** à l'infini : la fermeture est calculée
+#'   sur l'image bordée de pixels non détectés, puis recadrée. Elle ne retire
+#'   donc aucun pixel détecté, même au bord, et ne relie pas un objet au bord
+#'   de l'image (contrairement à une érosion qui tiendrait l'extérieur pour
+#'   détecté). Un pixel est **sans donnée** s'il vaut `NA` dans la matrice
 #'   `segmentation`, ou, quand `rcr` est fourni, si son `ratio_min_db` est
-#'   `NA`. Un pixel `NA` de `segmentation` n'est pas détecté. Le résultat de
+#'   `NA` : il compte comme non détecté pour la surface et la fermeture, et
+#'   n'est **jamais rendu détecté**, même dans un trou comblé. Le résultat de
 #'   [rcr_segment()] ne contient pas de `NA` : fournir `rcr` pour protéger
 #'   les pixels sans ratio.
 #'
@@ -216,14 +216,21 @@ table_objets <- function(objet, k, surface_pixel_m2, ratio, date_min) {
 }
 
 # Fermeture d'une matrice logique par un carré de côté k (impair) :
-# dilatation puis érosion, chacune séparable (lignes puis colonnes). Les
-# pixels hors image et `neutre` (sans donnée) sont FALSE à la dilatation et
-# TRUE à l'érosion ; ils ne sont jamais détectés en sortie.
+# dilatation puis érosion, chacune séparable (lignes puis colonnes), sur
+# l'image bordée de r = (k - 1) / 2 pixels FALSE (plan vide à l'infini :
+# l'érosion d'un pixel de l'image ne lit que la dilatation à distance <= r),
+# puis recadrée. Les pixels `neutre` (sans donnée) comptent comme FALSE et
+# sont rendus FALSE.
 fermeture_carre <- function(x, neutre, k) {
   r <- (k - 1L) %/% 2L
-  dilate <- filtre_carre(x & !neutre, r, any_ = TRUE)
-  erode <- filtre_carre(dilate | neutre, r, any_ = FALSE)
-  erode & !neutre
+  nr <- nrow(x)
+  nc <- ncol(x)
+  pad <- matrix(FALSE, nr + 2L * r, nc + 2L * r)
+  dedans_l <- r + seq_len(nr)
+  dedans_c <- r + seq_len(nc)
+  pad[dedans_l, dedans_c] <- x & !neutre
+  ferme <- filtre_carre(filtre_carre(pad, r, any_ = TRUE), r, any_ = FALSE)
+  ferme[dedans_l, dedans_c, drop = FALSE] & !neutre
 }
 
 # Maximum (any_ = TRUE) ou minimum (any_ = FALSE) d'une matrice logique sur
