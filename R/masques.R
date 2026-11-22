@@ -101,7 +101,7 @@ masque_foret <- function(tcd, grille, parametres = parametres_sufosat(),
   }
   if (!est_scalaire_num(marge_2019) || !is.finite(marge_2019) || marge_2019 < 0 ||
       marge_2019 != floor(marge_2019)) {
-    stop("`marge_2019` doit être un nombre entier de pixels, au moins égal à 0.",
+    stop("`marge_2019` doit \u00eatre un nombre entier de pixels, au moins \u00e9gal \u00e0 0.",
          call. = FALSE)
   }
   valide_fichier(fichier)
@@ -167,11 +167,11 @@ masque_foret <- function(tcd, grille, parametres = parametres_sufosat(),
 #' @export
 masquer_hors_foret <- function(x, foret, fichier = "") {
   if (!inherits(x, "SpatRaster")) {
-    stop("`x` doit être un SpatRaster.", call. = FALSE)
+    stop("`x` doit \u00eatre un SpatRaster.", call. = FALSE)
   }
   valide_raster_une_couche(foret, "foret")
   if (!isTRUE(terra::compareGeom(x, foret, stopOnError = FALSE))) {
-    stop("`foret` doit être sur la même grille que `x` (voir masque_foret()).",
+    stop("`foret` doit \u00eatre sur la m\u00eame grille que `x` (voir masque_foret()).",
          call. = FALSE)
   }
   valide_fichier(fichier)
@@ -249,25 +249,25 @@ masque_feu <- function(objets, brules, parametres = parametres_sufosat()) {
     names(objets) <- "identifiant"
   }
   if (!inherits(objets, "SpatVector") || terra::geomtype(objets) != "polygons") {
-    stop("`objets` doit être un SpatVector de polygones ou un SpatRaster des identifiants.",
+    stop("`objets` doit \u00eatre un SpatVector de polygones ou un SpatRaster des identifiants.",
          call. = FALSE)
   }
   if (!"identifiant" %in% names(objets)) {
     stop("`objets` doit avoir une colonne `identifiant`.", call. = FALSE)
   }
   if (anyNA(objets$identifiant) || anyDuplicated(objets$identifiant)) {
-    stop("La colonne `identifiant` de `objets` doit être sans NA ni doublon.", call. = FALSE)
+    stop("La colonne `identifiant` de `objets` doit \u00eatre sans NA ni doublon.", call. = FALSE)
   }
   if (!nzchar(terra::crs(objets))) {
-    stop("`objets` doit avoir un système de coordonnées.", call. = FALSE)
+    stop("`objets` doit avoir un syst\u00e8me de coordonn\u00e9es.", call. = FALSE)
   }
   if (!inherits(brules, "SpatVector") ||
       (nrow(brules) > 0L && terra::geomtype(brules) != "polygons")) {
-    stop("`brules` doit être un SpatVector de polygones (surfaces brûlées EFFIS).",
+    stop("`brules` doit \u00eatre un SpatVector de polygones (surfaces br\u00fbl\u00e9es EFFIS).",
          call. = FALSE)
   }
   if (!nzchar(terra::crs(brules))) {
-    stop("`brules` doit avoir un système de coordonnées.", call. = FALSE)
+    stop("`brules` doit avoir un syst\u00e8me de coordonn\u00e9es.", call. = FALSE)
   }
 
   plan <- !isTRUE(terra::is.lonlat(objets))
@@ -280,8 +280,9 @@ masque_feu <- function(objets, brules, parametres = parametres_sufosat()) {
       brules <- terra::project(brules, objets)
     }
     zone <- terra::aggregate(brules)
-    morceaux <- terra::intersect(objets[, "identifiant"], zone)
-    if (nrow(morceaux) > 0L) {
+    touche <- as.vector(terra::is.related(objets, zone, "intersects"))
+    if (any(touche)) {
+      morceaux <- terra::intersect(objets[touche, "identifiant"], zone)
       s <- tapply(surface(morceaux), factor(morceaux$identifiant, levels = id), sum)
       s[is.na(s)] <- 0
       brule_m2 <- as.numeric(s)
@@ -316,24 +317,24 @@ masque_feu <- function(objets, brules, parametres = parametres_sufosat()) {
 
 valide_raster_une_couche <- function(x, nom) {
   if (!inherits(x, "SpatRaster") || terra::nlyr(x) != 1L) {
-    stop("`", nom, "` doit être un SpatRaster à une couche.", call. = FALSE)
+    stop("`", nom, "` doit \u00eatre un SpatRaster \u00e0 une couche.", call. = FALSE)
   }
   invisible(x)
 }
 
 valide_grille <- function(grille) {
   if (!inherits(grille, "SpatRaster")) {
-    stop("`grille` doit être un SpatRaster (la grille de sortie).", call. = FALSE)
+    stop("`grille` doit \u00eatre un SpatRaster (la grille de sortie).", call. = FALSE)
   }
   if (!nzchar(terra::crs(grille))) {
-    stop("`grille` doit avoir un système de coordonnées.", call. = FALSE)
+    stop("`grille` doit avoir un syst\u00e8me de coordonn\u00e9es.", call. = FALSE)
   }
   invisible(grille)
 }
 
 valide_fichier <- function(fichier) {
   if (!is.character(fichier) || length(fichier) != 1L || is.na(fichier)) {
-    stop("`fichier` doit être un chemin, ou \"\".", call. = FALSE)
+    stop("`fichier` doit \u00eatre un chemin, ou \"\".", call. = FALSE)
   }
   invisible(fichier)
 }
@@ -350,7 +351,7 @@ detections_sur_grille <- function(det, grille) {
       stop("`detections_2019` doit contenir des polygones.", call. = FALSE)
     }
     if (!nzchar(terra::crs(det))) {
-      stop("`detections_2019` doit avoir un système de coordonnées.", call. = FALSE)
+      stop("`detections_2019` doit avoir un syst\u00e8me de coordonn\u00e9es.", call. = FALSE)
     }
     if (!terra::same.crs(det, modele)) {
       det <- terra::project(det, modele)
@@ -366,5 +367,5 @@ detections_sur_grille <- function(det, grille) {
     d <- terra::ifel(is.na(det), 0, det)
     return(d != 0)
   }
-  stop("`detections_2019` doit être NULL, un SpatRaster ou un SpatVector.", call. = FALSE)
+  stop("`detections_2019` doit \u00eatre NULL, un SpatRaster ou un SpatVector.", call. = FALSE)
 }
