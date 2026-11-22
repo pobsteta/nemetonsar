@@ -274,13 +274,10 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
 
   # Objets : racines, numérotation par première cellule, table. ---------------
   racine_o <- racines_equivalences(ob$n, ob$a, ob$b)
-  racines <- sort(unique(racine_o))
-  premiere <- vapply(split(ob$premiere, factor(racine_o, levels = racines)), min, numeric(1))
-  ordre <- order(premiere)
-  identifiant <- integer(ob$n)
-  identifiant_racine <- integer(length(racines))
-  identifiant_racine[ordre] <- seq_along(racines)
-  identifiant <- identifiant_racine[match(racine_o, racines)]
+  # Racines rangées par première cellule de leur objet.
+  par_cellule <- order(ob$premiere)
+  racines <- unique(racine_o[par_cellule])
+  identifiant <- match(racine_o, racines)
   k <- length(racines)
   table <- table_objets_blocs(
     identifiant, k, ob$taille, resolution_m^2,
@@ -368,10 +365,9 @@ etiquette_bande <- function(masque, connexite, etat, debut, nc) {
   m[dedans] <- etat$n + local
   cellule <- (debut - 1) * nc + dedans
   taille <- tabulate(local, nbins = length(u))
-  premiere <- rep(Inf, length(u))
-  if (length(u) > 0L) {
-    premiere <- vapply(split(cellule, factor(local, levels = seq_along(u))), min, numeric(1))
-  }
+  # `dedans` est croissant : la première occurrence d'une étiquette est sa
+  # plus petite cellule.
+  premiere <- cellule[match(seq_along(u), local)]
   # Arêtes avec la bande précédente.
   haut <- etat$derniere_ligne
   bas <- m[, 1L]
@@ -393,7 +389,7 @@ etiquette_bande <- function(masque, connexite, etat, debut, nc) {
   etat$a <- c(etat$a, a)
   etat$b <- c(etat$b, b)
   etat$taille <- c(etat$taille, taille)
-  etat$premiere <- c(etat$premiere, unname(premiere))
+  etat$premiere <- c(etat$premiere, premiere)
   etat$n <- etat$n + length(u)
   etat$derniere_ligne <- m[, ncol(m)]
   list(matrice = m, etat = etat)

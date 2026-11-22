@@ -18,6 +18,8 @@ Encoding: UTF-8
 Language: fr
 Depends:
     R (>= 4.1.0)
+Imports:
+    terra
 Suggests:
     covr,
     testthat (>= 3.0.0)

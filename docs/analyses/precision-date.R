@@ -239,6 +239,33 @@ for (nm in names(profils)) {
                      collapse = " "), "\n")
 }
 
+# --- Contrôle : effet de la fin de série (cause n° 1) -------------------------
+# Avec xb = Inf, le RCR reste au niveau de la chute jusqu'à la fin de la série :
+# la date du minimum devrait dépendre du nombre d'images après la coupe.
+cat("\n## Effet de la fin de série (cadence 12 j, chute -6 dB, fenêtre 3)\n\n")
+ligne_md(c("fin de série", "xb", "n", "exacte % [IC]", "±1 % [IC]"))
+ligne_md(rep("---", 5))
+set.seed(GRAINE + 1L)
+dates_c <- seq(DEBUT, FIN, by = 12L)
+k1_c <- which(dates_c > DATE_COUPE)[1]
+sp_c <- array(rgamma(NR * NC * length(dates_c), shape = ENL, rate = ENL),
+              c(NR, NC, length(dates_c)))
+for (fin in c("2020-12-31", "2021-06-30", "2021-12-31")) {
+  garde <- dates_c <= as.Date(fin)
+  dd <- dates_c[garde]
+  se <- array(SIGMA0, c(NR, NC, length(dd)))
+  se[, COL_COUPE, k1_c:length(dd)] <- SIGMA0 * db_vers_lineaire(-6)
+  se <- se * sp_c[, , garde]
+  fi <- s1_filter_multitemp(se, dd, parametres_sufosat(fenetre_filtre = 3L))
+  for (xb in c(Inf, 5)) {
+    r <- rcr_compute(fi, dd, parametres_sufosat(fenetre_filtre = 3L, xb = xb))
+    e <- (match(r$date_min, date_vers_yyddd(dd)) - k1_c)[as.vector(masque_coupe)]
+    ligne_md(c(fin, xb_txt(xb), length(e),
+               paste(pct(mean(e == 0)), ic_txt(sum(e == 0), length(e))),
+               paste(pct(mean(abs(e) <= 1)), ic_txt(sum(abs(e) <= 1), length(e)))))
+  }
+}
+
 # --- Figures (PNG, hors dépôt) ----------------------------------------------
 png(file.path(dossier_fig, "precision-date-erreurs.png"), width = 1400, height = 900, res = 130)
 op <- par(mfrow = c(2, 4), mar = c(4, 4, 3, 1))
