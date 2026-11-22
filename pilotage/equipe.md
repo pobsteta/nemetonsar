@@ -62,6 +62,7 @@
 | [020](missions/020-masque-bdforet.md) masque forêt BD Forêt v2 | `dev` | opus | donner | 3 oui | 8 |
 | [021](missions/021-orbites-parallele.md) orbites en parallèle (option 3) | `dev` | opus | donner | 3 oui | 9 |
 | [022](missions/022-acquisition-bandes.md) acquisition par bandes à disque borné | `dev` | opus | donner | 3 oui | 9 |
+| [017](missions/017-tuile-pilote-landes.md) tuile pilote des Landes et comparaison à la v3.0.1 | `dev` | opus | donner | 3 oui, la 3e sous condition (accès v3.0.1) | 10 |
 
 ### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
 

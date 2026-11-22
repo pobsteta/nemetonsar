@@ -25,7 +25,7 @@ _Modèle de carte :_
 
 ## Planifié
 
-- 017 tuile pilote réelle avec TCD et EFFIS, comparaison à la v3.0.1 · depuis le cycle 5 · attend Pascal (AOI pilote, accès CLMS)
+- [017-tuile-pilote-landes](missions/017-tuile-pilote-landes.md) · depuis le cycle 5 · lancée au cycle 10
 
 
 ## Terminé
