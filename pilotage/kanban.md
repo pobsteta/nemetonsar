@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 2 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 3 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -28,6 +28,18 @@ _Modèle de carte :_
 
 ## Terminé
 
+- [008-precision-date](missions/008-precision-date.md) · depuis le cycle 3
+  - Homme : `analyste` (opus)
+  - Mission : précision de la date sur séries simulées
+  - Moyens : voir la fiche
+- [009-chaine-raster-blocs](missions/009-chaine-raster-blocs.md) · depuis le cycle 3
+  - Homme : `dev` (opus)
+  - Mission : chaîne sur rasters par blocs, GeoTIFF et GeoPackage
+  - Moyens : voir la fiche
+- [010-datation-xb](missions/010-datation-xb.md) · depuis le cycle 3
+  - Homme : `dev` (opus)
+  - Mission : datation à Xb fini (`xb_date`)
+  - Moyens : voir la fiche
 - [006-postprocess](missions/006-postprocess.md) · depuis le cycle 2
   - Homme : `dev` (opus)
   - Mission : objets < 0,1 ha retirés, fermeture, table des objets
@@ -80,3 +92,4 @@ l'inscrit avec ce qu'elle nous apprend._
 
 - cycle 1 · le cœur de la détection testé sur données synthétiques : paramètres sourcés (`parametres_sufosat()`), ratio de changement radar et date du minimum (`rcr_compute()`, `rcr_combine_orbites()`), segmentation en deux seuils (`rcr_segment()`), plus les référentiels des paramètres et des licences · pour Pascal · première livraison : on peut voir, sur une série synthétique, une coupe datée et segmentée selon la méthode ; pas encore sur une vraie image
 - cycle 2 · la chaîne de détection complète sur données synthétiques : filtre de Quegan et Yu (`s1_filter_multitemp()`), ratio, segmentation, post-traitement (`postprocess()`) et table des objets (surface, date, ratio) · pour Pascal · de plus que le cycle 1 : une série synthétique donne maintenant des objets de coupe filtrés, nettoyés et datés, et l'on sait que la date reste imprécise avec les réglages provisoires
+- cycle 3 · la chaîne sur fichiers : `nemetonsar_detecter()` lit des rasters par blocs et écrit `dates.tif`, `ratio.tif`, `objets.tif` et `objets.gpkg` ; la date de coupe est calculée avec `xb_date = 5` (96 % de dates exactes en simulation contre 16 %) ; ADR 0003 (terra) acceptée · pour Pascal · de plus que le cycle 2 : des fichiers qui s'ouvrent dans QGIS, et une date fiable en simulation ; mauvaise nouvelle apprise : ≈ 10 h estimées par tuile en base R
