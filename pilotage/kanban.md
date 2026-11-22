@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 3 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 4 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -28,6 +28,18 @@ _Modèle de carte :_
 
 ## Terminé
 
+- [011-aoi](missions/011-aoi.md) · depuis le cycle 4
+  - Homme : `dev` (opus)
+  - Mission : AOI, validation et tuiles MGRS en UTM
+  - Moyens : voir la fiche
+- [012-masques](missions/012-masques.md) · depuis le cycle 4
+  - Homme : `dev` (opus)
+  - Mission : masques forêt (TCD) et feu (EFFIS)
+  - Moyens : voir la fiche
+- [013-recherche-s1](missions/013-recherche-s1.md) · depuis le cycle 4
+  - Homme : `dev` (opus)
+  - Mission : recherche et lecture Sentinel-1 RTC (Planetary Computer)
+  - Moyens : voir la fiche
 - [008-precision-date](missions/008-precision-date.md) · depuis le cycle 3
   - Homme : `analyste` (opus)
   - Mission : précision de la date sur séries simulées
@@ -93,3 +105,4 @@ l'inscrit avec ce qu'elle nous apprend._
 - cycle 1 · le cœur de la détection testé sur données synthétiques : paramètres sourcés (`parametres_sufosat()`), ratio de changement radar et date du minimum (`rcr_compute()`, `rcr_combine_orbites()`), segmentation en deux seuils (`rcr_segment()`), plus les référentiels des paramètres et des licences · pour Pascal · première livraison : on peut voir, sur une série synthétique, une coupe datée et segmentée selon la méthode ; pas encore sur une vraie image
 - cycle 2 · la chaîne de détection complète sur données synthétiques : filtre de Quegan et Yu (`s1_filter_multitemp()`), ratio, segmentation, post-traitement (`postprocess()`) et table des objets (surface, date, ratio) · pour Pascal · de plus que le cycle 1 : une série synthétique donne maintenant des objets de coupe filtrés, nettoyés et datés, et l'on sait que la date reste imprécise avec les réglages provisoires
 - cycle 3 · la chaîne sur fichiers : `nemetonsar_detecter()` lit des rasters par blocs et écrit `dates.tif`, `ratio.tif`, `objets.tif` et `objets.gpkg` ; la date de coupe est calculée avec `xb_date = 5` (96 % de dates exactes en simulation contre 16 %) ; ADR 0003 (terra) acceptée · pour Pascal · de plus que le cycle 2 : des fichiers qui s'ouvrent dans QGIS, et une date fiable en simulation ; mauvaise nouvelle apprise : ≈ 10 h estimées par tuile en base R
+- cycle 4 · les entrées réelles : une AOI découpée en tuiles UTM (`aoi_preparer()`), les images Sentinel-1 RTC trouvées et lues depuis le Planetary Computer (`s1_rechercher()`, `s1_lire()`), les masques forêt et feu (`masque_foret()`, `masque_feu()`) · pour Pascal · de plus que le cycle 3 : les briques pour passer d'une AOI réelle à des piles d'images réelles ; pas encore enchaînées en une commande
