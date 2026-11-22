@@ -46,8 +46,8 @@
 #'
 #' @section Mémoire : Le pic vient de la passe 1 : pour une orbite, la bande
 #'   bordée est un tableau pixels x dates en double, que le filtre puis
-#'   [rcr_compute()] recopient (de l'ordre de trois copies, mesuré par la
-#'   mission 016, `docs/analyses/performance.md`). Les passes 2
+#'   [rcr_compute()] recopient (pic du tas R de l'ordre de six fois la bande
+#'   lue, mesuré ; voir `docs/analyses/performance.md`, mission 016). Les passes 2
 #'   et 3 ne gardent qu'une bande de quelques matrices pixels, plus une
 #'   entrée par composante connexe (étiquettes, tailles, première cellule) et
 #'   par couple (objet, date) : ces tables grandissent avec le nombre de

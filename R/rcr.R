@@ -163,7 +163,12 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
   if (pleine) {
     total <- rep(nt, npix)
     position <- NULL
-    for (t in seq_len(nt)[-1L]) x[, t] <- x[, t - 1L] + x[, t]
+    somme <- x[, 1L]
+    for (t in seq_len(nt)[-1L]) {
+      somme <- somme + x[, t]
+      x[, t] <- somme
+    }
+    rm(somme)
   } else {
     total <- integer(npix)
     somme <- numeric(npix)
@@ -188,10 +193,15 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
     if (is.null(pix)) x[, j] else x[pix, j]
   }
   # Pixels dont la k-ième image valide reçoit un ratio : suivie d'au moins
-  # xa images valides et admise. NULL : tous ; integer(0) : aucun.
-  pixels_k <- function(k) {
-    if (pleine) return(if (admise[k]) NULL else integer(0))
-    which(total >= k + xa & admise[position[, k]])
+  # xa images valides et admise ; parmi `restreint` si non NULL. NULL : tous ;
+  # integer(0) : aucun.
+  pixels_k <- function(k, restreint) {
+    if (is.null(restreint)) {
+      if (pleine) return(if (admise[k]) NULL else integer(0))
+      return(which(total >= k + xa & admise[position[, k]]))
+    }
+    if (pleine) return(if (admise[k]) restreint else integer(0))
+    restreint[total[restreint] >= k + xa & admise[position[restreint, k]]]
   }
   # Rapport linéaire Ma / Mb à la k-ième image valide, Mb sur `nb_avant`
   # images (Inf : toutes), à partir des sommes cumulées : mêmes opérations,
@@ -213,53 +223,79 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
   }
 
   # Passe 2 : ratio à chaque image valide suivie d'au moins xa images valides.
-  # Le ratio en dB est croissant avec le rapport Ma / Mb : seul le logarithme
-  # coûte. On cherche d'abord, en linéaire, le rapport minimal de chaque pixel
-  # (2a) ; puis (2b) on ne passe en dB que les rapports à moins de 1e-6 (en
-  # relatif) de ce minimum, et on applique à eux seuls la règle de mise à
-  # jour : un rapport plus grand d'un facteur 1 + 1e-6 donne un ratio plus
-  # grand d'environ 4e-6 dB, bien au-delà de l'erreur d'arrondi du
-  # logarithme ; il ne peut ni être le minimum ni l'égaler. Le minimum et sa
-  # date sont donc ceux du calcul de tous les ratios. Si un rapport n'est pas
-  # strictement positif et fini ou infini (cas dégénérés), on calcule tous
-  # les ratios (2c), comme la définition.
-  `%||%` <- function(a, b) if (is.null(a)) b else a
-  balayer <- function(traiter) {
+  # Le ratio en dB est lineaire_vers_db() du rapport Ma / Mb, et seul le
+  # logarithme coûte. (2a) On suit en linéaire, pour chaque pixel, le plus
+  # petit rapport `m1`, sa première position `k1` et le plus petit des autres
+  # rapports `m2`. Si `m2` dépasse `m1` d'un facteur 1 + 1e-6, aucun autre
+  # ratio ne peut égaler ni passer sous celui de `k1` (l'écart, environ
+  # 4e-6 dB, dépasse de loin l'erreur d'arrondi du logarithme) : le minimum
+  # est lineaire_vers_db(m1), atteint pour la première fois en `k1`. (2b)
+  # Pour les autres pixels (rapports presque égaux, plateaux), on passe en dB
+  # les rapports à moins de 1e-6 du minimum et on leur applique la règle de
+  # mise à jour, date par date. Les résultats sont ceux du calcul de tous
+  # les ratios. Si un rapport n'est pas strictement positif (cas
+  # dégénérés), on calcule tous les ratios de tous les pixels, comme la
+  # définition.
+  balayer <- function(traiter, restreint = NULL) {
     for (k in seq_len(max(lim, 0L))) {
-      pix <- pixels_k(k)
+      pix <- pixels_k(k, restreint)
       if (!is.null(pix) && length(pix) == 0L) next
       c_k <- cumul_j(k, pix)
       s_apres <- cumul_j(k + xa, pix) - c_k
       traiter(k, pix, s_apres, c_k)
     }
   }
-  q_min <- rep(Inf, npix)
-  q_min_date <- if (dater_a_part) rep(Inf, npix) else NULL
+  suivi <- function() list(m1 = rep(Inf, npix), m2 = rep(Inf, npix))
+  # Met à jour m1, m2 (et k1 si `position` est vrai) avec les rapports q.
+  suivre <- function(etat, q, pix, k, position) {
+    if (is.null(pix)) {
+      if (position) k1[q < etat$m1] <<- k
+      etat$m2 <- pmin(etat$m2, pmax(q, etat$m1))
+      etat$m1 <- pmin(etat$m1, q)
+    } else {
+      m1 <- etat$m1[pix]
+      if (position) k1[pix[q < m1]] <<- k
+      etat$m2[pix] <- pmin(etat$m2[pix], pmax(q, m1))
+      etat$m1[pix] <- pmin(m1, q)
+    }
+    etat
+  }
+  k1 <- rep(NA_integer_, npix)
+  detection <- suivi()
+  datation <- if (dater_a_part) suivi() else NULL
   regulier <- TRUE
   balayer(function(k, pix, s_apres, c_k) {
     q <- rapport_k(k, pix, s_apres, c_k, xb)
     if (is.na(m <- min(q)) || m <= 0) regulier <<- FALSE
-    if (is.null(pix)) q_min <<- pmin(q_min, q) else q_min[pix] <<- pmin(q_min[pix], q)
+    detection <<- suivre(detection, q, pix, k, !dater_a_part)
     if (dater_a_part) {
       q <- rapport_k(k, pix, s_apres, c_k, xb_date)
       if (is.na(m <- min(q)) || m <= 0) regulier <<- FALSE
-      if (is.null(pix)) {
-        q_min_date <<- pmin(q_min_date, q)
-      } else {
-        q_min_date[pix] <<- pmin(q_min_date[pix], q)
-      }
+      datation <<- suivre(datation, q, pix, k, TRUE)
     }
   })
   marge <- 1 + 1e-6
-  q_lim <- q_min * marge
-  q_lim_date <- if (dater_a_part) q_min_date * marge else NULL
-  rm(q_min, q_min_date)
 
   # `meilleur` : minimum du ratio de détection (xb) ; `meilleur_date` et
   # `k_avant` : minimum du ratio de datation (xb_date) et sa position.
   meilleur <- rep(Inf, npix)
   meilleur_date <- if (dater_a_part) rep(Inf, npix) else NULL
   k_avant <- rep(NA_integer_, npix)
+  if (regulier) {
+    proche <- detection$m2 <= detection$m1 * marge
+    if (dater_a_part) proche <- proche | datation$m2 <= datation$m1 * marge
+    proche <- proche & !is.na(k1)
+    net <- which(!is.na(k1) & !proche)
+    meilleur[net] <- lineaire_vers_db(detection$m1[net])
+    k_avant[net] <- k1[net]
+    restreint <- which(proche)
+    q_lim <- detection$m1 * marge
+    q_lim_date <- if (dater_a_part) datation$m1 * marge else NULL
+  } else {
+    restreint <- NULL
+  }
+  rm(detection, datation, k1)
+
   # Applique la règle de mise à jour aux rapports `q` des pixels `pix`
   # retenus par `garde` (TRUE : tous) ; rend les positions mises à jour.
   mettre_a_jour <- function(q, pix, garde, courant) {
@@ -281,19 +317,21 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
       k_avant[maj$pix[maj$mieux]] <<- k
     }
   }
-  balayer(function(k, pix, s_apres, c_k) {
-    q <- rapport_k(k, pix, s_apres, c_k, xb)
-    garde <- if (regulier) q <= (q_lim[pix %||% TRUE]) else TRUE
-    maj <- mettre_a_jour(q, pix, garde, meilleur)
-    meilleur <<- maj$courant
-    if (dater_a_part) {
-      q <- rapport_k(k, pix, s_apres, c_k, xb_date)
-      garde <- if (regulier) q <= (q_lim_date[pix %||% TRUE]) else TRUE
-      maj <- mettre_a_jour(q, pix, garde, meilleur_date)
-      meilleur_date <<- maj$courant
-    }
-    marquer(k, maj)
-  })
+  if (is.null(restreint) || length(restreint) > 0L) {
+    balayer(function(k, pix, s_apres, c_k) {
+      q <- rapport_k(k, pix, s_apres, c_k, xb)
+      garde <- if (regulier) q <= q_lim[pix] else TRUE
+      maj <- mettre_a_jour(q, pix, garde, meilleur)
+      meilleur <<- maj$courant
+      if (dater_a_part) {
+        q <- rapport_k(k, pix, s_apres, c_k, xb_date)
+        garde <- if (regulier) q <= q_lim_date[pix] else TRUE
+        maj <- mettre_a_jour(q, pix, garde, meilleur_date)
+        meilleur_date <<- maj$courant
+      }
+      marquer(k, maj)
+    }, restreint)
+  }
   rm(meilleur_date)
 
   trouve <- which(!is.na(k_avant))

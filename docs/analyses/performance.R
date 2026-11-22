@@ -2,7 +2,9 @@
 # ---------------------------------------------------------------------------
 # Script reproductible (graine fixée), à lancer depuis la racine du dépôt :
 #
-#   Rscript docs/analyses/performance.R [lignes] [colonnes] [dates] [orbites] [empreinte.rds]
+#   Rscript docs/analyses/performance.R [lignes] [colonnes] [dates] [orbites] [empreinte.rds] [lignes_par_bloc]
+#
+# (empreinte : "-" pour ne pas l'écrire ; lignes_par_bloc : défaut du package si absent)
 #
 # Défauts : 200 lignes x 500 colonnes x 300 dates x 3 orbites (1e5 pixels,
 # 9e7 valeurs). Les piles synthétiques sont écrites en GeoTIFF FLT4S dans
@@ -29,7 +31,8 @@ NL <- arg_entier(1, 200L)
 NC <- arg_entier(2, 500L)
 NT <- arg_entier(3, 300L)
 NORB <- arg_entier(4, 3L)
-EMPREINTE <- if (length(args) >= 5) args[5] else NA_character_
+EMPREINTE <- if (length(args) >= 5 && args[5] != "-") args[5] else NA_character_
+LPB <- if (length(args) >= 6) as.integer(args[6]) else NULL
 GRAINE <- 20261122L
 ENL <- 4.4
 NB_COUPES <- 80L
@@ -80,7 +83,7 @@ profil <- tempfile(fileext = ".out")
 invisible(gc(reset = TRUE))
 Rprof(profil, interval = 0.01)
 chrono <- system.time(
-  res <- nemetonsar_detecter(orbites, dates, dossier)
+  res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = LPB)
 )
 Rprof(NULL)
 memoire <- gc()
