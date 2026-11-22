@@ -171,3 +171,4 @@
 2026-11-22 · Pascal · ADR 0004 · tranchée : option 3 (orbites en parallèle, base R, sans C) ; le C se rejuge plus tard sur une tuile réelle
 2026-11-22 · Pascal · acquisition · décidé : acquisition par bandes à disque borné (≈ 23 Go par tuile), les images ne sont pas gardées d'une exécution à l'autre
 2026-11-22 · Pascal · 020 · décidé : FF0 et FO0 gardés dans le masque forêt BD Forêt (définition IGN)
+2026-11-22 · Claude (orchestrateur) · 021, 022 · rouge attendu : travail en cours du cycle 9 poussé pour le hook de la session ; CI rouge possible jusqu'aux rendus

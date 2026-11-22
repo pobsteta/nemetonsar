@@ -429,3 +429,107 @@ test_that("mission 018 : ratio à moins de 1e-6 dB d'un seuil, détection brute 
     expect_equal(seg$objets$date_mediane_date, direct$objets$date_mediane_date)
   }
 })
+
+# Mission 021 : orbites en parallèle dans la passe 1 ---------------------------
+
+# Troisième orbite (ascendante, autre bruit) pour les essais à trois orbites.
+orbites3 <- c(orbites, list(asc2 = pile_synthetique(nl, nc, dates_a, coupes, 3)))
+dates3 <- c(dates, list(dates_a))
+
+# Toutes les sorties d'un appel, pour une comparaison au bit près.
+sorties_detecter <- function(res) {
+  c(lapply(res$fichiers[c("dates", "ratio", "objets_raster")], lire),
+    list(objets = res$objets, lignes_par_bloc = res$lignes_par_bloc))
+}
+
+test_that("mission 021 : nombre de processus (défaut, bornes, entrées invalides)", {
+  ancien <- Sys.getenv("_R_CHECK_LIMIT_CORES_", NA)
+  on.exit(if (is.na(ancien)) Sys.unsetenv("_R_CHECK_LIMIT_CORES_") else
+    Sys.setenv("_R_CHECK_LIMIT_CORES_" = ancien), add = TRUE)
+  Sys.unsetenv("_R_CHECK_LIMIT_CORES_")
+  local_mocked_bindings(fork_disponible = function() TRUE)
+  coeurs <- parallel::detectCores()
+  attendu <- if (is.na(coeurs)) 1L else min(3L, max(1L, coeurs - 1L))
+  expect_identical(nb_processus(NULL, 3L), attendu)
+  expect_identical(nb_processus(NULL, 1L), 1L)
+  expect_identical(nb_processus(8, 3L), 3L)
+  expect_identical(nb_processus(1L, 3L), 1L)
+  Sys.setenv("_R_CHECK_LIMIT_CORES_" = "TRUE")
+  expect_identical(nb_processus(8, 3L), 2L)
+  Sys.setenv("_R_CHECK_LIMIT_CORES_" = "false")
+  expect_identical(nb_processus(8, 3L), 3L)
+  local_mocked_bindings(fork_disponible = function() FALSE)
+  expect_identical(nb_processus(8, 3L), 1L)
+  for (mauvais in list(0, -1, 1.5, NA, "2", c(1, 2), Inf)) {
+    expect_error(nb_processus(mauvais, 3L), "processus")
+  }
+  expect_error(nemetonsar_detecter(orbites, dates, tempfile("det-"), processus = 0),
+               "processus")
+})
+
+for (k in 1:3) {
+  test_that(paste("mission 021 :", k, "orbite(s), série et parallèle identiques au bit près"), {
+    skip_on_os("windows")
+    o <- orbites3[seq_len(k)]
+    d <- dates3[seq_len(k)]
+    for (lpb in c(1L, 7L, 30L)) {
+      serie <- nemetonsar_detecter(o, d, tempfile("det-"), lignes_par_bloc = lpb,
+                                   processus = 1L)
+      for (np in unique(c(2L, k))) {
+        para <- nemetonsar_detecter(o, d, tempfile("det-"), lignes_par_bloc = lpb,
+                                    processus = np)
+        expect_identical(sorties_detecter(para), sorties_detecter(serie))
+      }
+      # Le défaut (NULL) donne aussi le même résultat.
+      defaut <- nemetonsar_detecter(o, d, tempfile("det-"), lignes_par_bloc = lpb)
+      expect_identical(sorties_detecter(defaut), sorties_detecter(serie))
+    }
+  })
+}
+
+test_that("mission 021 : parallèle avec masque forêt identique à la série", {
+  skip_on_os("windows")
+  set.seed(21)
+  foret <- terra::rast(grille_utm(nl, nc),
+                       vals = sample(c(TRUE, FALSE, NA), nl * nc, replace = TRUE,
+                                     prob = c(0.7, 0.2, 0.1)))
+  for (lpb in c(2L, 11L)) {
+    serie <- nemetonsar_detecter(orbites3, dates3, tempfile("det-"), lignes_par_bloc = lpb,
+                                 foret = foret, processus = 1L)
+    para <- nemetonsar_detecter(orbites3, dates3, tempfile("det-"), lignes_par_bloc = lpb,
+                                foret = foret, processus = 3L)
+    expect_identical(sorties_detecter(para), sorties_detecter(serie))
+  }
+})
+
+test_that("mission 021 : sans fork, repli en série, identique", {
+  serie <- nemetonsar_detecter(orbites3, dates3, tempfile("det-"), lignes_par_bloc = 7L,
+                               processus = 1L)
+  local_mocked_bindings(
+    fork_disponible = function() FALSE,
+    orbites_en_parallele = function(...) stop("le repli en série n'a pas joué")
+  )
+  for (np in list(NULL, 3L)) {
+    repli <- nemetonsar_detecter(orbites3, dates3, tempfile("det-"), lignes_par_bloc = 7L,
+                                 processus = np)
+    expect_identical(sorties_detecter(repli), sorties_detecter(serie))
+  }
+})
+
+test_that("mission 021 : une erreur dans un processus enfant remonte clairement", {
+  skip_on_os("windows")
+  local_mocked_bindings(rcr_compute = function(...) stop("panne simulée"))
+  expect_error(
+    nemetonsar_detecter(orbites, dates, tempfile("det-"), lignes_par_bloc = 7L, processus = 2L),
+    "Orbite asc \\(lignes 1 à 8\\) : erreur dans le processus enfant.*panne simulée"
+  )
+})
+
+test_that("mission 021 : un processus enfant mort sans résultat remonte clairement", {
+  skip_on_os("windows")
+  local_mocked_bindings(rcr_compute = function(...) tools::pskill(Sys.getpid(), tools::SIGKILL))
+  expect_error(
+    nemetonsar_detecter(orbites, dates, tempfile("det-"), lignes_par_bloc = 7L, processus = 2L),
+    "Orbite asc .*sans résultat"
+  )
+})

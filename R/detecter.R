@@ -53,6 +53,19 @@
 #'   par couple (objet, date) : ces tables grandissent avec le nombre de
 #'   composantes de la tuile, pas avec sa surface.
 #'
+#' @section Parallélisme : Dans la passe 1, les orbites d'une même bande
+#'   sont traitées en parallèle (lecture, filtre, ratio), un processus par
+#'   orbite, par [parallel::mclapply()] (fork) ; la combinaison, le masque et
+#'   l'écriture restent dans le processus principal. Chaque processus enfant
+#'   ouvre sa pile ([terra::readStart()]) pour sa seule bande. Le résultat est
+#'   **identique au bit près** à celui du calcul en série : mêmes fonctions,
+#'   mêmes données, même ordre de combinaison. Là où le fork n'existe pas
+#'   (Windows), le calcul se fait en série. Mémoire (mission 019,
+#'   `docs/analyses/lecture-parallele.md`) : environ 1,6 Go par processus
+#'   enfant à 300 dates et 9 lignes par bloc, soit un pic total de l'ordre de
+#'   4,2 à 4,6 Go pour trois orbites, contre 2,4 Go en série. Sous
+#'   `R CMD check` (variable `_R_CHECK_LIMIT_CORES_`), au plus 2 processus.
+#'
 #' @section Masque forêt : Avec `foret`, le ratio et la date sont mis à `NA`
 #'   hors forêt (cellules du masque qui ne valent pas `TRUE`) **après la
 #'   passe 1** : le filtre multitemporel et le ratio des pixels de forêt sont
@@ -105,6 +118,10 @@
 #'   à trois états : `TRUE` (ou 1) forêt, `FALSE` (ou 0) non-forêt, `NA`
 #'   sans donnée, **traité comme non-forêt**. Voir la section « Masque
 #'   forêt ».
+#' @param processus Nombre de processus de la passe 1 (voir la section
+#'   « Parallélisme »). `NULL` : `min(nombre d'orbites, coeurs - 1)`, au
+#'   moins 1 ([parallel::detectCores()]). `1` : calcul en série. Jamais plus
+#'   que le nombre d'orbites. **Provisoire** (mission 021).
 #' @return Une liste : `fichiers`, vecteur nommé des chemins écrits
 #'   (`dates`, `ratio`, `objets_raster`, `objets`) ; `objets`, la table des
 #'   objets (mêmes colonnes que celle de [postprocess()]) ; `lignes_par_bloc`,
@@ -142,18 +159,24 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
                                 parametres = parametres_sufosat(),
                                 lignes_par_bloc = NULL,
                                 resolution_m = NULL,
-                                foret = NULL) {
-  detecter_blocs(orbites, dates, dossier, parametres, lignes_par_bloc, resolution_m, foret)
+                                foret = NULL,
+                                processus = NULL) {
+  detecter_blocs(orbites, dates, dossier, parametres, lignes_par_bloc, resolution_m, foret,
+                 processus = processus)
 }
 
 # Corps de nemetonsar_detecter(). Deux réglages internes, pour la détection
 # brute de nemetonsar_run() : `ecrire_objets = FALSE` n'écrit pas le
 # GeoPackage (pas de polygonisation) ; `type_ratio` est le type du
 # `ratio.tif` écrit ("FLT8S" : le ratio de la passe 1 sans arrondi).
+# `processus` : voir nemetonsar_detecter().
 detecter_blocs <- function(orbites, dates, dossier, parametres, lignes_par_bloc, resolution_m,
-                           foret, ecrire_objets = TRUE, type_ratio = "FLT4S") {
+                           foret, ecrire_objets = TRUE, type_ratio = "FLT4S",
+                           processus = NULL) {
   p <- valide_parametres(parametres)
   valide_orbites(orbites, dates)
+  n_proc <- nb_processus(processus, length(orbites))
+  parallele <- n_proc > 1L
   modele <- orbites[[1]]
   if (!is.null(foret)) {
     if (!inherits(foret, "SpatRaster") || terra::nlyr(foret) != 1L) {
@@ -201,19 +224,31 @@ detecter_blocs <- function(orbites, dates, dossier, parametres, lignes_par_bloc,
   rf <- (p$fenetre_filtre - 1L) %/% 2L
   ecr_ratio <- ecrivain(modele, tmp[["ratio"]], "FLT8S")
   ecr_date <- ecrivain(modele, tmp[["date"]], "INT4S")
-  for (o in orbites) terra::readStart(o)
+  # Une orbite sur la bande `lu`. En parallèle, chaque processus enfant
+  # ouvre sa pile pour sa bande : le processus principal n'en garde aucune
+  # ouverte, pour qu'aucun fichier ouvert ne soit partagé par le fork.
+  une_orbite <- function(k, lu) {
+    if (parallele) {
+      terra::readStart(orbites[[k]])
+      on.exit(terra::readStop(orbites[[k]]))
+    }
+    # Lu en vecteur puis mis en forme par dim<- : pas de copie.
+    serie <- terra::readValues(orbites[[k]], row = lu$debut, nrows = lu$n,
+                               col = 1, ncols = nc, mat = FALSE)
+    dim(serie) <- c(nc, lu$n, terra::nlyr(orbites[[k]]))
+    serie <- s1_filter_multitemp(serie, dates[[k]], p)
+    attr(serie, "nb_images_noyau") <- NULL
+    rcr_compute(serie, dates[[k]], p)
+  }
+  if (!parallele) for (o in orbites) terra::readStart(o)
   if (!is.null(foret)) terra::readStart(foret)
   for (b in seq_len(nrow(blocs))) {
     lu <- bande_bordee(blocs$debut[b], blocs$n[b], rf, nl)
-    resultats <- lapply(seq_along(orbites), function(k) {
-      # Lu en vecteur puis mis en forme par dim<- : pas de copie.
-      serie <- terra::readValues(orbites[[k]], row = lu$debut, nrows = lu$n,
-                                 col = 1, ncols = nc, mat = FALSE)
-      dim(serie) <- c(nc, lu$n, terra::nlyr(orbites[[k]]))
-      serie <- s1_filter_multitemp(serie, dates[[k]], p)
-      attr(serie, "nb_images_noyau") <- NULL
-      rcr_compute(serie, dates[[k]], p)
-    })
+    resultats <- if (parallele) {
+      orbites_en_parallele(seq_along(orbites), une_orbite, lu, n_proc, names(orbites))
+    } else {
+      lapply(seq_along(orbites), une_orbite, lu = lu)
+    }
     names(resultats) <- names(orbites)
     comb <- rcr_combine_orbites(resultats, p)
     rm(resultats)
@@ -232,7 +267,7 @@ detecter_blocs <- function(orbites, dates, dossier, parametres, lignes_par_bloc,
     terra::writeValues(ecr_date, as.vector(date_b), blocs$debut[b], blocs$n[b])
     rm(ratio_b, date_b)
   }
-  for (o in orbites) terra::readStop(o)
+  if (!parallele) for (o in orbites) terra::readStop(o)
   if (!is.null(foret)) terra::readStop(foret)
   terra::writeStop(ecr_ratio)
   terra::writeStop(ecr_date)
@@ -388,6 +423,65 @@ segmenter_blocs <- function(ratio, date, donnee, p, dossier, lignes_par_bloc, gp
     sorties <- sorties[names(sorties) != "objets"]
   }
   list(fichiers = sorties, objets = table)
+}
+
+# Parallélisme de la passe 1 ---------------------------------------------------
+
+# Vrai si le fork existe (parallel::mclapply() en a besoin). Fonction à part
+# pour que les tests simulent son absence.
+fork_disponible <- function() {
+  .Platform$OS.type == "unix"
+}
+
+# Nombre de processus de la passe 1 pour `n_orbites` orbites : `processus`
+# validé (NULL : min(orbites, coeurs - 1)), borné au nombre d'orbites, à 2
+# sous R CMD check (`_R_CHECK_LIMIT_CORES_`, même règle que parallel), à 1
+# sans fork.
+nb_processus <- function(processus, n_orbites) {
+  if (is.null(processus)) {
+    coeurs <- parallel::detectCores()
+    if (is.na(coeurs)) coeurs <- 1L
+    processus <- max(1L, as.integer(coeurs) - 1L)
+  } else if (!est_scalaire_num(processus) || !is.finite(processus) || processus < 1 ||
+             processus != round(processus)) {
+    stop("`processus` doit \u00eatre NULL ou un entier au moins \u00e9gal \u00e0 1.",
+         call. = FALSE)
+  }
+  n <- as.integer(min(processus, n_orbites))
+  limite <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  if (nzchar(limite) && limite != "false") n <- min(n, 2L)
+  if (n > 1L && !fork_disponible()) n <- 1L
+  n
+}
+
+# `f(k, lu)` pour chaque orbite `k` de `indices`, un processus enfant par
+# orbite (fork), au plus `n_proc` à la fois ; résultats dans l'ordre de
+# `indices`. Une erreur dans un enfant, ou un enfant mort sans résultat
+# (mémoire), devient une erreur qui nomme l'orbite.
+orbites_en_parallele <- function(indices, f, lu, n_proc, noms) {
+  sorties <- suppressWarnings(
+    parallel::mclapply(indices, f, lu = lu, mc.cores = n_proc,
+                       mc.preschedule = FALSE, mc.set.seed = FALSE)
+  )
+  if (is.null(noms)) noms <- rep("", length(indices))
+  for (i in seq_along(indices)) {
+    nom <- if (nzchar(noms[indices[i]])) noms[indices[i]] else as.character(indices[i])
+    s <- if (i <= length(sorties)) sorties[[i]] else NULL
+    if (inherits(s, "try-error")) {
+      cond <- attr(s, "condition")
+      msg <- if (inherits(cond, "condition")) conditionMessage(cond) else as.character(s)
+      stop("Orbite ", nom, " (lignes ", lu$debut, " \u00e0 ", lu$debut + lu$n - 1L,
+           ") : erreur dans le processus enfant de la passe 1 : ", msg,
+           call. = FALSE)
+    }
+    if (is.null(s)) {
+      stop("Orbite ", nom, " (lignes ", lu$debut, " \u00e0 ", lu$debut + lu$n - 1L,
+           ") : le processus enfant de la passe 1 s'est arr\u00eat\u00e9 sans r\u00e9sultat ",
+           "(m\u00e9moire insuffisante ?). Relancer avec moins de processus (`processus`) ",
+           "ou des blocs plus petits (`lignes_par_bloc`).", call. = FALSE)
+    }
+  }
+  sorties
 }
 
 # Outils des blocs ------------------------------------------------------------
