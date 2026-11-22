@@ -138,73 +138,161 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
   debut <- as.Date(sprintf("%d-01-01", p$annee_noyau + 1L))
   admise <- dates >= debut
 
-  x <- matrix(serie, nrow = npix, ncol = nt)
   noms <- dimnames(serie)[1:2]
+  x <- serie
   rm(serie)
-  negatif <- !is.na(x) & x <= 0
-  if (any(negatif)) {
+  dim(x) <- c(npix, nt)
+  if (isTRUE(min(x, na.rm = TRUE) <= 0)) {
+    negatif <- !is.na(x) & x <= 0
     warning(
-      sum(negatif), " valeur(s) lin\u00e9aire(s) nulle(s) ou n\u00e9gative(s) ",
-      "trait\u00e9e(s) comme images \u00e9cart\u00e9es (NA).",
+      sum(negatif), " valeur(s) linéaire(s) nulle(s) ou négative(s) ",
+      "traitée(s) comme images écartées (NA).",
       call. = FALSE
     )
     x[negatif] <- NA_real_
-  }
-  rm(negatif)
-
-  # Passe 1 : pour chaque pixel, somme cumulée des k premières images valides
-  # (colonne k + 1 de `cumul`) et position (index de date) de la k-ième.
-  cumul <- matrix(0, nrow = npix, ncol = nt + 1L)
-  position <- matrix(NA_integer_, nrow = npix, ncol = nt + 1L)
-  somme <- numeric(npix)
-  compte <- integer(npix)
-  for (t in seq_len(nt)) {
-    v <- which(!is.na(x[, t]))
-    if (length(v) == 0L) next
-    somme[v] <- somme[v] + x[v, t]
-    compte[v] <- compte[v] + 1L
-    cle <- cbind(v, compte[v] + 1L)
-    cumul[cle] <- somme[v]
-    position[cle] <- t
-  }
-  total <- compte
-  rm(somme)
-
-  lire <- function(m, pix, k) m[cbind(pix, k + 1L)]
-
-  # Ratio en dB à la k-ième image valide des pixels `pix`, Mb sur `nb_avant`
-  # images (Inf : toutes), à partir des sommes cumulées.
-  ratio_k <- function(pix, k, s_apres, nb_avant) {
-    nb <- if (is.infinite(nb_avant)) k else pmin(k, as.integer(nb_avant))
-    mb <- (lire(cumul, pix, k) - lire(cumul, pix, k - nb)) / nb
-    lineaire_vers_db((s_apres / xa) / mb)
+    rm(negatif)
   }
 
-  # Passe 2 : ratio à chaque date valide suivie d'au moins xa images valides.
+  # Passe 1 : pour chaque pixel, somme cumulée des k premières images valides,
+  # écrite sur place dans la colonne k de `x` (la somme de 0 image vaut 0), et
+  # position (index de date) de la k-ième image valide. Les sommes sont
+  # accumulées en double, dans l'ordre des dates. Sans aucune image manquante,
+  # la k-ième image valide est la date k : `position` n'est pas construite.
+  pleine <- !anyNA(x)
+  if (pleine) {
+    total <- rep(nt, npix)
+    position <- NULL
+    for (t in seq_len(nt)[-1L]) x[, t] <- x[, t - 1L] + x[, t]
+  } else {
+    total <- integer(npix)
+    somme <- numeric(npix)
+    position <- matrix(NA_integer_, nrow = npix, ncol = nt)
+    for (t in seq_len(nt)) {
+      v <- which(!is.na(x[, t]))
+      if (length(v) == 0L) next
+      somme[v] <- somme[v] + x[v, t]
+      total[v] <- total[v] + 1L
+      # Colonne total <= t : déjà lue, on peut l'écraser.
+      cle <- (total[v] - 1) * npix + v
+      x[cle] <- somme[v]
+      position[cle] <- t
+    }
+    rm(somme)
+  }
+  lim <- max(total) - xa
+
+  # Somme cumulée de rang j (0 : aucune image) des pixels `pix` (NULL : tous).
+  cumul_j <- function(j, pix) {
+    if (j == 0L) return(0)
+    if (is.null(pix)) x[, j] else x[pix, j]
+  }
+  # Pixels dont la k-ième image valide reçoit un ratio : suivie d'au moins
+  # xa images valides et admise. NULL : tous ; integer(0) : aucun.
+  pixels_k <- function(k) {
+    if (pleine) return(if (admise[k]) NULL else integer(0))
+    which(total >= k + xa & admise[position[, k]])
+  }
+  # Rapport linéaire Ma / Mb à la k-ième image valide, Mb sur `nb_avant`
+  # images (Inf : toutes), à partir des sommes cumulées : mêmes opérations,
+  # dans le même ordre, que la définition (le ratio en dB est
+  # lineaire_vers_db() de ce rapport).
+  rapport_k <- function(k, pix, s_apres, c_k, nb_avant) {
+    nb <- if (is.infinite(nb_avant)) k else min(k, as.integer(nb_avant))
+    mb <- (c_k - cumul_j(k - nb, pix)) / nb
+    (s_apres / xa) / mb
+  }
+  # Mise à jour d'un minimum courant : strictement plus bas seulement (en cas
+  # d'égalité, la date la plus ancienne l'emporte).
+  plus_bas <- function(r, courant, pix) {
+    if (is.null(pix)) r < courant else r < courant[pix]
+  }
+  ecrit <- function(cible, pix, mieux, valeur) {
+    if (is.null(pix)) cible[mieux] <- valeur[mieux] else cible[pix[mieux]] <- valeur[mieux]
+    cible
+  }
+
+  # Passe 2 : ratio à chaque image valide suivie d'au moins xa images valides.
+  # Le ratio en dB est croissant avec le rapport Ma / Mb : seul le logarithme
+  # coûte. On cherche d'abord, en linéaire, le rapport minimal de chaque pixel
+  # (2a) ; puis (2b) on ne passe en dB que les rapports à moins de 1e-6 (en
+  # relatif) de ce minimum, et on applique à eux seuls la règle de mise à
+  # jour : un rapport plus grand d'un facteur 1 + 1e-6 donne un ratio plus
+  # grand d'environ 4e-6 dB, bien au-delà de l'erreur d'arrondi du
+  # logarithme ; il ne peut ni être le minimum ni l'égaler. Le minimum et sa
+  # date sont donc ceux du calcul de tous les ratios. Si un rapport n'est pas
+  # strictement positif et fini ou infini (cas dégénérés), on calcule tous
+  # les ratios (2c), comme la définition.
+  `%||%` <- function(a, b) if (is.null(a)) b else a
+  balayer <- function(traiter) {
+    for (k in seq_len(max(lim, 0L))) {
+      pix <- pixels_k(k)
+      if (!is.null(pix) && length(pix) == 0L) next
+      c_k <- cumul_j(k, pix)
+      s_apres <- cumul_j(k + xa, pix) - c_k
+      traiter(k, pix, s_apres, c_k)
+    }
+  }
+  q_min <- rep(Inf, npix)
+  q_min_date <- if (dater_a_part) rep(Inf, npix) else NULL
+  regulier <- TRUE
+  balayer(function(k, pix, s_apres, c_k) {
+    q <- rapport_k(k, pix, s_apres, c_k, xb)
+    if (is.na(m <- min(q)) || m <= 0) regulier <<- FALSE
+    if (is.null(pix)) q_min <<- pmin(q_min, q) else q_min[pix] <<- pmin(q_min[pix], q)
+    if (dater_a_part) {
+      q <- rapport_k(k, pix, s_apres, c_k, xb_date)
+      if (is.na(m <- min(q)) || m <= 0) regulier <<- FALSE
+      if (is.null(pix)) {
+        q_min_date <<- pmin(q_min_date, q)
+      } else {
+        q_min_date[pix] <<- pmin(q_min_date[pix], q)
+      }
+    }
+  })
+  marge <- 1 + 1e-6
+  q_lim <- q_min * marge
+  q_lim_date <- if (dater_a_part) q_min_date * marge else NULL
+  rm(q_min, q_min_date)
+
   # `meilleur` : minimum du ratio de détection (xb) ; `meilleur_date` et
   # `k_avant` : minimum du ratio de datation (xb_date) et sa position.
   meilleur <- rep(Inf, npix)
   meilleur_date <- if (dater_a_part) rep(Inf, npix) else NULL
   k_avant <- rep(NA_integer_, npix)
-  compte <- integer(npix)
-  for (i in seq_len(nt)) {
-    v <- !is.na(x[, i])
-    compte[v] <- compte[v] + 1L
-    if (!admise[i]) next
-    pix <- which(v & compte + xa <= total)
-    if (length(pix) == 0L) next
-    k <- compte[pix]
-    s_apres <- lire(cumul, pix, k + xa) - lire(cumul, pix, k)
-    r <- ratio_k(pix, k, s_apres, xb)
-    mieux <- r < meilleur[pix]
-    meilleur[pix[mieux]] <- r[mieux]
-    if (dater_a_part) {
-      r <- ratio_k(pix, k, s_apres, xb_date)
-      mieux <- r < meilleur_date[pix]
-      meilleur_date[pix[mieux]] <- r[mieux]
+  # Applique la règle de mise à jour aux rapports `q` des pixels `pix`
+  # retenus par `garde` (TRUE : tous) ; rend les positions mises à jour.
+  mettre_a_jour <- function(q, pix, garde, courant) {
+    if (!isTRUE(garde)) {
+      idx <- which(garde)
+      if (length(idx) == 0L) return(list(courant = courant, pix = integer(0), mieux = logical(0)))
+      q <- q[idx]
+      pix <- if (is.null(pix)) idx else pix[idx]
     }
-    k_avant[pix[mieux]] <- k[mieux]
+    r <- lineaire_vers_db(q)
+    mieux <- plus_bas(r, courant, pix)
+    list(courant = ecrit(courant, pix, mieux, r), pix = pix, mieux = mieux)
   }
+  marquer <- function(k, maj) {
+    if (length(maj$mieux) == 0L) return(invisible())
+    if (is.null(maj$pix)) {
+      k_avant[maj$mieux] <<- k
+    } else {
+      k_avant[maj$pix[maj$mieux]] <<- k
+    }
+  }
+  balayer(function(k, pix, s_apres, c_k) {
+    q <- rapport_k(k, pix, s_apres, c_k, xb)
+    garde <- if (regulier) q <= (q_lim[pix %||% TRUE]) else TRUE
+    maj <- mettre_a_jour(q, pix, garde, meilleur)
+    meilleur <<- maj$courant
+    if (dater_a_part) {
+      q <- rapport_k(k, pix, s_apres, c_k, xb_date)
+      garde <- if (regulier) q <= (q_lim_date[pix %||% TRUE]) else TRUE
+      maj <- mettre_a_jour(q, pix, garde, meilleur_date)
+      meilleur_date <<- maj$courant
+    }
+    marquer(k, maj)
+  })
   rm(meilleur_date)
 
   trouve <- which(!is.na(k_avant))
@@ -214,9 +302,16 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
   duree <- rep(NA_integer_, npix)
   if (length(trouve) > 0L) {
     k <- k_avant[trouve]
-    i_avant <- lire(position, trouve, k)
-    i_apres <- lire(position, trouve, k + 1L)
-    i_fin <- lire(position, trouve, k + xa)
+    if (pleine) {
+      i_avant <- k
+      i_apres <- k + 1L
+      i_fin <- k + xa
+    } else {
+      lire <- function(j) position[(j - 1) * npix + trouve]
+      i_avant <- lire(k)
+      i_apres <- lire(k + 1L)
+      i_fin <- lire(k + xa)
+    }
     ratio[trouve] <- meilleur[trouve]
     date_avant[trouve] <- codes[i_avant]
     date_min[trouve] <- codes[i_apres]
@@ -338,7 +433,10 @@ valide_serie <- function(serie) {
   if (any(d == 0L)) {
     stop("`serie` ne doit avoir aucune dimension vide.", call. = FALSE)
   }
-  if (any(is.infinite(serie))) {
+  # range() lit le tableau sans le recopier ; any(is.infinite()) ne sert
+  # que si une borne est infinie (ou si tout est NA).
+  bornes <- suppressWarnings(range(serie, na.rm = TRUE))
+  if (any(is.infinite(bornes)) && any(is.infinite(serie))) {
     stop("`serie` ne doit pas contenir de valeur infinie.", call. = FALSE)
   }
   storage.mode(serie) <- "double"
