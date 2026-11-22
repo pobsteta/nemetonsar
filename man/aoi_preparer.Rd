@@ -20,8 +20,8 @@ plusieurs (GeoPackage) ; \code{NULL} : la première.}
 Une liste de classe \code{nemetonsar_aoi} :
 \itemize{
 \item \code{tuiles} : \code{data.frame}, une ligne par tuile, triée par identifiant :
-\code{mgrs} (par exemple \code{"31UDQ"}), \code{zone}, \code{bande}, \code{carre} (deux
-lettres), \code{epsg} (UTM WGS 84, par exemple 32631), \code{xmin}, \code{ymin},
+\code{mgrs} (par exemple \code{"31UDQ"}, au centre du carré), \code{zone}, \code{bande}
+(au centre du carré, informative), \code{carre} (deux lettres), \code{epsg} (UTM WGS 84, par exemple 32631), \code{xmin}, \code{ymin},
 \code{xmax}, \code{ymax} (emprise alignée, en mètres UTM), \code{resolution_m},
 \code{ncol}, \code{nrow}, \code{surface_ha} (surface géodésique de l'AOI dans la
 tuile) ;
@@ -64,22 +64,25 @@ métropolitain, la Gironde : 10 380,876 km2, calculée par
 
 \section{Tuiles }{
 
-L'AOI est coupée par les zones de grille MGRS (zone UTM de 6 degrés et
-bande de latitude de 8 degrés, côtés densifiés tous les 0,01 degré pour
-suivre méridiens et parallèles), puis, dans le système UTM de chaque zone,
-par les carrés de 100 km. L'identifiant suit la norme MGRS (schéma de
-lettres de WGS 84, NGA.STND.0037_2.0.0_GRIDS) : par exemple \code{"31UDQ"} pour
-Paris. Il est vérifié sur les tuiles Sentinel-2 de l'ESA, qui portent les
-mêmes noms. Les tuiles Sentinel-2 débordent de leur carré (109,8 km) et
-certains carrés coupés par une limite de zone n'en ont pas (par exemple
-\verb{31TBN}) : ici, les tuiles ne se recouvrent pas.
+L'AOI est coupée par les zones UTM de 6 degrés (limites densifiées tous
+les 0,01 degré pour suivre les méridiens), puis, dans le système UTM de
+chaque zone, par les carrés de 100 km (colonne \verb{floor(x / 100 km)}, ligne
+\verb{floor(y / 100 km)}), \strong{toutes bandes de latitude réunies} : une tuile
+par zone et par carré, et aucune grille ne recouvre une autre.
+
+L'identifiant est celui de la norme MGRS (schéma de lettres de WGS 84,
+NGA.STND.0037_2.0.0_GRIDS) au \strong{centre du carré} : par exemple \code{"31UDQ"}
+pour Paris. C'est un choix \strong{provisoire} : un carré à cheval sur une
+limite de bande (48 degrés N) porte deux noms MGRS (par exemple \verb{31TDP} et
+\verb{31UDP}), et la tuile prend celui de son centre ; la colonne \code{bande} est
+informative. Les noms sont vérifiés sur les tuiles Sentinel-2 de l'ESA.
+Les tuiles Sentinel-2 débordent de leur carré (109,8 km) et certains
+carrés coupés par une limite de zone n'en ont pas (par exemple \verb{31TBN}).
 
 L'emprise d'une tuile (\code{xmin}, \code{ymin}, \code{xmax}, \code{ymax}, en mètres UTM) est
 l'emprise de la partie de l'AOI dans le carré, élargie aux multiples de
 \code{resolution_m} : les coins des tuiles Sentinel-2 de l'ESA sont tous sur
-des multiples de 20 m. Une partie d'AOI de part et d'autre d'une limite de
-bande (48 degrés N) donne deux tuiles dans le même carré, d'emprises
-voisines.
+des multiples de 20 m.
 }
 
 \examples{

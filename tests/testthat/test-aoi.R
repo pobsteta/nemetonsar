@@ -184,17 +184,39 @@ test_that("une AOI \u00e0 cheval sur les zones 30 et 31 donne deux tuiles", {
   }
 })
 
-test_that("une AOI \u00e0 cheval sur deux carr\u00e9s de 100 km et deux bandes", {
-  # x = 500 km dans la zone 31 est le méridien 3 degrés E ; 48 degrés N
-  # sépare les bandes T et U.
+test_that("une AOI \u00e0 cheval sur 48 degr\u00e9s N donne une seule tuile par carr\u00e9", {
+  # 48 degr\u00e9s N s\u00e9pare les bandes T et U ; le carr\u00e9 400-500 km x
+  # 5300-5400 km de la zone 31 porte les noms 31TDP et 31UDP ; son centre
+  # (environ 48,3 degr\u00e9s N) est en bande U.
+  aoi <- rect(2.50, 2.60, 47.95, 48.05)
+  p <- aoi_preparer(aoi)
+  t <- p$tuiles
+  expect_equal(t$mgrs, "31UDP")
+  expect_equal(t$bande, "U")
+  expect_equal(t$epsg, 32631L)
+  y48 <- terra::crds(terra::project(terra::vect(cbind(2.55, 48), crs = "EPSG:4326"),
+                                    "EPSG:32631"))[1, 2]
+  expect_true(t$ymin < y48 && t$ymax > y48)  # la grille passe 48 degr\u00e9s N
+  expect_equal(length(p$aoi), 1L)
+  expect_equal(t$surface_ha / 100, p$surface_km2, tolerance = 1e-6)
+})
+
+test_that("une AOI \u00e0 cheval sur deux carr\u00e9s et deux bandes : grilles disjointes", {
+  # x = 500 km dans la zone 31 est le m\u00e9ridien 3 degr\u00e9s E.
   p <- aoi_preparer(rect(2.95, 3.05, 47.95, 48.05))
   t <- p$tuiles
-  expect_equal(nrow(t), 4L)
-  expect_equal(t$mgrs, c("31TDP", "31TEP", "31UDP", "31UEP"))
+  expect_equal(t$mgrs, c("31UDP", "31UEP"))
+  expect_equal(t$carre, c("DP", "EP"))
   expect_true(all(t$epsg == 32631L))
   expect_equal(sum(t$surface_ha) / 100, p$surface_km2, tolerance = 1e-6)
-  expect_true(all(t$xmax[t$carre == "DN"] <= 5e5))
-  expect_true(all(t$xmin[t$carre == "EN"] >= 5e5))
+  dp <- t[t$carre == "DP", ]
+  ep <- t[t$carre == "EP", ]
+  expect_equal(nrow(dp), 1L)
+  expect_equal(nrow(ep), 1L)
+  expect_lte(dp$xmax, 5e5)
+  expect_gte(ep$xmin, 5e5)
+  # aucune cellule commune entre les deux grilles (bord commun x = 500 km)
+  expect_lte(dp$xmax, ep$xmin)
 })
 
 test_that("les surfaces des tuiles somment \u00e0 celle de l'AOI, sans avertissement", {

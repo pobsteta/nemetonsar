@@ -182,22 +182,25 @@ aoi_lire <- function(aoi, couche = NULL) {
 #'   2026-11-22 ; estuaire compris).
 #'
 #' @section Tuiles :
-#' L'AOI est coupée par les zones de grille MGRS (zone UTM de 6 degrés et
-#' bande de latitude de 8 degrés, côtés densifiés tous les 0,01 degré pour
-#' suivre méridiens et parallèles), puis, dans le système UTM de chaque zone,
-#' par les carrés de 100 km. L'identifiant suit la norme MGRS (schéma de
-#' lettres de WGS 84, NGA.STND.0037_2.0.0_GRIDS) : par exemple `"31UDQ"` pour
-#' Paris. Il est vérifié sur les tuiles Sentinel-2 de l'ESA, qui portent les
-#' mêmes noms. Les tuiles Sentinel-2 débordent de leur carré (109,8 km) et
-#' certains carrés coupés par une limite de zone n'en ont pas (par exemple
-#' `31TBN`) : ici, les tuiles ne se recouvrent pas.
+#' L'AOI est coupée par les zones UTM de 6 degrés (limites densifiées tous
+#' les 0,01 degré pour suivre les méridiens), puis, dans le système UTM de
+#' chaque zone, par les carrés de 100 km (colonne `floor(x / 100 km)`, ligne
+#' `floor(y / 100 km)`), **toutes bandes de latitude réunies** : une tuile
+#' par zone et par carré, et aucune grille ne recouvre une autre.
+#'
+#' L'identifiant est celui de la norme MGRS (schéma de lettres de WGS 84,
+#' NGA.STND.0037_2.0.0_GRIDS) au **centre du carré** : par exemple `"31UDQ"`
+#' pour Paris. C'est un choix **provisoire** : un carré à cheval sur une
+#' limite de bande (48 degrés N) porte deux noms MGRS (par exemple `31TDP` et
+#' `31UDP`), et la tuile prend celui de son centre ; la colonne `bande` est
+#' informative. Les noms sont vérifiés sur les tuiles Sentinel-2 de l'ESA.
+#' Les tuiles Sentinel-2 débordent de leur carré (109,8 km) et certains
+#' carrés coupés par une limite de zone n'en ont pas (par exemple `31TBN`).
 #'
 #' L'emprise d'une tuile (`xmin`, `ymin`, `xmax`, `ymax`, en mètres UTM) est
 #' l'emprise de la partie de l'AOI dans le carré, élargie aux multiples de
 #' `resolution_m` : les coins des tuiles Sentinel-2 de l'ESA sont tous sur
-#' des multiples de 20 m. Une partie d'AOI de part et d'autre d'une limite de
-#' bande (48 degrés N) donne deux tuiles dans le même carré, d'emprises
-#' voisines.
+#' des multiples de 20 m.
 #'
 #' @param aoi Chemin d'un fichier vecteur (GeoPackage, GeoJSON, shapefile)
 #'   ou `SpatVector` de polygones.
@@ -208,8 +211,8 @@ aoi_lire <- function(aoi, couche = NULL) {
 #'
 #' @return Une liste de classe `nemetonsar_aoi` :
 #'   - `tuiles` : `data.frame`, une ligne par tuile, triée par identifiant :
-#'     `mgrs` (par exemple `"31UDQ"`), `zone`, `bande`, `carre` (deux
-#'     lettres), `epsg` (UTM WGS 84, par exemple 32631), `xmin`, `ymin`,
+#'     `mgrs` (par exemple `"31UDQ"`, au centre du carré), `zone`, `bande`
+#'     (au centre du carré, informative), `carre` (deux lettres), `epsg` (UTM WGS 84, par exemple 32631), `xmin`, `ymin`,
 #'     `xmax`, `ymax` (emprise alignée, en mètres UTM), `resolution_m`,
 #'     `ncol`, `nrow`, `surface_ha` (surface géodésique de l'AOI dans la
 #'     tuile) ;
@@ -256,50 +259,53 @@ aoi_preparer <- function(aoi, resolution_m = 10, couche = NULL) {
          " km2 (plus grand d\u00e9partement m\u00e9tropolitain, la Gironde).", call. = FALSE)
   }
 
-  # Zones de grille MGRS touchées (pas d'exception de zone en France).
+  # Zones UTM touchées (pas d'exception de zone en France). Dans chaque zone,
+  # l'AOI est coupée par les carrés UTM de 100 km, toutes bandes de latitude
+  # réunies : aucune grille ne recouvre une autre.
   zones <- seq(mgrs_zone(e[["xmin"]], 45), mgrs_zone(e[["xmax"]], 45))
-  bandes <- seq(floor((e[["ymin"]] + 80) / 8), floor((e[["ymax"]] + 80) / 8))
   lignes <- list()
   morceaux <- list()
   for (z in zones) {
     epsg <- epsg_utm(z)
     crs_utm <- paste0("EPSG:", epsg)
-    for (b in bandes) {
-      lat0 <- -80 + 8 * b
-      gzd <- rectangle_lonlat(-180 + 6 * (z - 1), -180 + 6 * z, lat0, lat0 + 8)
-      if (!terra::relate(ll, gzd, "intersects")[1, 1]) next
-      p <- terra::intersect(ll, gzd)
-      if (nrow(p) < 1L || sum(terra::expanse(p)) <= 0) next
-      p <- terra::project(p, crs_utm)
-      bande <- substring(.mgrs_bandes, b + 1, b + 1)
-      ep <- as.vector(terra::ext(p))
-      for (cx in seq(floor(ep[["xmin"]] / 1e5), floor(ep[["xmax"]] / 1e5))) {
-        for (cy in seq(floor(ep[["ymin"]] / 1e5), floor(ep[["ymax"]] / 1e5))) {
-          carre <- terra::as.polygons(
-            terra::ext(cx * 1e5, (cx + 1) * 1e5, cy * 1e5, (cy + 1) * 1e5),
-            crs = crs_utm)
-          if (!terra::relate(p, carre, "intersects")[1, 1]) next
-          m <- terra::intersect(p, carre)
-          if (nrow(m) < 1L) next
-          surface_ha <- sum(terra::expanse(m, unit = "ha"))
-          if (surface_ha <= 0) next
-          terra::values(m) <- NULL
-          em <- as.vector(terra::ext(m))
-          r <- resolution_m
-          xmin <- max(floor(em[["xmin"]] / r) * r, cx * 1e5)
-          xmax <- min(ceiling(em[["xmax"]] / r) * r, (cx + 1) * 1e5)
-          ymin <- max(floor(em[["ymin"]] / r) * r, cy * 1e5)
-          ymax <- min(ceiling(em[["ymax"]] / r) * r, (cy + 1) * 1e5)
-          lettres <- mgrs_carre(z, cx * 1e5, cy * 1e5)
-          id <- sprintf("%02d%s%s", z, bande, lettres)
-          lignes[[id]] <- data.frame(
-            mgrs = id, zone = as.integer(z), bande = bande, carre = lettres,
-            epsg = epsg, xmin = xmin, ymin = ymin, xmax = xmax, ymax = ymax,
-            resolution_m = r, ncol = as.integer(round((xmax - xmin) / r)),
-            nrow = as.integer(round((ymax - ymin) / r)), surface_ha = surface_ha,
-            stringsAsFactors = FALSE)
-          morceaux[[id]] <- m
-        }
+    bande_zone <- rectangle_lonlat(-180 + 6 * (z - 1), -180 + 6 * z,
+                                   e[["ymin"]] - 0.5, e[["ymax"]] + 0.5)
+    if (!terra::relate(ll, bande_zone, "intersects")[1, 1]) next
+    p <- terra::intersect(ll, bande_zone)
+    if (nrow(p) < 1L || sum(terra::expanse(p)) <= 0) next
+    p <- terra::project(p, crs_utm)
+    ep <- as.vector(terra::ext(p))
+    for (cx in seq(floor(ep[["xmin"]] / 1e5), floor(ep[["xmax"]] / 1e5))) {
+      for (cy in seq(floor(ep[["ymin"]] / 1e5), floor(ep[["ymax"]] / 1e5))) {
+        carre <- terra::as.polygons(
+          terra::ext(cx * 1e5, (cx + 1) * 1e5, cy * 1e5, (cy + 1) * 1e5),
+          crs = crs_utm)
+        if (!terra::relate(p, carre, "intersects")[1, 1]) next
+        m <- terra::intersect(p, carre)
+        if (nrow(m) < 1L) next
+        surface_ha <- sum(terra::expanse(m, unit = "ha"))
+        if (surface_ha <= 0) next
+        terra::values(m) <- NULL
+        em <- as.vector(terra::ext(m))
+        r <- resolution_m
+        xmin <- max(floor(em[["xmin"]] / r) * r, cx * 1e5)
+        xmax <- min(ceiling(em[["xmax"]] / r) * r, (cx + 1) * 1e5)
+        ymin <- max(floor(em[["ymin"]] / r) * r, cy * 1e5)
+        ymax <- min(ceiling(em[["ymax"]] / r) * r, (cy + 1) * 1e5)
+        # Bande de latitude du centre du carré (identifiant provisoire).
+        centre <- terra::crds(terra::project(
+          terra::vect(cbind((cx + 0.5) * 1e5, (cy + 0.5) * 1e5), crs = crs_utm),
+          "EPSG:4326"))
+        bande <- mgrs_bande(centre[1, 2])
+        lettres <- mgrs_carre(z, cx * 1e5, cy * 1e5)
+        id <- sprintf("%02d%s%s", z, bande, lettres)
+        lignes[[id]] <- data.frame(
+          mgrs = id, zone = as.integer(z), bande = bande, carre = lettres,
+          epsg = epsg, xmin = xmin, ymin = ymin, xmax = xmax, ymax = ymax,
+          resolution_m = r, ncol = as.integer(round((xmax - xmin) / r)),
+          nrow = as.integer(round((ymax - ymin) / r)), surface_ha = surface_ha,
+          stringsAsFactors = FALSE)
+        morceaux[[id]] <- m
       }
     }
   }
