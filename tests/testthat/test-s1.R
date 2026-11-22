@@ -50,10 +50,12 @@ test_that("par d\u00e9faut, seules les images de 1A de la p\u00e9riode sont gard
 })
 
 test_that("une republication d'une m\u00eame tranche est \u00e9cart\u00e9e (traitement le plus r\u00e9cent)", {
-  t <- s1_table_items(fixture_s1(), debut_fixture, fin_fixture, parametres_sufosat())
-  d081 <- t[t$serie == "D081" & t$date == as.Date("2025-06-15"), ]
-  expect_equal(nrow(d081), 1L)
-  expect_false(grepl("ancien", d081$url))
+  deux <- parametres_sufosat(capteurs = list("2014-04-03" = c("S1A", "S1C")))
+  t <- s1_table_items(fixture_s1(), debut_fixture, fin_fixture, deux)
+  c030 <- t[t$capteur == "S1C" & t$date == as.Date("2025-06-17"), ]
+  expect_equal(nrow(c030), 1L)
+  expect_false(grepl("ancien", c030$url))
+  expect_false(any(grepl("ANCIEN", t$id)))
 })
 
 test_that("deux tranches d'une m\u00eame acquisition restent deux lignes, tri\u00e9es par heure", {
@@ -72,7 +74,7 @@ test_that("les capteurs suivent capteurs_a_la_date()", {
   deux <- parametres_sufosat(capteurs = list("2014-04-03" = c("S1A", "S1C")))
   t <- s1_table_items(f, debut_fixture, fin_fixture, deux)
   expect_setequal(unique(t$capteur), c("S1A", "S1C"))
-  expect_equal(sum(t$capteur == "S1C"), 4L)
+  expect_equal(sum(t$capteur == "S1C"), 5L)
 
   # Bascule au 2025-06-12 : 1A avant, 1C à partir de ce jour.
   bascule <- parametres_sufosat(capteurs = list("2014-04-03" = "S1A", "2025-06-12" = "S1C"))
@@ -80,6 +82,7 @@ test_that("les capteurs suivent capteurs_a_la_date()", {
   expect_true(all(t$capteur[t$date < as.Date("2025-06-12")] == "S1A"))
   expect_true(all(t$capteur[t$date >= as.Date("2025-06-12")] == "S1C"))
   expect_equal(sort(t$date[t$capteur == "S1C"]), as.Date(c("2025-06-16", "2025-06-17")))
+  expect_equal(sum(t$capteur == "S1C"), 2L)
 
   # Aucun capteur actif avant la première période.
   tard <- parametres_sufosat(capteurs = list("2026-01-01" = "S1A"))
@@ -140,14 +143,14 @@ test_that("l'emprise est convertie en bo\u00eete en degr\u00e9s", {
   g <- terra::rast(carre, resolution = 1000)
   expect_equal(emprise_vers_bbox(g), b)
 
-  expect_error(emprise_vers_bbox(terra::vect(cbind(1, 2))), "syst\u00e8me")
+  expect_error(emprise_vers_bbox(terra::vect(cbind(1, 2))), "coordonn")
   expect_error(emprise_vers_bbox(c(-1, 44, 0, 45)), "SpatVector")
 })
 
 test_that("la p\u00e9riode est valid\u00e9e", {
   expect_equal(valide_periode("2025-01-01", as.Date("2025-02-01")),
                as.Date(c("2025-01-01", "2025-02-01")))
-  expect_error(valide_periode("2025-02-01", "2025-01-01"), "ant\u00e9rieure")
+  expect_error(valide_periode("2025-02-01", "2025-01-01"), "date_fin`")
   expect_error(valide_periode("pas une date", "2025-01-01"), "date_debut")
   expect_error(valide_periode("2025-01-01", NA), "date_fin")
 })
