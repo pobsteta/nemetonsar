@@ -7,12 +7,14 @@
 #
 #   <dossier_donnees> : dossier de travail (images copiées, piles, résultats
 #                       .rds) ; à surveiller : ≈ 2 Go au plus.
-#   [etapes]          : parmi 1,2,3,4 (défaut "1,2,3,4") :
+#   [etapes]          : parmi 1 à 5 (défaut "1,2,3,4") :
 #                       1 structure des COG (terra::describe) ;
 #                       2 lecture distante et locale d'une orbite ;
 #                       3 passe 1 sur 1, 2 et 3 orbites, en série et en
 #                         parallèle (parallel::mclapply, fork) ;
-#                       4 synthèse et extrapolation à une tuile MGRS.
+#                       4 synthèse et extrapolation à une tuile MGRS ;
+#                       5 coût de s1_lire() sans réseau selon la taille
+#                         de la grille (complément de 2).
 #   [repetitions]     : défaut 2.
 #
 # Données : collection sentinel-1-rtc du Microsoft Planetary Computer (jeton
@@ -312,6 +314,57 @@ etape2 <- function() {
   invisible(tab)
 }
 
+# Étape 5 (complément de 2f) : part fixe et part proportionnelle du coût de
+# s1_lire() sans réseau, sur des grilles de 350 x 350 à 1400 x 700 pixels
+# (une image, copie locale, cache disque vidé avant chaque appel).
+etape5 <- function() {
+  items <- items_orbite()
+  items <- items[items$serie == ORBITE, ][1, ]
+  items$url <- fichier("copie", "img01.tif")
+  centre <- terra::geom(terra::project(terra::vect(cbind(POINT[1], POINT[2]), crs = "EPSG:4326"),
+                                       "EPSG:32630"))[1, c("x", "y")]
+  cx <- round(centre[["x"]], -1)
+  cy <- round(centre[["y"]], -1)
+  tailles <- list(c(350, 350), c(700, 350), c(700, 700), c(1400, 700))
+  res <- list()
+  for (rep in seq_len(REP)) {
+    for (tl in tailles) {
+      grille <- terra::rast(xmin = cx - 5 * tl[1], xmax = cx + 5 * tl[1],
+                            ymin = cy - 5 * tl[2], ymax = cy + 5 * tl[2],
+                            resolution = 10, crs = "EPSG:32630")
+      sortie <- fichier("s1_lire", "etape5")
+      unlink(sortie, recursive = TRUE)
+      vider_cache_disque()
+      t0 <- proc.time()[["elapsed"]]
+      invisible(suppressWarnings(s1_lire(items, grille, signer = FALSE, dossier = sortie)))
+      t1 <- proc.time()[["elapsed"]]
+      # Reprojection seule (sans métadonnées ni écriture), même source.
+      src <- terra::rast(items$url)
+      t2 <- proc.time()[["elapsed"]]
+      pr <- terra::project(src, grille, method = "bilinear")
+      v <- terra::values(pr)
+      t3 <- proc.time()[["elapsed"]]
+      # Même reprojection, GDAL multi-fil (terra::project(threads = TRUE)).
+      pr <- terra::project(src, grille, method = "bilinear", threads = TRUE)
+      v <- terra::values(pr)
+      t4 <- proc.time()[["elapsed"]]
+      res[[length(res) + 1L]] <- data.frame(repetition = rep, pixels = terra::ncell(grille),
+                                            s1_lire_s = t1 - t0, project_s = t3 - t2,
+                                            project_fils_s = t4 - t3)
+    }
+  }
+  tab <- do.call(rbind, res)
+  print(tab, row.names = FALSE)
+  m <- stats::lm(s1_lire_s ~ pixels, tab)
+  cat(sprintf("s1_lire() local : %.3f s fixes par image + %.3f s par million de pixels\n",
+              stats::coef(m)[1], stats::coef(m)[2] * 1e6))
+  m2 <- stats::lm(project_s ~ pixels, tab)
+  m3 <- stats::lm(project_fils_s ~ pixels, tab)
+  cat(sprintf("project() seul : %.3f s par million de pixels (1 fil), %.3f (multi-fil)\n",
+              stats::coef(m2)[2] * 1e6, stats::coef(m3)[2] * 1e6))
+  saveRDS(tab, fichier("etape5.rds"))
+}
+
 # Étape 3 : passe 1 en série et en parallèle -----------------------------------
 
 NL3 <- 36L      # lignes des piles de la passe 1 (4 blocs de 9 lignes)
@@ -333,7 +386,10 @@ construire_piles <- function() {
   for (k in 1:3) {
     l0 <- 1L + (k - 1L) * 300L
     v <- lapply(copies, function(f) {
-      m <- terra::readValues(terra::rast(f), row = l0, nrows = NL3, mat = FALSE)
+      r <- terra::rast(f)
+      terra::readStart(r)
+      m <- terra::readValues(r, row = l0, nrows = NL3, mat = FALSE)
+      terra::readStop(r)
       matrix(m, nrow = LARGEUR)   # [colonne, ligne]
     })
     couches <- list()
@@ -503,11 +559,18 @@ etape4 <- function() {
   gf <- c(0.5 / 4.0, 0.5 / 3.3)
   gr <- 1.1 / 2.6
   c_serie <- lect3 + filt3 * gf + rat3 * gr + (serie3 - lect3 - filt3 - rat3)
-  # Acquisition (s1_lire) : téléchargement + reprojection + écriture.
-  sl <- function(src) par_cas$s_par_mo_utile[par_cas$cas == sprintf("s1_lire(), %s, grille 1400 x 700 (3 images)", src)]
+  # Acquisition (s1_lire) d'une tuile, décomposée : téléchargement (volume
+  # reçu / débit mesuré) + reprojection et écriture (étape 5, part
+  # proportionnelle ; les parts fixes par image sont négligeables à cette
+  # échelle). Volume : emprise de la tuile dans le système de l'image (UTM
+  # 31N pour D008 : rotation), mesurée sur la tuile 30TXN.
   mo_tuile <- px_tuile * 4 / 1e6 * 900
-  acq_dist <- sl("distant") * mo_tuile / 3600
-  acq_loc <- sl("local") * mo_tuile / 3600
+  tuile <- terra::as.polygons(terra::ext(600000, 709800, 4800000, 4909800), crs = "EPSG:32630")
+  emprise31 <- terra::expanse(terra::as.polygons(terra::ext(terra::project(tuile, "EPSG:32631")),
+                                                  crs = "EPSG:32631"),
+                              transform = FALSE) / terra::expanse(tuile, transform = FALSE)
+  # Deux orbites sur trois sont en UTM 30N (étape 1) : pas de rotation.
+  emprise <- (2 + emprise31) / 3
   recu <- par_cas$recu_mo_par_image[par_cas$cas == "distant, 512 lignes (aligné)"] /
     par_cas$mo_utiles_par_image[par_cas$cas == "distant, 512 lignes (aligné)"]
   debit1 <- with(par_cas[par_cas$cas == "distant, 512 lignes (aligné)", ],
@@ -516,21 +579,26 @@ etape4 <- function() {
                  recu_mo_par_image / mean(c(s_par_image_r1, s_par_image_r2)))
   ampli <- with(par_cas, recu_mo_par_image[cas == "distant, 9 lignes, cache insuffisant"] /
                   mo_utiles_par_image[cas == "distant, 9 lignes, cache insuffisant"]) / recu
+  go_recus <- mo_tuile * recu * emprise / 1e3
+  t5 <- readRDS(fichier("etape5.rds"))
+  coef <- function(col) stats::coef(stats::lm(stats::as.formula(paste(col, "~ pixels")), t5))[2] * 1e6
+  mpx <- px_tuile / 1e6 * 900
   cat("\n== Extrapolation linéaire à une tuile MGRS (10 980 x 10 980, 300 dates x 3 orbites) ==\n")
   cat(sprintf("Facteur passe 1 : x %.0f (pixels)\n", facteur))
   cat(sprintf("Passe 1, base R en série : %.1f h (lecture locale %.1f h, filtre %.1f h, ratio %.1f h)\n",
               serie3, lect3, filt3, rat3))
   cat(sprintf("Passe 1, base R, 3 orbites en parallèle : %.1f h\n", par3))
   cat(sprintf("Passe 1, C (gains du prototype 016) en série : %.1f à %.1f h\n", min(c_serie), max(c_serie)))
-  cat(sprintf("Volume utile d'une tuile : %.0f Go (float32) ; reçu par Mo utile : %.2f ; à télécharger : %.0f Go\n",
-              mo_tuile / 1e3, recu, mo_tuile * recu / 1e3))
+  cat(sprintf("Volume utile d'une tuile : %.0f Go (float32) ; reçu par Mo utile : %.2f ; emprise (rotation) : x %.3f (UTM 31N), x %.3f en moyenne ; à télécharger : %.0f Go\n",
+              mo_tuile / 1e3, recu, emprise31, emprise, go_recus))
   cat(sprintf("Débit mesuré : %.1f Mo/s (1 flux), %.1f Mo/s (4 processus)\n", debit1, debit4))
   cat(sprintf("Téléchargement seul d'une tuile : %.1f h (1 flux), %.1f h (4 processus)\n",
-              mo_tuile * recu / debit1 / 3600, mo_tuile * recu / debit4 / 3600))
-  cat(sprintf("s1_lire() : distant %.1f h, depuis copie locale (reprojection + écriture) %.1f h\n",
-              acq_dist, acq_loc))
+              go_recus * 1e3 / debit1 / 3600, go_recus * 1e3 / debit4 / 3600))
+  cat(sprintf("Reprojection + écriture (s1_lire, sans réseau) : %.1f h ; project() seul : %.1f h (1 fil), %.1f h (multi-fil)\n",
+              coef("s1_lire_s") * mpx / 3600, coef("project_s") * mpx / 3600,
+              coef("project_fils_s") * mpx / 3600))
   cat(sprintf("Lecture distante par 9 lignes sans cache : x %.0f d'octets reçus, soit %.0f h de téléchargement (1 flux)\n",
-              ampli, mo_tuile * recu * ampli / debit1 / 3600))
+              ampli, go_recus * 1e3 * ampli / debit1 / 3600))
   cat(sprintf("Disque d'une pile locale de tuile (3 orbites, %.2f octet par valeur) : %.0f Go\n",
               attr(t2, "taille_copie_mo") * 1e6 / (attr(t2, "n_images") * LARGEUR * HAUTEUR),
               attr(t2, "taille_copie_mo") * 1e6 / (attr(t2, "n_images") * LARGEUR * HAUTEUR) * px_tuile * 900 / 1e9))
@@ -547,5 +615,6 @@ if (SOUS_COMMANDE == "sans_cache") {
   if (1L %in% ETAPES) etape1()
   if (2L %in% ETAPES) etape2()
   if (3L %in% ETAPES) etape3()
+  if (5L %in% ETAPES) etape5()
   if (4L %in% ETAPES) etape4()
 }
