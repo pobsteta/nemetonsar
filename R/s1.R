@@ -55,7 +55,7 @@
 #'   - `url` : adresse (non signée) du fichier de la polarisation choisie.
 #'
 #'   L'attribut `"attribution"` porte le texte à reproduire avec toute sortie
-#'   dérivée de ces images (`docs/referentiels/licences.md`, formule [S1]).
+#'   dérivée de ces images (`docs/referentiels/licences.md`, formule `[S1]`).
 #'
 #' @seealso [s1_lire()], [nemetonsar_detecter()].
 #'

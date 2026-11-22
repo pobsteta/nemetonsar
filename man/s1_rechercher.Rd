@@ -35,7 +35,7 @@ chiffres (\code{"A030"}, \code{"D008"}) : les noms des piles de \code{\link[=s1_
 }
 
 L'attribut \code{"attribution"} porte le texte à reproduire avec toute sortie
-dérivée de ces images (\code{docs/referentiels/licences.md}, formule \link{S1}).
+dérivée de ces images (\code{docs/referentiels/licences.md}, formule \verb{[S1]}).
 }
 \description{
 Interroge le catalogue STAC du Microsoft Planetary Computer (collection
