@@ -146,6 +146,10 @@ for (cad in facteurs$cadence) {
         i_ts <- indice_premier_franchissement(rs, seuils[["ts"]])
         i_alt <- ifelse(is.na(i_ts), idx - 1L, i_ts) + 1L
         e_alt <- (i_alt - k1)[as.vector(masque_coupe)]
+        # Variante : premier franchissement de tp.
+        i_tp <- indice_premier_franchissement(rs, seuils[["tp"]])
+        i_alt2 <- ifelse(is.na(i_tp), idx - 1L, i_tp) + 1L
+        e_alt2 <- (i_alt2 - k1)[as.vector(masque_coupe)]
 
         n_det <- sum(det_c)
         resultats[[length(resultats) + 1]] <- data.frame(
@@ -159,8 +163,12 @@ for (cad in facteurs$cadence) {
           exacte_det = sum(e_c[det_c] == 0), a1_det = sum(abs(e_c[det_c]) <= 1),
           graine = sum(graine_c), detecte = n_det,
           fa_graine = sum(graine_i), fa_detecte = sum(det_i),
+          intact_sous_tp = sum((r$ratio_min_db <= seuils[["tp"]])[masque_intact]),
+          q01_intact = unname(quantile(r$ratio_min_db[masque_intact], 0.01)),
           alt_exacte = sum(e_alt == 0), alt_a1 = sum(abs(e_alt) <= 1),
-          alt_precoce = sum(e_alt < 0)
+          alt_precoce = sum(e_alt < 0),
+          alt2_exacte = sum(e_alt2 == 0), alt2_a1 = sum(abs(e_alt2) <= 1),
+          alt2_precoce = sum(e_alt2 < 0)
         )
         if (amp == -6) {
           erreurs_signees[[sprintf("c%d_w%d_xb%s", cad, w, xb)]] <- e_c
@@ -195,9 +203,10 @@ cat("## Table complète (pourcentages ; IC de Wilson 95 % sur n pixels)\n\n")
 ligne_md(c("cad. (j)", "chute (dB)", "fen.", "xb", "n coupe", "exacte % [IC]",
            "±1 % [IC]", "±2 %", "biais méd. (acq.)", "err. moy. (j)",
            "graine %", "détecté %", "exacte | détecté %",
-           "FA graine % (n intact)", "FA détecté %",
-           "alt. exacte %", "alt. ±1 %", "alt. précoce %"))
-ligne_md(rep("---", 18))
+           "FA graine % (n intact)", "intact <= tp %", "FA détecté %", "q1 % RCR min intact (dB)",
+           "ts-1er exacte %", "ts-1er ±1 %", "ts-1er précoce %",
+           "tp-1er exacte %", "tp-1er précoce %"))
+ligne_md(rep("---", 22))
 for (k in seq_len(nrow(tab))) {
   t <- tab[k, ]
   ligne_md(c(t$cadence, t$amplitude, t$fenetre, xb_txt(t$xb), t$n_coupe,
@@ -207,9 +216,11 @@ for (k in seq_len(nrow(tab))) {
              pct(t$graine / t$n_coupe), pct(t$detecte / t$n_coupe),
              if (t$n_det > 0) pct(t$exacte_det / t$n_det) else "-",
              sprintf("%s (%d)", pct(t$fa_graine / t$n_intact), t$n_intact),
-             pct(t$fa_detecte / t$n_intact),
+             pct(t$intact_sous_tp / t$n_intact),
+             pct(t$fa_detecte / t$n_intact), sprintf("%.2f", t$q01_intact),
              pct(t$alt_exacte / t$n_coupe), pct(t$alt_a1 / t$n_coupe),
-             pct(t$alt_precoce / t$n_coupe)))
+             pct(t$alt_precoce / t$n_coupe),
+             pct(t$alt2_exacte / t$n_coupe), pct(t$alt2_precoce / t$n_coupe)))
 }
 
 cat("\n## Distribution des erreurs signées (acquisitions), chute -6 dB\n\n")
@@ -237,7 +248,7 @@ for (cad in facteurs$cadence) for (xb in facteurs$xb) {
   barplot(100 * table(factor(e, levels = -3:8)) / length(e), ylim = c(0, 100),
           names.arg = c("<=-3", -2:7, ">=8"), las = 2, col = "grey60",
           main = sprintf("cadence %d j, xb = %s", cad, xb_txt(xb)),
-          xlab = "erreur (acquisitions)", ylab = "% des pixels coupés")
+          xlab = "erreur (acquisitions)", ylab = "% des pixels coupes")
 }
 par(op); dev.off()
 
@@ -245,8 +256,8 @@ png(file.path(dossier_fig, "precision-date-profils.png"), width = 1400, height =
 op <- par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
 couleurs <- c("black", "firebrick", "darkorange", "steelblue")
 for (cad in facteurs$cadence) {
-  plot(NA, xlim = c(-6, 12), ylim = c(-8, 1), xlab = "j (0 = d_k, dernière image avant la chute)",
-       ylab = "RCR moyen (dB)", main = sprintf("Chute -6 dB, fenêtre 3, cadence %d j", cad))
+  plot(NA, xlim = c(-6, 12), ylim = c(-8, 1), xlab = "j (0 = d_k, derniere image avant la chute)",
+       ylab = "RCR moyen (dB)", main = sprintf("Chute -6 dB, fenetre 3, cadence %d j", cad))
   abline(h = seuils, lty = 3); abline(v = 0, lty = 2)
   for (k in seq_along(facteurs$xb)) {
     pr <- profils[[sprintf("c%d_xb%s", cad, facteurs$xb[k])]]
