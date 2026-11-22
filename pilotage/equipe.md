@@ -17,11 +17,14 @@
 > Ce que Pascal demande à l'orchestrateur de trancher à sa place (skill `methode`,
 > « La délégation »). Vide : aucune délégation, Pascal tranche tout.
 
-- **Portée :** _aucune_
-- **Jusqu'à :** _…_
+- **Portée :** les quatre questions du brief posées le 2026-11-22 après la critique du
+  `contradicteur` (pour qui ; « tout point, tout temps » en v1 ; fidélité ou
+  détections 2026 ; usage des résultats). Portée la plus étroite, faute de portée dite :
+  ni la validation du brief et de la spec (porte n° 1), ni les ADR, ni les portes n° 2 et 3.
+- **Jusqu'à :** ces quatre décisions prises et inscrites
 - **Réservé à Pascal :** _…_ (toujours, même si rien n'est écrit : sa réponse d'abord ;
   rendre la main ; ce qui touche l'extérieur et ne se défait pas)
-- **Inscrite au journal le :** _…_
+- **Inscrite au journal le :** 2026-11-22 (« Je te laisse trancher », Pascal)
 
 ## Le vivier (catalogue, pas une équipe)
 
