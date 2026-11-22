@@ -155,7 +155,7 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   p <- valide_parametres(parametres)
   periode <- valide_periode(date_debut, date_fin)
   if (!is.character(dossier) || length(dossier) != 1L || is.na(dossier) || !nzchar(dossier)) {
-    stop("`dossier` doit être un chemin (chaîne de caractères).", call. = FALSE)
+    stop("`dossier` doit \u00eatre un chemin (cha\u00eene de caract\u00e8res).", call. = FALSE)
   }
   if (!is.logical(correction_2019) || length(correction_2019) != 1L || is.na(correction_2019)) {
     stop("`correction_2019` doit valoir TRUE ou FALSE.", call. = FALSE)
@@ -188,7 +188,7 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
     source_images <- "s1_rechercher() + s1_lire() (STAC sentinel-1-rtc, Microsoft Planetary Computer)"
   } else {
     if (!is.function(lire_images)) {
-      stop("`lire_images` doit être NULL ou une fonction (voir la documentation).", call. = FALSE)
+      stop("`lire_images` doit \u00eatre NULL ou une fonction (voir la documentation).", call. = FALSE)
     }
     source_images <- "fonction `lire_images` fournie par l'appelant"
   }
@@ -206,15 +206,21 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   on.exit({
     duree <- as.numeric(difftime(Sys.time(), debut_calcul, units = "secs"))
     tete <- c(
-      "nemetonsar - journal d'exécution",
+      "nemetonsar - journal d'ex\u00e9cution",
       paste0("Statut : ", j$statut),
-      paste0("Début : ", format(debut_calcul, "%Y-%m-%d %H:%M:%S %Z")),
+      paste0("D\u00e9but : ", format(debut_calcul, "%Y-%m-%d %H:%M:%S %Z")),
       paste0("Fin : ", format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")),
-      paste0("Durée : ", format(round(duree, 1), nsmall = 1), " s"),
+      paste0("Dur\u00e9e : ", format(round(duree, 1), nsmall = 1), " s"),
       ""
     )
-    con <- file(fichier_journal, open = "w", encoding = "UTF-8")
-    writeLines(c(tete, j$lignes), con)
+    # Octets UTF-8 écrits tels quels : les chaînes "\u00e9" du package sont
+    # déjà en UTF-8 (en locale C, R ne les marque pas : ne pas les convertir).
+    lignes <- c(tete, j$lignes)
+    if (!isTRUE(l10n_info()[["UTF-8"]]) && !Sys.getlocale("LC_CTYPE") %in% c("C", "POSIX")) {
+      lignes <- enc2utf8(lignes)
+    }
+    con <- file(fichier_journal, open = "wb")
+    writeLines(lignes, con, useBytes = TRUE)
     close(con)
   }, add = TRUE)
 
@@ -223,9 +229,9 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   ecrire("## Appel")
   ecrire("nemetonsar ", version_pkg, " ; ", R.version.string, " ; terra ",
          as.character(getNamespaceVersion("terra")), " ; GDAL ", terra::gdal())
-  ecrire("Période : ", format(periode[1]), " au ", format(periode[2]), " (incluses)")
+  ecrire("P\u00e9riode : ", format(periode[1]), " au ", format(periode[2]), " (incluses)")
   ecrire("Images lues du ", format(debut_images), " au ", format(periode[2]),
-         " (noyau du filtre : année ", p$annee_noyau, " ; Mb : xb = ",
+         " (noyau du filtre : ann\u00e9e ", p$annee_noyau, " ; Mb : xb = ",
          texte_xb(p$xb), ")")
   ecrire("Source des images : ", source_images)
   ecrire("Dossier : ", normalizePath(dossier))
@@ -236,26 +242,26 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   ecrire(capturer(prep$tuiles[, c("mgrs", "epsg", "xmin", "ymin", "xmax", "ymax",
                                  "ncol", "nrow", "surface_ha")], row.names = FALSE))
   ecrire("")
-  ecrire("## Paramètres")
-  ecrire(capturer(p))
+  ecrire("## Param\u00e8tres")
+  ecrire(texte_parametres(p))
   ecrire("")
   ecrire("## Masques")
-  ecrire("Masque neige : non appliqué (reporté le 2026-11-22 : MODIS en fin de vie, ",
-         "identifiants Earthdata) ; images écartées pour neige : aucune.")
+  ecrire("Masque neige : non appliqu\u00e9 (report\u00e9 le 2026-11-22 : MODIS en fin de vie, ",
+         "identifiants Earthdata) ; images \u00e9cart\u00e9es pour neige : aucune.")
   if (is.null(tcd)) {
-    ecrire("Masque forêt : aucun (`tcd` non fourni) : toute l'AOI est traitée comme forêt.")
+    ecrire("Masque for\u00eat : aucun (`tcd` non fourni) : toute l'AOI est trait\u00e9e comme for\u00eat.")
   } else {
-    ecrire("Masque forêt : Tree Cover Density 2018 (", source_tcd, "), forêt si couvert >= ",
-           format(p$seuil_tcd), " % ; sans donnée = non-forêt ; appliqué au ratio et à la date ",
-           "après la passe 1 (option B).")
-    ecrire("Correction 2019 : ", if (correction_2019) "demandée" else "non demandée")
+    ecrire("Masque for\u00eat : Tree Cover Density 2018 (", source_tcd, "), for\u00eat si couvert >= ",
+           format(p$seuil_tcd), " % ; sans donn\u00e9e = non-for\u00eat ; appliqu\u00e9 au ratio et \u00e0 la date ",
+           "apr\u00e8s la passe 1 (option B).")
+    ecrire("Correction 2019 : ", if (correction_2019) "demand\u00e9e" else "non demand\u00e9e")
   }
   if (is.null(effis)) {
     ecrire("Masque feu : aucun (`effis` non fourni).")
   } else {
-    ecrire("Masque feu : EFFIS (", source_effis, "), ", nrow(effis), " polygone(s), colonne d'année `",
-           effis_annee, "` ; objet retiré si part brûlée >= ", format(p$seuil_feu),
-           " (surfaces de l'année de sa date médiane et de l'année précédente).")
+    ecrire("Masque feu : EFFIS (", source_effis, "), ", nrow(effis), " polygone(s), colonne d'ann\u00e9e `",
+           effis_annee, "` ; objet retir\u00e9 si part br\u00fbl\u00e9e >= ", format(p$seuil_feu),
+           " (surfaces de l'ann\u00e9e de sa date m\u00e9diane et de l'ann\u00e9e pr\u00e9c\u00e9dente).")
   }
   ecrire("")
 
@@ -276,7 +282,7 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   ecrire("Grille : EPSG:2154 (Lambert-93, provisoire), ", terra::res(assemblage$modele)[1], " m, ",
          terra::ncol(assemblage$modele), " x ", terra::nrow(assemblage$modele),
          " pixels ; reprojection au plus proche voisin")
-  ecrire("Objets après réétiquetage : ", nrow(table))
+  ecrire("Objets apr\u00e8s r\u00e9\u00e9tiquetage : ", nrow(table))
 
   feu <- NULL
   retires <- integer(0)
@@ -284,7 +290,7 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
     feu <- run_feu(assemblage$fichiers_tmp[["objets"]], table, effis, effis_annee, p)
     retires <- feu$identifiant[feu$retire]
     table$part_brulee <- feu$part_brulee[match(table$identifiant, feu$identifiant)]
-    ecrire("Masque feu : ", length(retires), " objet(s) retiré(s)",
+    ecrire("Masque feu : ", length(retires), " objet(s) retir\u00e9(s)",
            if (length(retires) > 0L) paste0(" (identifiants ", paste(retires, collapse = ", "), ")") else "")
     if (length(retires) > 0L) {
       r <- feu[feu$retire, , drop = FALSE]
@@ -303,38 +309,38 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   # Sorties et licences ----------------------------------------------------------
   ecrire("## Sorties")
   for (n in names(fichiers)) ecrire(n, " : ", fichiers[[n]])
-  ecrire("Par tuile (grille UTM des fichiers publiés) : ", file.path(dossier, "tuiles"))
+  ecrire("Par tuile (grille UTM des fichiers publi\u00e9s) : ", file.path(dossier, "tuiles"))
   ecrire("")
   ecrire("## Licences et attributions (docs/referentiels/licences.md)")
   attributions <- unique(unlist(lapply(resultats, `[[`, "attribution"), use.names = FALSE))
   attributions <- attributions[!is.na(attributions) & nzchar(attributions)]
-  ecrire("Entrée Sentinel-1 RTC (Planetary Computer, CC BY 4.0 ; données Copernicus, avis légal Sentinel) :")
+  ecrire("Entr\u00e9e Sentinel-1 RTC (Planetary Computer, CC BY 4.0 ; donn\u00e9es Copernicus, avis l\u00e9gal Sentinel) :")
   if (length(attributions) == 0L) {
     ecrire("  [S1] aucune image lue")
   } else {
     for (a in attributions) ecrire("  [S1] ", a)
   }
   if (!is.null(tcd)) {
-    ecrire("Entrée Tree Cover Density 2018 (CLMS, politique de données Copernicus) :")
+    ecrire("Entr\u00e9e Tree Cover Density 2018 (CLMS, politique de donn\u00e9es Copernicus) :")
     ecrire("  [FOR] ", attribution_tcd)
   }
   if (!is.null(effis)) {
-    ecrire("Entrée EFFIS, surfaces brûlées (CC BY 4.0) :")
+    ecrire("Entr\u00e9e EFFIS, surfaces br\u00fbl\u00e9es (CC BY 4.0) :")
     ecrire("  [FEU] ", attribution_effis(p))
   }
-  ecrire("Masque neige non appliqué : [NEI] sans objet.")
-  ecrire("Méthode :")
+  ecrire("Masque neige non appliqu\u00e9 : [NEI] sans objet.")
+  ecrire("M\u00e9thode :")
   ecrire("  [MET] ", attribution_methode)
-  ecrire("À reproduire avec les rasters et le GeoPackage : [S1]",
+  ecrire("\u00c0 reproduire avec les rasters et le GeoPackage : [S1]",
          if (!is.null(tcd)) " [FOR]" else "", if (!is.null(effis)) " [FEU]" else "",
-         ". Aucune donnée SUFOSAT v3.0.1 lue : pas de clause non commerciale héritée (ADR 0002).")
+         ". Aucune donn\u00e9e SUFOSAT v3.0.1 lue : pas de clause non commerciale h\u00e9rit\u00e9e (ADR 0002).")
   ecrire("")
   ecrire("## Valeurs provisoires")
-  ecrire("Assemblage en Lambert-93 (ADR 0003), plus proche voisin ; règle de la correction 2019 ; ",
-         "appariement EFFIS (année et année précédente) ; nom de la colonne d'année EFFIS ; ",
-         "masque forêt après la passe 1 ; voir aussi les réglages marqués provisoires de parametres_sufosat().")
+  ecrire("Assemblage en Lambert-93 (ADR 0003), plus proche voisin ; r\u00e8gle de la correction 2019 ; ",
+         "appariement EFFIS (ann\u00e9e et ann\u00e9e pr\u00e9c\u00e9dente) ; nom de la colonne d'ann\u00e9e EFFIS ; ",
+         "masque for\u00eat apr\u00e8s la passe 1 ; voir aussi les r\u00e9glages marqu\u00e9s provisoires de parametres_sufosat().")
 
-  j$statut <- "terminé"
+  j$statut <- "termin\u00e9"
   tuiles <- do.call(rbind, lapply(resultats, `[[`, "resume"))
   rownames(tuiles) <- NULL
   invisible(list(
@@ -383,7 +389,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   noyau <- vapply(dates, function(d) any(format(d, "%Y") == as.character(p$annee_noyau)),
                   logical(1))
   if (any(!noyau)) {
-    ecrire("Orbite(s) écartée(s), sans image de l'année du noyau (", p$annee_noyau, ") : ",
+    ecrire("Orbite(s) \u00e9cart\u00e9e(s), sans image de l'ann\u00e9e du noyau (", p$annee_noyau, ") : ",
            paste(names(orbites)[!noyau], collapse = ", "))
   }
   resume$orbites_ecartees <- sum(!noyau)
@@ -393,7 +399,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   resume$nb_images <- sum(lengths(dates))
   vide$resume <- resume
 
-  ecrire("Images utilisées : ", resume$nb_images, " sur ", length(orbites), " orbite(s)")
+  ecrire("Images utilis\u00e9es : ", resume$nb_images, " sur ", length(orbites), " orbite(s)")
   for (s in names(orbites)) {
     d <- dates[[s]]
     ecrire("  ", s, " : ", length(d), " image(s), du ", format(min(d)), " au ", format(max(d)))
@@ -406,7 +412,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     ecrire(paste0("    ", capturer(liste, row.names = FALSE)))
   }
   if (length(orbites) == 0L) {
-    ecrire("Aucune image utilisable : tuile sans détection.")
+    ecrire("Aucune image utilisable : tuile sans d\u00e9tection.")
     ecrire("")
     return(vide)
   }
@@ -440,15 +446,15 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     det19 <- d19 >= 19000 & d19 <= 19999
     foret1 <- masque_foret(tcd, modele, p, detections_2019 = det19)
     n19 <- sum(terra::values(det19, mat = FALSE) %in% TRUE)
-    ecrire("Correction 2019 : première détection sur ", sum(lengths(dates_a)),
+    ecrire("Correction 2019 : premi\u00e8re d\u00e9tection sur ", sum(lengths(dates_a)),
            " image(s) (jusqu'au 2019-12-31 et ", p$xa, " suivantes), ", nrow(res_a$objets),
-           " objet(s) ; ", n19, " pixel(s) daté(s) de 2019 retiré(s) de la forêt")
+           " objet(s) ; ", n19, " pixel(s) dat\u00e9(s) de 2019 retir\u00e9(s) de la for\u00eat")
     resume$passe_2019 <- TRUE
     resume$objets_2019 <- nrow(res_a$objets)
   } else {
     foret1 <- foret0
     if (!is.null(tcd) && correction_2019) {
-      ecrire("Correction 2019 : non faite (aucune image de 2019 lue, ou noyau postérieur à 2018).")
+      ecrire("Correction 2019 : non faite (aucune image de 2019 lue, ou noyau post\u00e9rieur \u00e0 2018).")
     }
   }
   m1 <- masque_aoi(foret1)
@@ -470,15 +476,20 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   } else {
     integer(0)
   }
-  ecrire("Détection principale : ", nrow(res_b$objets), " objet(s) ; gardés (date médiane dans la période",
-         if (passe_2019) ", 2019 pris de la première détection" else "", ") : ",
+  ecrire("D\u00e9tection principale : ", nrow(res_b$objets), " objet(s) ; gard\u00e9s (date m\u00e9diane dans la p\u00e9riode",
+         if (passe_2019) ", 2019 pris de la premi\u00e8re d\u00e9tection" else "", ") : ",
          length(ids_b) + length(ids_a))
   resume$objets_gardes <- length(ids_b) + length(ids_a)
 
+  # Objets gardés, coupés au morceau d'AOI : la fermeture de
+  # nemetonsar_detecter() peut étendre un objet d'un pixel dans les cellules
+  # sans donnée (hors masque), donc hors de l'AOI, où la tuile voisine le
+  # compterait aussi.
   garder <- function(res, ids, decalage) {
     if (length(ids) == 0L) return(NULL)
     o <- terra::subst(terra::rast(res$fichiers[["objets_raster"]]), from = ids,
                       to = ids + decalage, others = NA)
+    o <- terra::mask(o, dans_aoi, maskvalues = FALSE)
     list(objets = o,
          dates = terra::mask(terra::rast(res$fichiers[["dates"]]), o),
          ratio = terra::mask(terra::rast(res$fichiers[["ratio"]]), o))
@@ -691,23 +702,41 @@ capturer <- function(x, ...) {
   out
 }
 
+# Réglages, un par ligne (sans print(), dont la sortie dépend de la locale).
+texte_parametres <- function(p) {
+  valeur <- function(n) {
+    x <- p[[n]]
+    if (n == "capteurs") {
+      return(paste(vapply(seq_along(x), function(i) {
+        paste0(paste(x[[i]], collapse = "+"), " depuis le ", names(x)[i])
+      }, character(1)), collapse = " ; "))
+    }
+    if (is.numeric(x) && is.infinite(x)) return("Inf")
+    paste(format(x), collapse = ", ")
+  }
+  s <- seuils_db(p)
+  c(paste0("  ", formatC(names(p), width = -20), ": ", vapply(names(p), valeur, character(1))),
+    paste0("  ", formatC("ts, tp effectifs", width = -20), ": ", format(s[["ts"]]), " dB, ",
+           format(s[["tp"]]), " dB"))
+}
+
 # EFFIS ------------------------------------------------------------------------
 
 valide_effis <- function(effis, colonne) {
   if (!inherits(effis, "SpatVector") ||
       (nrow(effis) > 0L && terra::geomtype(effis) != "polygons")) {
-    stop("`effis` doit être NULL, un chemin de fichier vecteur ou un SpatVector de polygones.",
+    stop("`effis` doit \u00eatre NULL, un chemin de fichier vecteur ou un SpatVector de polygones.",
          call. = FALSE)
   }
   if (!nzchar(terra::crs(effis))) {
-    stop("`effis` doit avoir un système de coordonnées.", call. = FALSE)
+    stop("`effis` doit avoir un syst\u00e8me de coordonn\u00e9es.", call. = FALSE)
   }
   if (!is.character(colonne) || length(colonne) != 1L || !colonne %in% names(effis)) {
-    stop("`effis` doit avoir la colonne d'année `", colonne, "` (argument `effis_annee`).",
+    stop("`effis` doit avoir la colonne d'ann\u00e9e `", colonne, "` (argument `effis_annee`).",
          call. = FALSE)
   }
   if (nrow(effis) > 0L && all(is.na(annee_effis(effis[[colonne]][[1]])))) {
-    stop("La colonne `", colonne, "` de `effis` ne donne aucune année lisible ",
+    stop("La colonne `", colonne, "` de `effis` ne donne aucune ann\u00e9e lisible ",
          "(entier, Date, ou texte \"AAAA-MM-JJ\").", call. = FALSE)
   }
   effis
@@ -736,11 +765,11 @@ attribution_effis <- function(p) {
   paste0(
     "EFFIS, European Commission Joint Research Centre, licence CC BY 4.0 ",
     "(https://forest-fire.emergency.copernicus.eu/about-effis/data-license). ",
-    "Données modifiées : seuil de ", format(100 * p$seuil_feu), " % de l'objet."
+    "Donn\u00e9es modifi\u00e9es : seuil de ", format(100 * p$seuil_feu), " % de l'objet."
   )
 }
 
 attribution_methode <- paste0(
-  "Méthode : Mermoz et al. (2024), IEEE JSTARS 17, 13743-13764, doi:10.1109/JSTARS.2024.3429012 ; ",
+  "M\u00e9thode : Mermoz et al. (2024), IEEE JSTARS 17, 13743-13764, doi:10.1109/JSTARS.2024.3429012 ; ",
   "Bouvet et al. (2018), Remote Sensing 10(8), 1250, doi:10.3390/rs10081250."
 )

@@ -107,7 +107,7 @@ res <- nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", dossier_principal,
                       tcd = tcd_run, effis = effis_run(),
                       lire_images = lire_synthetique)
 
-test_that("deux tuiles dans deux zones UTM, images lues depuis l'année du noyau", {
+test_that("deux tuiles dans deux zones UTM, images lues depuis l'ann\u00e9e du noyau", {
   expect_equal(nrow(res$tuiles), 2L)
   expect_setequal(substr(res$tuiles$mgrs, 1, 2), c("30", "31"))
   expect_equal(res$tuiles$nb_orbites, c(2L, 2L))
@@ -154,12 +154,21 @@ test_that("sorties en Lambert-93 : fichiers, grille, types, codes YYDDD", {
   }
 })
 
-test_that("coupe à cheval sur deux tuiles : un seul objet, entier", {
+test_that("coupe \u00e0 cheval sur deux tuiles : un seul objet, entier", {
   ids <- objets_sur(res, "c1")
   expect_length(ids, 1L)
   o <- res$objets[res$objets$identifiant == ids, ]
+  # Surface : la somme des deux parties (grilles UTM), à la reprojection près ;
+  # moins que la coupe vraie, dont le filtre 3 x 3 rogne le bord.
+  parties <- vapply(res$tuiles$mgrs, function(m) {
+    r <- terra::rast(file.path(dossier_principal, "tuiles", m, "objets.tif"))
+    v <- terra::extract(r, terra::project(coupes_run$c1$v, terra::crs(r)))[[2]]
+    sum(!is.na(v))
+  }, numeric(1))
+  expect_equal(o$surface_ha, sum(parties) * 100 / 1e4, tolerance = 0.05)
   attendu_ha <- terra::expanse(coupes_run$c1$v, unit = "ha")
-  expect_equal(o$surface_ha, attendu_ha, tolerance = 0.25)
+  expect_gt(o$surface_ha, 0.6 * attendu_ha)
+  expect_lt(o$surface_ha, 1.05 * attendu_ha)
   expect_true(o$date_mediane_date %in% candidats(coupes_run$c1$date))
   # Les deux tuiles en ont chacune une partie.
   for (m in res$tuiles$mgrs) {
@@ -169,7 +178,7 @@ test_that("coupe à cheval sur deux tuiles : un seul objet, entier", {
   }
 })
 
-test_that("coupe hors forêt absente, coupe brûlée retirée, coupe ordinaire gardée", {
+test_that("coupe hors for\u00eat absente, coupe br\u00fbl\u00e9e retir\u00e9e, coupe ordinaire gard\u00e9e", {
   expect_length(objets_sur(res, "c2"), 0L)
   expect_length(objets_sur(res, "c3"), 0L)
   expect_length(objets_sur(res, "c4"), 1L)
@@ -186,7 +195,7 @@ test_that("coupe hors forêt absente, coupe brûlée retirée, coupe ordinaire g
   expect_true(o4$date_mediane_date %in% candidats(coupes_run$c4$date))
 })
 
-test_that("GeoPackage : un polygone par objet, mêmes attributs que la table", {
+test_that("GeoPackage : un polygone par objet, m\u00eames attributs que la table", {
   v <- terra::vect(res$fichiers[["objets"]], layer = "objets")
   expect_true(terra::same.crs(v, "EPSG:2154"))
   expect_equal(v$identifiant, res$objets$identifiant)
@@ -195,12 +204,18 @@ test_that("GeoPackage : un polygone par objet, mêmes attributs que la table", {
   expect_equal(v$date_mediane, res$objets$date_mediane)
 })
 
-test_that("correction 2019 : pixels datés de 2019 retirés de la forêt, objet 2019 gardé", {
+test_that("correction 2019 : pixels dat\u00e9s de 2019 retir\u00e9s de la for\u00eat, objet 2019 gard\u00e9", {
   m <- res$tuiles$mgrs[substr(res$tuiles$mgrs, 1, 2) == "31"]
   masque <- terra::rast(file.path(dossier_principal, "tuiles", m, "masque.tif"))
-  v <- terra::extract(masque, terra::project(coupes_run$c1$v, terra::crs(masque)))[[2]]
-  # Les pixels de c1 (coupe de 2019) ne sont plus forêt pour la détection principale.
-  expect_true(mean(v == 0, na.rm = TRUE) > 0.8)
+  d19 <- terra::values(terra::rast(file.path(dossier_principal, "tuiles", m, "passe_2019",
+                                              "dates.tif")), mat = FALSE)
+  v <- terra::values(masque, mat = FALSE)
+  # Les pixels datés de 2019 par la première détection (codes 19xxx) ne sont
+  # plus forêt pour la détection principale ; les autres pixels le restent.
+  de_2019 <- !is.na(d19) & d19 %/% 1000 == 19
+  expect_gt(sum(de_2019), 50)
+  expect_true(all(v[de_2019] == 0))
+  expect_true(sum(v == 1, na.rm = TRUE) > 0)
   det <- terra::rast(file.path(dossier_principal, "tuiles", m, "detection", "dates.tif"))
   d <- terra::extract(det, terra::project(coupes_run$c1$v, terra::crs(det)))[[2]]
   expect_true(all(is.na(d)))
@@ -209,34 +224,34 @@ test_that("correction 2019 : pixels datés de 2019 retirés de la forêt, objet 
   expect_equal(o$date_mediane %/% 1000L, 19L)
 })
 
-test_that("journal d'exécution complet : images, paramètres, masques, licences", {
+test_that("journal d'ex\u00e9cution complet : images, param\u00e8tres, masques, licences", {
   j <- readLines(res$journal, encoding = "UTF-8")
   texte <- paste(j, collapse = "\n")
-  expect_match(texte, "Statut : terminé", fixed = TRUE)
-  expect_match(texte, "Durée : ", fixed = TRUE)
+  expect_match(texte, "Statut : termin\u00e9", fixed = TRUE, useBytes = TRUE)
+  expect_match(texte, "Dur\u00e9e : ", fixed = TRUE, useBytes = TRUE)
   # Toutes les images, par leur identifiant.
   ids <- paste0("SYNTH_A030_", format(dates_asc, "%Y%m%d"))
   expect_true(all(vapply(ids, grepl, logical(1), x = texte, fixed = TRUE)))
   # Paramètres.
-  expect_match(texte, "xb_date", fixed = TRUE)
-  expect_match(texte, "annee_noyau", fixed = TRUE)
-  expect_match(texte, "2019-01-01 au 2020-06-30", fixed = TRUE)
+  expect_match(texte, "xb_date", fixed = TRUE, useBytes = TRUE)
+  expect_match(texte, "annee_noyau", fixed = TRUE, useBytes = TRUE)
+  expect_match(texte, "2019-01-01 au 2020-06-30", fixed = TRUE, useBytes = TRUE)
   # Masques.
-  expect_match(texte, "Masque neige : non appliqué", fixed = TRUE)
-  expect_match(texte, "Correction 2019 : première détection", fixed = TRUE)
-  expect_match(texte, "Masque feu : 1 objet(s) retiré(s)", fixed = TRUE)
+  expect_match(texte, "Masque neige : non appliqu\u00e9", fixed = TRUE, useBytes = TRUE)
+  expect_match(texte, "Correction 2019 : premi\u00e8re d\u00e9tection", fixed = TRUE, useBytes = TRUE)
+  expect_match(texte, "Masque feu : 1 objet(s) retir\u00e9(s)", fixed = TRUE, useBytes = TRUE)
   # Licences et attributions.
-  expect_match(texte, "[S1] Contains modified Copernicus Sentinel data 2018-2020", fixed = TRUE)
+  expect_match(texte, "[S1] Contains modified Copernicus Sentinel data 2018-2020", fixed = TRUE, useBytes = TRUE)
   expect_match(texte, "[FOR] Generated using European Union's Copernicus Land Monitoring Service",
-               fixed = TRUE)
-  expect_match(texte, "[FEU] EFFIS", fixed = TRUE)
-  expect_match(texte, "[MET] Méthode : Mermoz et al. (2024)", fixed = TRUE)
-  expect_match(texte, "[NEI] sans objet", fixed = TRUE)
+               fixed = TRUE, useBytes = TRUE)
+  expect_match(texte, "[FEU] EFFIS", fixed = TRUE, useBytes = TRUE)
+  expect_match(texte, "[MET] M\u00e9thode : Mermoz et al. (2024)", fixed = TRUE, useBytes = TRUE)
+  expect_match(texte, "[NEI] sans objet", fixed = TRUE, useBytes = TRUE)
   # Sorties.
-  expect_match(texte, file.path(dossier_principal, "dates.tif"), fixed = TRUE)
+  expect_match(texte, file.path(dossier_principal, "dates.tif"), fixed = TRUE, useBytes = TRUE)
 })
 
-test_that("identité avec nemetonsar_detecter() sur une seule tuile", {
+test_that("identit\u00e9 avec nemetonsar_detecter() sur une seule tuile", {
   aoi_1 <- rect_ll(0.001, 0.006, 44.500, 44.505)
   dossier <- tempfile("run-")
   r1 <- nemetonsar_run(aoi_1, "2019-01-01", "2020-06-30", dossier, tcd = tcd_run,
@@ -267,7 +282,7 @@ test_that("identité avec nemetonsar_detecter() sur une seule tuile", {
   expect_equal(sort(r1$objets$surface_ha), sort(direct$objets$surface_ha), tolerance = 0.1)
 })
 
-test_that("période, sans masque forêt, appariement EFFIS hors années", {
+test_that("p\u00e9riode, sans masque for\u00eat, appariement EFFIS hors ann\u00e9es", {
   dossier <- tempfile("run-")
   # Sans TCD : c2 est détectée. c3 brûlée en 2021 (après sa coupe de 2020) : gardée.
   r2 <- nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", dossier,
@@ -276,7 +291,7 @@ test_that("période, sans masque forêt, appariement EFFIS hors années", {
   expect_false(any(r2$feu$retire))
   expect_false(any(r2$tuiles$passe_2019))
   expect_match(paste(readLines(r2$journal), collapse = "\n"),
-               "Masque forêt : aucun", fixed = TRUE)
+               "Masque for\u00eat : aucun", fixed = TRUE, useBytes = TRUE)
   # Période 2020 seule : les coupes de 2019 sortent.
   r3 <- nemetonsar_run(aoi_2z, "2020-01-01", "2020-06-30", tempfile("run-"),
                        lire_images = lire_synthetique)
@@ -287,16 +302,16 @@ test_that("période, sans masque forêt, appariement EFFIS hors années", {
   expect_true(all(r3$objets$date_mediane_date >= as.Date("2020-01-01")))
 })
 
-test_that("journal écrit même si le calcul s'arrête", {
+test_that("journal \u00e9crit m\u00eame si le calcul s'arr\u00eate", {
   dossier <- tempfile("run-")
   casse <- function(...) stop("lecture impossible")
   expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", dossier,
                               lire_images = casse), "lecture impossible")
   j <- readLines(file.path(dossier, "journal.txt"), encoding = "UTF-8")
-  expect_true(any(grepl("Statut : interrompu", j, fixed = TRUE)))
+  expect_true(any(grepl("Statut : interrompu", j, fixed = TRUE, useBytes = TRUE)))
 })
 
-test_that("orbite sans image de l'année du noyau écartée, tuile sans image", {
+test_that("orbite sans image de l'ann\u00e9e du noyau \u00e9cart\u00e9e, tuile sans image", {
   sans_noyau <- function(grille, date_debut, date_fin, parametres, dossier) {
     x <- lire_synthetique(grille, date_debut, date_fin, parametres, dossier)
     garde <- x$dates$D008 >= as.Date("2019-01-01")
@@ -309,7 +324,7 @@ test_that("orbite sans image de l'année du noyau écartée, tuile sans image", 
                       dossier, lire_images = sans_noyau)
   expect_equal(r$tuiles$orbites_ecartees, 1L)
   expect_equal(r$tuiles$nb_orbites, 1L)
-  expect_match(paste(readLines(r$journal), collapse = "\n"), "D008", fixed = TRUE)
+  expect_match(paste(readLines(r$journal), collapse = "\n"), "D008", fixed = TRUE, useBytes = TRUE)
   rien <- function(...) list(orbites = list(), dates = list(), attribution = NULL, items = NULL)
   r0 <- nemetonsar_run(rect_ll(0.001, 0.006, 44.500, 44.505), "2019-01-01", "2020-06-30",
                        tempfile("run-"), lire_images = rien)
@@ -318,7 +333,7 @@ test_that("orbite sans image de l'année du noyau écartée, tuile sans image", 
   expect_true(all(is.na(terra::values(terra::rast(r0$fichiers[["dates"]])))))
 })
 
-test_that("entrées invalides refusées", {
+test_that("entr\u00e9es invalides refus\u00e9es", {
   d <- tempfile("run-")
   expect_error(nemetonsar_run(aoi_2z, "2020-01-01", "2019-01-01", d,
                               lire_images = lire_synthetique), "date_debut")
@@ -338,7 +353,7 @@ test_that("entrées invalides refusées", {
   expect_false(dir.exists(d))
 })
 
-test_that("année EFFIS lue d'un entier, d'une Date ou d'un texte", {
+test_that("ann\u00e9e EFFIS lue d'un entier, d'une Date ou d'un texte", {
   expect_equal(annee_effis(c(2019, NA)), c(2019L, NA))
   expect_equal(annee_effis(as.Date(c("2019-07-01", NA))), c(2019L, NA))
   expect_equal(annee_effis(c("2018-08-12 00:00:00", "x", NA)), c(2018L, NA, NA))

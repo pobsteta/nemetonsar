@@ -45,7 +45,7 @@ coupes <- list(
 )
 # Une coupe vue par la seule orbite descendante, plus tard.
 coupes_d <- c(coupes, list(list(lignes = 19:26, colonnes = 1:7, date = as.Date("2020-02-01"))))
-trou <- (12 - 1) * nc + 14:16 # trois cellules sans donnée, ligne 12
+trou <- (12 - 1) * nc + 14:16 # trois cellules sans donn\u00e9e, ligne 12
 orbites <- list(
   asc = pile_synthetique(nl, nc, dates_a, coupes, 1, trous = trou),
   desc = pile_synthetique(nl, nc, dates_d, coupes_d, 2)
@@ -242,7 +242,7 @@ etat[ligne_c >= 25] <- NA
 foret_3 <- terra::rast(grille_utm(nl, nc), vals = etat) == 1
 garde_3 <- matrix(!is.na(etat) & etat == 1, nrow = nc)
 
-test_that("foret : tout TRUE donne exactement le résultat sans masque", {
+test_that("foret : tout TRUE donne exactement le r\u00e9sultat sans masque", {
   tout <- terra::rast(grille_utm(nl, nc), vals = TRUE)
   d1 <- tempfile("detecter-")
   d2 <- tempfile("detecter-")
@@ -256,7 +256,7 @@ test_that("foret : tout TRUE donne exactement le résultat sans masque", {
 })
 
 for (lpb in c(1L, 4L, 30L)) {
-  test_that(paste("foret à trois états, blocs de", lpb, "lignes : identique au tableau entier masqué"), {
+  test_that(paste("foret \u00e0 trois \u00e9tats, blocs de", lpb, "lignes : identique au tableau entier masqu\u00e9"), {
     r <- reference_foret(orbites, dates, p_def, garde_3)
     dossier <- tempfile("detecter-")
     res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = lpb,
@@ -274,7 +274,7 @@ for (lpb in c(1L, 4L, 30L)) {
   })
 }
 
-test_that("foret : la coupe hors forêt disparaît, la coupe en forêt reste", {
+test_that("foret : la coupe hors for\u00eat dispara\u00eet, la coupe en for\u00eat reste", {
   dossier <- tempfile("detecter-")
   sans <- nemetonsar_detecter(orbites, dates, tempfile("detecter-"), lignes_par_bloc = 5)
   res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = 5, foret = foret_3)
@@ -291,7 +291,7 @@ test_that("foret : la coupe hors forêt disparaît, la coupe en forêt reste", {
   unlink(dossier, recursive = TRUE)
 })
 
-test_that("foret : FALSE partout et NA partout donnent le même résultat vide", {
+test_that("foret : FALSE partout et NA partout donnent le m\u00eame r\u00e9sultat vide", {
   for (v in list(FALSE, NA)) {
     f <- terra::rast(grille_utm(nl, nc), vals = v)
     if (isFALSE(v)) f <- f == 1
@@ -304,7 +304,7 @@ test_that("foret : FALSE partout et NA partout donnent le même résultat vide",
   }
 })
 
-test_that("foret : entrées invalides refusées", {
+test_that("foret : entr\u00e9es invalides refus\u00e9es", {
   d <- tempfile("detecter-")
   expect_error(nemetonsar_detecter(orbites, dates, d, foret = TRUE), "foret")
   deux <- terra::rast(grille_utm(nl, nc), nlyrs = 2, vals = 1)
