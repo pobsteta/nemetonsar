@@ -383,9 +383,13 @@ test_that("détection brute puis segmenter_blocs() : identique à nemetonsar_det
   grille <- aoi_grille(prep)
   imgs <- lire_synthetique(grille, as.Date("2018-01-01"), as.Date("2020-06-30"),
                            parametres_sufosat(), tempfile("img-"))
-  # Masque à trous (TCD, morceau d'AOI, une bande de non-forêt dans c4).
-  trou <- terra::rasterize(terra::project(rect_ll(0.0030, 0.0034, 44.5030, 44.5042),
-                                          terra::crs(grille)), grille, background = 0) == 1
+  # Masque à trous (TCD, morceau d'AOI, une colonne de non-forêt d'un pixel
+  # au milieu de c4 : la fermeture ne doit pas la combler).
+  c4 <- terra::cells(grille, terra::project(coupes_run$c4$v, terra::crs(grille)))[, 2]
+  colonne <- stats::median(terra::colFromCell(grille, c4))
+  trou <- terra::rast(grille, vals = 0L)
+  trou[intersect(c4, which(terra::colFromCell(grille, seq_len(terra::ncell(grille))) == colonne))] <- 1L
+  trou <- trou == 1
   foret <- masque_foret(tcd_run, grille) & !trou &
     (terra::rasterize(prep$aoi[[1]], grille, background = 0) == 1)
   p <- parametres_sufosat()

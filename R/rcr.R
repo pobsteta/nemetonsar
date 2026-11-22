@@ -433,9 +433,9 @@ valide_serie <- function(serie) {
   if (any(d == 0L)) {
     stop("`serie` ne doit avoir aucune dimension vide.", call. = FALSE)
   }
-  # range() lit le tableau sans le recopier ; any(is.infinite()) ne sert
-  # que si une borne est infinie (ou si tout est NA).
-  bornes <- suppressWarnings(range(serie, na.rm = TRUE))
+  # min() et max() lisent le tableau sans le recopier ; any(is.infinite())
+  # ne sert que si une borne est infinie (ou si tout est NA).
+  bornes <- suppressWarnings(c(min(serie, na.rm = TRUE), max(serie, na.rm = TRUE)))
   if (any(is.infinite(bornes)) && any(is.infinite(serie))) {
     stop("`serie` ne doit pas contenir de valeur infinie.", call. = FALSE)
   }

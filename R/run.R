@@ -19,12 +19,20 @@
 #'   2. **Masque.** Le masque de la tuile est le masque forêt (TCD, si
 #'      `tcd` est donné) **et** le morceau d'AOI de la tuile (cellules dont
 #'      le centre est dans le morceau, [terra::rasterize()]). Il est passé à
-#'      [nemetonsar_detecter()] (option B : ratio et date à `NA` hors masque
-#'      après la passe 1). Ainsi, deux tuiles de zones UTM voisines, qui se
-#'      recouvrent sur le terrain, ne comptent jamais deux fois le même
-#'      pixel ; un objet est mesuré (0,1 ha, graine) sur sa partie dans
-#'      l'AOI.
-#'   3. **Correction 2019** (si `tcd` est donné, `correction_2019 = TRUE`,
+#'      la détection de la tuile (option B : ratio et date à `NA` hors
+#'      masque après la passe 1). Un objet est mesuré (0,1 ha, graine) sur
+#'      sa partie dans l'AOI.
+#'   3. **Détection.** [nemetonsar_detecter()] tourne une fois par passe,
+#'      avec le seul masque forêt (toute la grille) et des paramètres
+#'      **bruts** : les zones `ratio <= tp`, sans exiger de graine (seuil
+#'      des graines porté à `tp`), sans surface minimale ni fermeture
+#'      (`detection/brut/`, `passe_2019/brut/`). La détection de la tuile
+#'      (`detection/`, `passe_2019/`) en est tirée avec le masque de la
+#'      tuile, par les passes 2 et 3 de [nemetonsar_detecter()] (graine,
+#'      0,1 ha, fermeture) : mêmes résultats, au ratio près relu en réel 32
+#'      bits et aux pixels de forêt sans ratio (voir l'assemblage). La
+#'      carte finale, elle, est jugée après l'assemblage.
+#'   4. **Correction 2019** (si `tcd` est donné, `correction_2019 = TRUE`,
 #'      `annee_noyau` antérieure à 2019 et des images de 2019 lues) : une
 #'      première détection, sur les images jusqu'au 31 décembre 2019 et les
 #'      `xa` suivantes, avec le seul masque TCD ; ses pixels datés de 2019
@@ -36,26 +44,43 @@
 #'      d'abord à 2019, puis aux années suivantes avec le masque mis à
 #'      jour). **Provisoire : règle d'assemblage des deux détections non
 #'      sourcée, gèle au jalon 2.**
-#'   4. **Période.** Seuls sont gardés les objets dont la date médiane est
+#'   5. **Période.** Seuls sont gardés les objets dont la date médiane est
 #'      dans `[date_debut, date_fin]`. Une coupe des `xa` dernières images
 #'      n'a pas encore de ratio : elle n'est pas détectée (elle le sera en
 #'      prolongeant la période).
 #'
-#' @section Assemblage : Les rasters gardés de chaque tuile (UTM) sont
-#'   reprojetés au plus proche voisin sur une grille Lambert-93 (EPSG:2154,
-#'   ADR 0003, **provisoire**) de même résolution, alignée sur les multiples
-#'   de la résolution, qui couvre l'AOI ; là où deux tuiles se recouvrent
-#'   après reprojection (bords), la tuile au plus petit identifiant
-#'   l'emporte. Les objets sont ensuite **réétiquetés** sur la carte
-#'   assemblée (composantes connexes, `parametres$connexite`) : une coupe à
-#'   cheval sur deux tuiles est **un seul objet**. Sa table (surface, date
-#'   médiane, ratio moyen) est recalculée sur la grille Lambert-93, avec les
-#'   règles de [postprocess()]. **Limites** : la surface minimale et la
-#'   graine sont jugées dans chaque tuile, sur la partie de la coupe qu'elle
-#'   contient (une partie de moins de 0,1 ha d'un côté de la limite est
-#'   perdue) ; le plus proche voisin peut, au pixel près, souder deux objets
-#'   voisins ou couper un objet filiforme ; les surfaces sont celles de la
-#'   grille Lambert-93 (nombre de pixels x 100 m²).
+#' @section Assemblage : Les sorties **brutes** de chaque tuile (UTM : zones
+#'   `ratio <= tp`, ratio et date) et son masque forêt sont reprojetés au
+#'   plus proche voisin sur une grille Lambert-93 (EPSG:2154, ADR 0003,
+#'   **provisoire**) de même résolution, alignée sur les multiples de la
+#'   résolution, qui couvre l'AOI. **Chaque pixel Lambert-93 est pris à une
+#'   seule tuile : celle dont le morceau d'AOI, reprojeté, contient son
+#'   centre** ([terra::rasterize()]) ; hors de l'AOI, aucun pixel (règle
+#'   **provisoire**, mission 015). Aucun pixel n'est donc compté deux fois
+#'   à la limite de deux tuiles.
+#'
+#'   Sur la carte assemblée, et non plus tuile par tuile, sont alors
+#'   appliquées les règles de [nemetonsar_detecter()] : zones `ratio <= tp`
+#'   (forêt de l'AOI), gardées si **l'objet entier** contient une graine
+#'   (`ratio < ts`) et atteint `surface_min_ha`, puis fermeture (pixels
+#'   hors forêt ou hors AOI neutres). Une coupe à cheval sur deux tuiles est
+#'   ainsi **un seul objet**, gardée même si chaque partie fait moins de
+#'   0,1 ha ou si sa graine est d'un seul côté. La correction 2019 (pixels
+#'   datés de 2019 par la première détection retirés de la forêt de la
+#'   détection principale) et le choix des objets (période ; objets de 2019
+#'   pris de la première détection si toutes les tuiles l'ont faite) se
+#'   font aussi sur la carte assemblée. Les objets gardés sont
+#'   **réétiquetés** (composantes connexes, `parametres$connexite`) ; leur
+#'   table (surface, date médiane, ratio moyen) suit les règles de
+#'   [postprocess()].
+#'
+#'   **Limites** : un pixel de forêt sans ratio (images manquantes) n'est
+#'   pas neutre pour la fermeture, contrairement à [nemetonsar_detecter()] ;
+#'   le ratio est relu en réel 32 bits (une graine ou une zone à moins de
+#'   1e-6 dB d'un seuil peut basculer) ; le plus proche voisin peut, au
+#'   pixel près, souder deux objets voisins ou couper un objet filiforme ;
+#'   les surfaces sont celles de la grille Lambert-93 (nombre de pixels x
+#'   100 m²).
 #'
 #' @section Masque feu : Appliqué aux objets assemblés : un objet dont la
 #'   date médiane est de l'année `A` est rapproché des surfaces brûlées
@@ -82,10 +107,13 @@
 #'     calcul s'arrête sur une erreur (statut « interrompu ») ;
 #'   - `tuiles/<mgrs>/` : par tuile, sur sa grille UTM (celle des fichiers
 #'     SUFOSAT publiés) : `s1/` (piles lues), `masque.tif` (1 forêt dans
-#'     l'AOI, 0 sinon, `NA` sans donnée TCD), `detection/` (sorties de
-#'     [nemetonsar_detecter()]), `passe_2019/` (première détection, si
-#'     faite), et `dates.tif`, `ratio.tif`, `objets.tif` des objets gardés
-#'     de la tuile.
+#'     l'AOI, 0 sinon, `NA` sans donnée TCD), `foret.tif` (1 forêt, 0
+#'     sinon, sur toute la grille), `detection/` (détection de la tuile,
+#'     comme [nemetonsar_detecter()] ; `detection/brut/` : zones brutes,
+#'     entrée de l'assemblage), `passe_2019/` (première détection, si
+#'     faite, et `passe_2019/brut/`), et `dates.tif`, `ratio.tif`,
+#'     `objets.tif` des objets gardés de la tuile (jugés dans la tuile : ils
+#'     peuvent différer de la carte finale à la limite de deux tuiles).
 #'
 #'   Rien n'est écrit hors de `dossier`, sauf les fichiers temporaires de
 #'   `terra`.
@@ -281,7 +309,8 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   table <- assemblage$table
   ecrire("Grille : EPSG:2154 (Lambert-93, provisoire), ", terra::res(assemblage$modele)[1], " m, ",
          terra::ncol(assemblage$modele), " x ", terra::nrow(assemblage$modele),
-         " pixels ; reprojection au plus proche voisin")
+         " pixels ; reprojection au plus proche voisin ; chaque pixel pris \u00e0 la seule tuile ",
+         "dont le morceau d'AOI contient son centre")
   ecrire("Objets apr\u00e8s r\u00e9\u00e9tiquetage : ", nrow(table))
 
   feu <- NULL
@@ -336,7 +365,8 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
          ". Aucune donn\u00e9e SUFOSAT v3.0.1 lue : pas de clause non commerciale h\u00e9rit\u00e9e (ADR 0002).")
   ecrire("")
   ecrire("## Valeurs provisoires")
-  ecrire("Assemblage en Lambert-93 (ADR 0003), plus proche voisin ; r\u00e8gle de la correction 2019 ; ",
+  ecrire("Assemblage en Lambert-93 (ADR 0003), plus proche voisin, pixel attribu\u00e9 \u00e0 la tuile ",
+         "dont le morceau d'AOI contient son centre ; r\u00e8gle de la correction 2019 ; ",
          "appariement EFFIS (ann\u00e9e et ann\u00e9e pr\u00e9c\u00e9dente) ; nom de la colonne d'ann\u00e9e EFFIS ; ",
          "masque for\u00eat apr\u00e8s la passe 1 ; voir aussi les r\u00e9glages marqu\u00e9s provisoires de parametres_sufosat().")
 
