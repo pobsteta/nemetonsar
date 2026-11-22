@@ -50,6 +50,7 @@
 | [007](missions/007-filtre-quegan.md) filtre multitemporel de Quegan et Yu | `dev` | opus | donner (formule sourcée d'abord) | 3 oui, la 2e sous condition | 2 |
 | [008](missions/008-precision-date.md) précision de la date sur séries synthétiques | `analyste` | opus | donner | 3 oui | 3 |
 | [009](missions/009-chaine-raster-blocs.md) chaîne de détection sur rasters, par blocs | `dev` | opus | donner | 3 oui | 3 |
+| [010](missions/010-datation-xb.md) dater la coupe avec un Xb fini | `dev` | opus | donner | 3 oui | 3 |
 
 ### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
 
