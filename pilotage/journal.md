@@ -56,3 +56,6 @@
 2026-11-22 · relecteur · 002 · à reprendre (mineur) : sorties et CDSE repris et conformes ; formule RTC rédigée non marquée, chemin de liste de contrôle temporaire
 2026-11-22 · Claude (orchestrateur, par délégation) · 001 · décidé : mission 001 terminée (prête, porte n° 3 par délégation ; reste dans la PR #2, fusion dans `main` à Pascal) · pourquoi : « prêt » du relecteur · ce que Pascal peut défaire : la table `docs/referentiels/parametres-sufosat.md`
 2026-11-22 · Claude (orchestrateur) · 002, 003 · 002 : aller-retour 3/3 (dernier avant remontée) ; 003 : plan accepté, code confié au `dev` (temps de la main : donner)
+2026-11-22 · acquereur · 002 · aller-retour 3/3 : formule RTC marquée rédigée par l'acquereur ; chemin de la liste de contrôle remplacé par le gabarit du plugin ; « aucun git » retiré ; en attente de relecteur puis Pascal.
+2026-11-22 · relecteur · 002 · prêt pour Pascal : formule RTC marquée comme rédigée, liste de contrôle renvoyée au gabarit du plugin, « aucun git » retiré (aller-retour 3/3)
+2026-11-22 · Claude (orchestrateur, par délégation) · 002 · décidé : mission 002 terminée (prête ; reste dans la PR #2, fusion dans `main` à Pascal) · pourquoi : « prêt » du relecteur · ce que Pascal peut défaire : `docs/referentiels/licences.md`

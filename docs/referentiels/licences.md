@@ -37,7 +37,7 @@ Règle de l'ADR 0002 : la clause non commerciale (NC) ne s'applique qu'aux sorti
 
 Blocs de texte réutilisés (la source est dans la table des sources ci-dessus) :
 
-- **[S1]** « Contains modified Copernicus Sentinel data <année(s) des scènes>. » (Si Sentinel-1 RTC via Planetary Computer, ajouter : « Sentinel-1 RTC processed by Catalyst, hosted by Microsoft Planetary Computer, CC BY 4.0. »)
+- **[S1]** « Contains modified Copernicus Sentinel data <année(s) des scènes>. » (Si Sentinel-1 RTC via Planetary Computer, ajouter : « Sentinel-1 RTC processed by Catalyst, hosted by Microsoft Planetary Computer, CC BY 4.0. » : formule rédigée par l'acquereur, aucune formule imposée par la source.)
 - **[FOR]** « Generated using European Union's Copernicus Land Monitoring Service information; https://doi.org/10.2909/486f77da-d605-423e-93a9-680760ab6791 » (Tree Cover Density 2018). Ajouter « adapted » si seuillé.
 - **[NEI]** « Hall, D. K. & Riggs, G. A. (2021). MODIS/Terra Snow Cover Daily L3 Global 500m SIN Grid (MOD10A1, Version 61) [Data Set]. NASA NSIDC DAAC. https://doi.org/10.5067/MODIS/MOD10A1.061 <sous-ensemble utilisé> »
 - **[FEU]** « EFFIS, European Commission Joint Research Centre, licence CC BY 4.0 (https://forest-fire.emergency.copernicus.eu/about-effis/data-license). Données modifiées : seuil de 75 % de l'objet. » (formule rédigée par moi d'après la page de licence, qui n'impose pas de texte exact)
@@ -68,7 +68,7 @@ Limites de ce tableau : on ne sait pas, dans le code, quelle forêt (TCD seul ou
 1. https://doi.theia.data-terra.org/Sufosat/ : vérifier la ligne SUFOSAT (licence CC BY-NC 4.0 et citation). C'est elle qui fonde la clause NC du rapport de comparaison.
 2. https://api.crossref.org/works/10.1109/JSTARS.2024.3429012 : vérifier la ligne Mermoz 2024 (licence CC BY-NC-ND 4.0, champ `license`). C'est la ligne la plus fragile, puisqu'elle repose sur Crossref seul.
 
-## Liste de contrôle (/tmp/claude-0/-home-user/b63c98e0-2e08-5ea7-ab25-6043906217f2/scratchpad/liste-de-controle.md), passée le 2026-11-22
+## Liste de contrôle (gabarit `liste-de-controle.md` du skill `methode` du plugin `imperatrice`), passée le 2026-11-22
 
 1. Chaque chiffre a sa source et son emplacement
    - [x] Source, version, date de consultation par valeur : fait (versions V61, V2, 1.4.2, 3.0.1 ; date 2026-11-22). Emplacement ligne ou page exacte : non coché pour les licences CC, dont seul le nom et le lien sont retenus (texte intégral non relu).
@@ -85,7 +85,7 @@ Limites de ce tableau : on ne sait pas, dans le code, quelle forêt (TCD seul ou
    - [x] Limites dites : section « Ce qui n'a pas été conclu » et limites du tableau des sorties.
 4. Le statut est dit tel qu'il est
    - [x] États du jour : TCD et DLT « Superseded », MOD10A1 V6.1 avec V7 disponible, Terra le 2026-12-01, Suomi NPP le 2026-11-02.
-   - [x] Dépendances entre PR et branche à jour : sans objet (aucun git, un seul fichier).
+   - [x] Dépendances entre PR et branche à jour : sans objet (un seul fichier).
 5. Pour le testeur
    - Sans objet (ce travail n'est pas du code). Les questions pour Pascal sont posées, pas tranchées : ND de Mermoz, journal d'exécution et NC, version TCD/DLT, successeur neige.
 
