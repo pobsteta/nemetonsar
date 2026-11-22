@@ -51,6 +51,9 @@
 | [008](missions/008-precision-date.md) précision de la date sur séries synthétiques | `analyste` | opus | donner | 3 oui | 3 |
 | [009](missions/009-chaine-raster-blocs.md) chaîne de détection sur rasters, par blocs | `dev` | opus | donner | 3 oui | 3 |
 | [010](missions/010-datation-xb.md) dater la coupe avec un Xb fini | `dev` | opus | donner | 3 oui | 3 |
+| [011](missions/011-aoi.md) préparer l'AOI et la grille de calcul | `dev` | opus | donner | 3 oui | 4 |
+| [012](missions/012-masques.md) masques forêt et feu | `dev` | opus | donner | 3 oui | 4 |
+| [013](missions/013-recherche-s1.md) rechercher et lire les images Sentinel-1 | `dev` | opus | donner | 3 oui, la 3e sous condition (réseau) | 4 |
 
 ### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
 
