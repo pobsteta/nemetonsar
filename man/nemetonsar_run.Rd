@@ -16,7 +16,9 @@ nemetonsar_run(
   correction_2019 = TRUE,
   lignes_par_bloc = NULL,
   lire_images = NULL,
-  bdforet = NULL
+  bdforet = NULL,
+  hauteur_bande = 512L,
+  flux = 4L
 )
 }
 \arguments{
@@ -51,11 +53,15 @@ déroulé). Défaut \code{TRUE}.}
 \item{lignes_par_bloc}{Passé à \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} ; sert aussi à
 l'assemblage (\code{NULL} : environ 2,5e7 cellules par bloc).}
 
-\item{lire_images}{\code{NULL} (défaut : \code{\link[=s1_rechercher]{s1_rechercher()}} puis \code{\link[=s1_lire]{s1_lire()}}
-sur la grille de la tuile), ou une fonction
-\verb{function(grille, date_debut, date_fin, parametres, dossier)} qui rend
-une liste comme \code{\link[=s1_lire]{s1_lire()}} (\code{orbites}, \code{dates}, \code{attribution},
-\code{items} avec au moins les colonnes \code{id}, \code{date}, \code{serie}). Sert aux
+\item{lire_images}{\code{NULL} (défaut : \code{\link[=s1_rechercher]{s1_rechercher()}} sur la grille de
+la tuile, une fois, puis \code{\link[=s1_lire]{s1_lire()}} sur la grille de chaque bande), ou
+une fonction \verb{function(grille, date_debut, date_fin, parametres, dossier)} qui rend une liste comme \code{\link[=s1_lire]{s1_lire()}} (\code{orbites}, \code{dates},
+\code{attribution}, \code{items} avec au moins les colonnes \code{id}, \code{date},
+\code{serie}), avec des piles \strong{sur \code{grille}} : la tuile entière, ou une
+bande de lignes de la tuile (toute sa largeur). Pour une même tuile,
+elle doit rendre les mêmes orbites et les mêmes dates à chaque bande,
+et la valeur d'un pixel ne doit pas dépendre de la bande lue. Ce
+qu'elle écrit dans \code{dossier} est effacé après la bande. Sert aux
 tests et à des images déjà téléchargées.}
 
 \item{bdforet}{\code{NULL} (défaut), ou la BD Forêt v2 de l'IGN comme masque
@@ -64,6 +70,15 @@ fichier vecteur, \code{SpatVector} de polygones, ou \code{"wfs"} pour lire le
 service WFS de la Géoplateforme tuile par tuile, sur l'emprise de
 chaque tuile (voir \code{\link[=masque_foret_bdforet]{masque_foret_bdforet()}}, codes TFV par défaut).
 Exclusif avec \code{tcd}.}
+
+\item{hauteur_bande}{Hauteur des bandes de lecture, en lignes de la
+tuile (entier, défaut 512, \strong{provisoire}), ou \code{NULL} pour lire chaque
+tuile d'un seul tenant (disque des images d'une tuile entière). Voir
+« Lecture par bandes ».}
+
+\item{flux}{Nombre de processus qui lisent les images en même temps
+(passé à \code{\link[=s1_lire]{s1_lire()}} par le lecteur par défaut). Défaut 4,
+\strong{provisoire}.}
 }
 \value{
 (invisible) Une liste : \code{fichiers} (chemins écrits, nommés),
@@ -71,7 +86,8 @@ Exclusif avec \code{tcd}.}
 \code{surface_ha}, \code{nb_pixels_dates}, \code{date_mediane} en \code{YYDDD},
 \code{date_mediane_date}, \code{ratio_moyen_db}, et \code{part_brulee} si \code{effis} est
 donné), \code{tuiles} (une ligne par tuile : images, orbites, objets par
-étape), \code{feu} (table de \code{\link[=masque_feu]{masque_feu()}}, ou \code{NULL}), \code{journal} (chemin
+étape, nombre de bandes \code{nb_bandes}, disque maximal des images d'une
+bande \code{disque_max_mo} en Mo), \code{feu} (table de \code{\link[=masque_feu]{masque_feu()}}, ou \code{NULL}), \code{journal} (chemin
 du journal).
 }
 \description{
@@ -95,6 +111,9 @@ l'année \code{annee_noyau} (\code{\link[=s1_filter_multitemp]{s1_filter_multite
 les images antérieures (\code{xb = Inf}). Avec les défauts (noyau 2018),
 une période en 2025 lit donc toutes les images depuis 2018. Une
 orbite sans image de l'année du noyau est écartée (dit au journal).
+Les images sont lues \strong{par bandes de lignes} de la tuile (voir
+« Lecture par bandes ») et effacées dès qu'elles ont servi : elles ne
+sont pas gardées d'une exécution à l'autre (décision du 2026-11-22).
 \item \strong{Masque.} Le masque de la tuile est le masque forêt (TCD si
 \code{tcd} est donné, BD Forêt v2 de l'IGN si \code{bdforet} est donné, lue
 sur l'emprise de la tuile) \strong{et} le morceau d'AOI de la tuile (cellules dont
@@ -130,6 +149,30 @@ dans \verb{[date_debut, date_fin]}. Une coupe des \code{xa} dernières images
 n'a pas encore de ratio : elle n'est pas détectée (elle le sera en
 prolongeant la période).
 }
+}
+
+\section{Lecture par bandes }{
+ Avec \code{hauteur_bande} (512 lignes par
+défaut, la hauteur des tuiles internes des COG RTC ; \strong{provisoire, à
+mesurer}), la tuile est découpée en bandes de \code{hauteur_bande} lignes.
+Pour chaque bande : les images sont lues sur la bande bordée de
+\code{(fenetre_filtre - 1) / 2} lignes de chaque côté (le rayon du filtre,
+seule opération spatiale de la passe 1), la passe 1 (filtre, ratio,
+combinaison des orbites, masque forêt) est faite sur la bande, ses
+lignes centrales sont recollées dans le ratio et la date de la tuile,
+puis les images de la bande sont effacées. La segmentation brute
+(zones \code{ratio <= tp}) est faite ensuite une seule fois sur la tuile
+recollée. Le disque des images ne dépasse donc pas celui d'une bande
+(≈ 23 Go pour 512 lignes d'une tuile MGRS et 900 images, calcul de la
+mission 019), au prix d'un téléchargement plus lourd : les bandes ne
+tombent pas sur les tuiles internes des COG, qui sont relues par deux
+bandes voisines.
+
+Les résultats sont \strong{identiques au bit près} à ceux d'une lecture
+d'un seul tenant (\code{hauteur_bande = NULL}) : la reprojection des images
+est exacte, cellule par cellule (\code{\link[=s1_lire]{s1_lire()}}), et la passe 1 d'un pixel
+ne dépend que des pixels à moins du rayon du filtre. Avec le lecteur
+par défaut, la recherche STAC est faite une seule fois par tuile.
 }
 
 \section{Assemblage }{
@@ -196,7 +239,7 @@ feu, fichiers écrits, licences et attributions de chaque entrée lue
 (\code{docs/referentiels/licences.md}), durée. Il est écrit même si le
 calcul s'arrête sur une erreur (statut « interrompu ») ;
 \item \verb{tuiles/<mgrs>/} : par tuile, sur sa grille UTM (celle des fichiers
-SUFOSAT publiés) : \verb{s1/} (piles lues), \code{masque.tif} (1 forêt dans
+SUFOSAT publiés) : \code{masque.tif} (1 forêt dans
 l'AOI, 0 sinon, \code{NA} sans donnée TCD), \code{foret.tif} (1 forêt, 0
 sinon, sur toute la grille), \verb{detection/} (détection de la tuile,
 comme \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} ; \verb{detection/brut/} : zones brutes,
@@ -206,8 +249,9 @@ faite, et \verb{passe_2019/brut/}), et \code{dates.tif}, \code{ratio.tif},
 peuvent différer de la carte finale à la limite de deux tuiles).
 }
 
-Rien n'est écrit hors de \code{dossier}, sauf les fichiers temporaires de
-\code{terra}.
+Les images lues (\verb{tuiles/<mgrs>/s1/}) et les fichiers des bandes sont
+effacés après usage, même sur erreur. Rien n'est écrit hors de
+\code{dossier}, sauf les fichiers temporaires de \code{terra}.
 }
 
 \examples{

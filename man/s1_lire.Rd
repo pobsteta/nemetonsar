@@ -4,7 +4,14 @@
 \alias{s1_lire}
 \title{Lire les images Sentinel-1 RTC sur une grille}
 \usage{
-s1_lire(items, grille, signer = TRUE, methode = "bilinear", dossier = NULL)
+s1_lire(
+  items,
+  grille,
+  signer = TRUE,
+  methode = "bilinear",
+  dossier = NULL,
+  flux = 4L
+)
 }
 \arguments{
 \item{items}{Un \code{data.frame} rendu par \code{\link[=s1_rechercher]{s1_rechercher()}} (au moins les
@@ -19,9 +26,12 @@ faut \code{rstac}) ou les lire telles quelles (\code{FALSE}).}
 
 \item{methode}{Méthode de rééchantillonnage passée à \code{\link[terra:project]{terra::project()}}.}
 
-\item{dossier}{\code{NULL} (piles gardées par \code{terra}, en mémoire ou en fichier
-temporaire) ou un dossier où écrire une pile par orbite,
-\verb{s1_<serie>.tif} (fichiers existants écrasés).}
+\item{dossier}{\code{NULL} (fichiers écrits dans un dossier temporaire de la
+session R) ou un dossier où écrire un fichier par date et par orbite,
+\verb{s1_<serie>/<AAAA-MM-JJ>.tif} (fichiers existants écrasés).}
+
+\item{flux}{Nombre de processus qui lisent les images en même temps
+(entier, au moins 1). Défaut 4, \strong{provisoire}.}
 }
 \value{
 Une liste :
@@ -83,6 +93,35 @@ valeur de non-donnée (-32768, déclarée dans les fichiers) devient \code{NA}.
 valeurs linéaires. \strong{Provisoire, gèle au jalon 2} : ni M24 ni B18 ne
 la donnent pour ce cas (S1Tiling projette lui-même sur la grille MGRS) ;
 à mesurer contre l'option A (ADR 0001).
+
+La reprojection est \strong{exacte} : chaque cellule de \code{grille} reçoit la
+valeur interpolée au point exact où son centre tombe dans l'image
+(\code{\link[terra:project]{terra::project()}} avec \code{use_gdal = FALSE}), indépendamment des autres
+cellules. Une image lue sur une grille ou sur une bande de lignes de
+cette grille donne donc les mêmes valeurs au bit près, ce qui permet la
+lecture par bandes de \code{\link[=nemetonsar_run]{nemetonsar_run()}}. Décision de Pascal du
+2026-11-22 (mission 022) : la reprojection de GDAL, utilisée
+auparavant, interpole les coordonnées (erreur tolérée de 0,125 pixel)
+et dépend du découpage de la grille. \strong{Les valeurs changent donc par
+rapport aux versions antérieures pour les images d'une autre zone UTM
+que la grille} (mesuré sur l'orbite D008, UTM 31N, lue sur une tuile
+en UTM 30N : écart médian 0,9 \%, jusqu'à 9 \% du gamma0) ; elles ne
+changent pas pour les images de la même zone (simple
+rééchantillonnage). Coût mesuré : 0,70 s par million de pixels sur un
+fil, contre 0,22 s pour GDAL en multi-fil : le parallélisme vient des
+\code{flux}.
+}
+
+\section{Téléchargements en parallèle et fichiers }{
+ Chaque date d'une
+orbite (toutes ses tranches) est lue, reprojetée et écrite par un
+processus parmi \code{flux} (\code{\link[parallel:mclapply]{parallel::mclapply()}}, fork ; en série là où
+le fork n'existe pas, sous Windows). Chaque date est écrite dans son
+fichier, \verb{<dossier>/s1_<serie>/<AAAA-MM-JJ>.tif}, en réel 32 bits
+(\code{FLT4S}), compression DEFLATE avec prédicteur flottant
+(\code{PREDICTOR=3}), comme les fichiers RTC sources. La pile d'une orbite
+est faite de ces fichiers. \strong{Provisoire, à mesurer} : \code{flux = 4},
+DEFLATE et prédicteur 3 (mission 022).
 }
 
 \examples{
