@@ -2,6 +2,13 @@
 
 21 novembre 2026 · Pascal Obstetar
 
+## Ma réponse d'abord (fiche n° 15)
+
+> « De pouvoir calculer en tout point AOI et en tout temps la donnée »
+>
+> — Pascal, le 22 novembre 2026, à la question « Qu'attends-tu de ce projet, et pourquoi ? »,
+> dit avant toute proposition de Claude, recopié mot pour mot.
+
 ## Objectif
 
 Construire nemetonsar, un package R de la famille nemeton qui, à partir d'une zone d'intérêt (AOI) et d'une période, recalcule une carte des coupes rases selon la méthode SUFOSAT (Mermoz et al., 2024).
