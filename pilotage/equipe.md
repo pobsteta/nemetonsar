@@ -58,6 +58,8 @@
 | [015](missions/015-limite-tuiles.md) coupes à la limite de deux tuiles | `dev` | opus | donner | 3 oui | 6 |
 | [016](missions/016-performance.md) performance de la passe 1 | `dev` | opus | donner | 3 oui | 6 |
 | [018](missions/018-suites-015.md) suites de 015 (FLT8S, une copie des passes 2-3, sans GeoPackage brut) | `dev` | opus | donner | 3 oui | 7 |
+| [019](missions/019-mesure-lecture-parallele.md) mesurer la lecture réelle et le parallélisme | `analyste` | opus | donner | 3 oui | 8 |
+| [020](missions/020-masque-bdforet.md) masque forêt BD Forêt v2 | `dev` | opus | donner | 3 oui | 8 |
 
 ### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
 
