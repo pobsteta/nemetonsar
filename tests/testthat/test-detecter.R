@@ -391,3 +391,41 @@ test_that("mission 016 : médiane des dates par objet, cas limites", {
   expect_identical(tab$date_mediane, c(19200L, 19050L, NA))
   expect_equal(tab$date_mediane_date, yyddd_vers_date(c(19200L, 19050L, NA)))
 })
+
+# Mission 018 -------------------------------------------------------------------
+
+# Arrondi d'un réel double au réel 32 bits le plus proche (celui d'un FLT4S).
+en_flt4s <- function(x) readBin(writeBin(x, raw(), size = 4), "double", size = 4, n = length(x))
+
+test_that("mission 018 : ratio à moins de 1e-6 dB d'un seuil, détection brute puis segmenter_blocs() identique", {
+  # Un pixel détecté (bord de coupe) dont le ratio double r arrondi en réel
+  # 32 bits monte (f > r) ; le seuil tp est placé entre les deux : en double
+  # le pixel est dans la zone, en réel 32 bits il n'y est plus.
+  s0 <- seuils_db(p_def)
+  r <- as.vector(ref$comb$ratio_min_db)
+  f <- en_flt4s(r)
+  cand <- which(as.vector(ref$avant) & !is.na(r) & r > s0[["ts"]] + 0.2 & f > r)
+  expect_gt(length(cand), 0L)
+  i <- cand[which.max(r[cand])]
+  tp_eff <- (r[i] + f[i]) / 2
+  p <- parametres_sufosat(tp_db = tp_eff / p_def$facteur_seuil)
+  s <- seuils_db(p)
+  expect_true(r[i] <= s[["tp"]] && f[i] > s[["tp"]])
+  expect_lt(abs(r[i] - s[["tp"]]), 1e-6)
+  # Donnée : les pixels qui ont un ratio (comme dans nemetonsar_detecter()).
+  donnee <- terra::rast(grille_utm(nl, nc), vals = as.integer(!is.na(r)))
+  for (lpb in c(1L, 7L, 30L)) {
+    direct <- nemetonsar_detecter(orbites, dates, tempfile("det-"), p, lignes_par_bloc = lpb)
+    # Le pixel est bien dans un objet, avec sa date.
+    expect_false(is.na(lire(direct$fichiers[["dates"]])[i]))
+    brut <- detection_brute(orbites, dates, tempfile("brut-"), parametres_bruts(p), lpb, NULL)
+    seg <- segmenter_blocs(terra::rast(brut[["ratio"]]), terra::rast(brut[["dates"]]), donnee,
+                           p, tempfile("seg-"), lpb, gpkg = TRUE)
+    for (n in c("dates", "ratio", "objets_raster")) {
+      expect_identical(lire(seg$fichiers[[n]]), lire(direct$fichiers[[n]]))
+    }
+    expect_identical(seg$objets[, names(seg$objets) != "date_mediane_date"],
+                     direct$objets[, names(direct$objets) != "date_mediane_date"])
+    expect_equal(seg$objets$date_mediane_date, direct$objets$date_mediane_date)
+  }
+})
