@@ -54,6 +54,7 @@
 | [011](missions/011-aoi.md) préparer l'AOI et la grille de calcul | `dev` | opus | donner | 3 oui | 4 |
 | [012](missions/012-masques.md) masques forêt et feu | `dev` | opus | donner | 3 oui | 4 |
 | [013](missions/013-recherche-s1.md) rechercher et lire les images Sentinel-1 | `dev` | opus | donner | 3 oui, la 3e sous condition (réseau) | 4 |
+| [014](missions/014-nemetonsar-run.md) une commande unique, `nemetonsar_run()` | `dev` | opus | donner | 3 oui | 5 |
 
 ### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
 
