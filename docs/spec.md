@@ -31,7 +31,7 @@ par mois.
 
 | Donnée | Rôle | Format en sortie de son étape |
 |---|---|---|
-| AOI | Emprise du calcul | `sf`, reprojeté sur la grille MGRS |
+| AOI | Emprise du calcul | `terra::SpatVector` (ADR 0003), reprojeté sur la grille MGRS |
 | Images Sentinel-1 VH, par orbite relative et par capteur (1A, 1C, 1D) | Détection | Pile de rasters 10 m, valeurs linéaires (rétrodiffusion), dates d'acquisition |
 | Noyau de filtrage multitemporel | Quegan et Yu | Raster, recalculable par capteur ou par période |
 | Masque forêt (TCD 2018 ≥ 10 %, corrigé 2019) | Exclusion hors forêt | Raster binaire 10 m |
