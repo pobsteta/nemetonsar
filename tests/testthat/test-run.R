@@ -773,3 +773,31 @@ test_that("essai r\u00e9el : 1 km x 1 km dans les Landes, premier trimestre 2025
                useBytes = TRUE)
   unlink(dossier, recursive = TRUE)
 })
+
+test_that("essai réel : bandes de 64 lignes et lecture d'un seul tenant identiques", {
+  skip_if(Sys.getenv("NEMETONSAR_TESTS_RESEAU") != "true",
+          "test réseau : définir NEMETONSAR_TESTS_RESEAU=true")
+  skip_on_cran()
+  skip_if_not_installed("rstac")
+  skip_if_offline("planetarycomputer.microsoft.com")
+  centre <- terra::crds(terra::project(terra::vect(cbind(-0.80, 44.20), crs = "EPSG:4326"),
+                                       "EPSG:2154"))
+  aoi <- terra::as.polygons(terra::ext(centre[1] - 500, centre[1] + 500,
+                                       centre[2] - 500, centre[2] + 500), crs = "EPSG:2154")
+  p <- parametres_sufosat(annee_noyau = 2024L)
+  d0 <- tempfile("run-reel-")
+  d1 <- tempfile("run-reel-")
+  on.exit(unlink(c(d0, d1), recursive = TRUE), add = TRUE)
+  r0 <- nemetonsar_run(aoi, "2025-01-01", "2025-03-31", d0, parametres = p, hauteur_bande = NULL)
+  r1 <- nemetonsar_run(aoi, "2025-01-01", "2025-03-31", d1, parametres = p, hauteur_bande = 64L)
+  expect_gt(r1$tuiles$nb_bandes, 1L)
+  expect_identical(r1$objets, r0$objets)
+  rasters <- grep("\\.tif$", fichiers_de(d0), value = TRUE)
+  expect_identical(fichiers_de(d1), fichiers_de(d0))
+  for (f in rasters) {
+    expect_identical(valeurs(file.path(d1, f)), valeurs(file.path(d0, f)), label = f)
+  }
+  expect_false(any(grepl("(^|/)s1(/|$)", fichiers_de(d1))))
+  expect_match(paste(readLines(r1$journal), collapse = "\n"), "reprojection exacte", fixed = TRUE,
+               useBytes = TRUE)
+})
