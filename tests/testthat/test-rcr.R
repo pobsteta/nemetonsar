@@ -5,7 +5,8 @@ dates_12 <- function(n, debut = "2021-01-05") seq(as.Date(debut), by = 12, lengt
 # Référence naïve, pixel par pixel, écrite directement depuis la définition
 # (Mb = xb dernières images valides jusqu'à d_i incluse, Ma = xa premières
 # images valides après d_i), pour contrôler la version vectorisée.
-rcr_naif <- function(serie, dates, xa, xb) {
+rcr_naif <- function(serie, dates, xa, xb, annee_noyau = 2018L) {
+  debut <- as.Date(sprintf("%d-01-01", annee_noyau + 1L))
   d <- dim(serie)
   ratio <- matrix(NA_real_, d[1], d[2])
   apres <- matrix(NA_integer_, d[1], d[2])
@@ -16,6 +17,7 @@ rcr_naif <- function(serie, dates, xa, xb) {
     idx <- which(!is.na(v))
     for (j in seq_along(idx)) {
       if (j + xa > length(idx)) break
+      if (dates[idx[j]] < debut) next
       b <- idx[max(1, if (is.infinite(xb)) 1 else j - xb + 1):j]
       a <- idx[(j + 1):(j + xa)]
       r <- 10 * log10(mean(v[a]) / mean(v[b]))
@@ -81,15 +83,16 @@ test_that("le rendu a la forme annoncée", {
 test_that("la version vectorisée égale la définition pixel par pixel", {
   set.seed(42)
   nt <- 25
-  dates <- sort(as.Date("2020-01-01") + sample(0:700, nt))
+  # dates à cheval sur le début des ratios (2019-01-01 par défaut)
+  dates <- sort(as.Date("2018-06-01") + sample(0:900, nt))
   serie <- array(niveau * db_vers_lineaire(rnorm(4 * 6 * nt, sd = 2)), dim = c(4, 6, nt))
   serie[sample(length(serie), 120)] <- NA
   serie[1, 1, ] <- NA # pixel jamais valide
   serie[1, 2, 4:nt] <- NA # trop peu d'images valides
-  for (xa in c(1L, 3L)) for (xb in c(Inf, 1, 4)) {
-    p <- parametres_sufosat(xa = xa, xb = xb)
+  for (xa in c(1L, 3L)) for (xb in c(Inf, 1, 4)) for (an in c(2018L, 2017L)) {
+    p <- parametres_sufosat(xa = xa, xb = xb, annee_noyau = an)
     r <- rcr_compute(serie, dates, p)
-    attendu <- rcr_naif(serie, dates, xa, xb)
+    attendu <- rcr_naif(serie, dates, xa, xb, an)
     expect_equal(r$ratio_min_db, attendu$ratio_min_db)
     expect_identical(r$date_min, attendu$date_min)
     expect_identical(r$date_avant, attendu$date_avant)
@@ -247,4 +250,50 @@ test_that("combiner des résultats incohérents est refusé", {
   expect_error(rcr_combine_orbites(list(), p), "au moins un")
   expect_error(rcr_combine_orbites(list(ra, list(a = 1)), p), "est pas un r")
   expect_error(rcr_combine_orbites(ra, p), "est pas un r")
+})
+
+# Début des ratios : aucun ratio pour d_i avant le 1er janvier de annee_noyau + 1.
+dates_2018 <- function(n = 70) dates_12(n, "2018-01-03")
+
+test_that("aucun ratio n'est calculé avant le 1er janvier qui suit annee_noyau", {
+  dates <- dates_2018()
+  serie <- array(niveau, dim = c(1, 1, length(dates)))
+  r <- rcr_compute(serie, dates)
+  expect_true(yyddd_vers_date(r$date_avant[1, 1]) >= as.Date("2019-01-01"))
+  # une série qui finit en 2018 n'a aucun ratio
+  r18 <- rcr_compute(serie[, , 1:25, drop = FALSE], dates[1:25])
+  expect_true(is.na(r18$ratio_min_db[1, 1]))
+  expect_true(is.na(r18$date_min[1, 1]))
+})
+
+test_that("une coupe injectée en 2018 n'est pas retenue, une en 2019 l'est", {
+  dates <- dates_2018()
+  serie <- array(niveau, dim = c(1, 2, length(dates)))
+  serie[1, 1, 5:70] <- niveau * db_vers_lineaire(-6) # coupe de février 2018
+  serie[1, 2, 50:70] <- niveau * db_vers_lineaire(-6) # coupe de 2019
+  expect_true(format(dates[4]) < "2019" && format(dates[50]) >= "2019-01-01")
+  expect_true(format(dates[50]) < "2020")
+  r <- rcr_compute(serie, dates)
+  s <- seuils_db(r$parametres)
+  # 2018 : pas de date en 2018, et le reliquat est au-dessus des seuils
+  expect_true(yyddd_vers_date(r$date_min[1, 1]) >= as.Date("2019-01-01"))
+  expect_true(r$ratio_min_db[1, 1] > s[["tp"]])
+  # 2019 : retrouvée exactement
+  expect_equal(r$ratio_min_db[1, 2], -6)
+  expect_identical(r$date_min[1, 2], date_vers_yyddd(dates[50]))
+  expect_identical(yyddd_vers_date(r$date_min[1, 2]), dates[50])
+})
+
+test_that("un faux minimum de speckle en début de série n'apparaît plus", {
+  dates <- dates_2018()
+  serie <- array(niveau, dim = c(1, 1, length(dates)))
+  serie[1, 1, 1] <- niveau * db_vers_lineaire(10) # pic isolé sur la première image
+  # avec un début des ratios en 2018, le pic donne un faux minimum de -10 dB
+  r17 <- rcr_compute(serie, dates, parametres_sufosat(annee_noyau = 2017L))
+  expect_equal(r17$ratio_min_db[1, 1], -10)
+  expect_identical(r17$date_avant[1, 1], date_vers_yyddd(dates[1]))
+  # avec le défaut (2019), il disparaît sous les seuils
+  r <- rcr_compute(serie, dates)
+  expect_true(r$ratio_min_db[1, 1] > seuils_db(r$parametres)[["tp"]])
+  expect_true(yyddd_vers_date(r$date_avant[1, 1]) >= as.Date("2019-01-01"))
 })

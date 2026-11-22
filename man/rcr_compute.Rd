@@ -14,8 +14,8 @@ seule orbite relative.}
 \item{dates}{Vecteur de classe \code{Date}, strictement croissant, sans \code{NA}, de
 longueur \code{dim(serie)[3]} : la date d'acquisition de chaque image.}
 
-\item{parametres}{Un objet créé par \code{\link[=parametres_sufosat]{parametres_sufosat()}} ; seuls \code{xa} et
-\code{xb} servent ici.}
+\item{parametres}{Un objet créé par \code{\link[=parametres_sufosat]{parametres_sufosat()}} ; seuls \code{xa},
+\code{xb} et \code{annee_noyau} servent ici.}
 }
 \value{
 Une liste :
@@ -71,8 +71,20 @@ intervalle \verb{[d_k, d_(k+1)]}. M24 retient « la date correspondant au RCR
 le plus bas » sans dire laquelle des deux. \code{date_min} est la \strong{première
 image valide après la chute}, \code{d_(i+1)} ; \code{date_avant} donne \code{d_i}.
 \strong{Provisoire (non précisé dans M24), gèle au jalon 2} : à confronter aux
-dates de la carte SUFOSAT v3.0.1. En cas d'égalité de ratios, la date la
-plus ancienne l'emporte (choix du package, non sourcé).
+dates de la carte SUFOSAT v3.0.1.
+
+En cas d'égalité de ratios, la date la plus ancienne l'emporte.
+\strong{Provisoire, non sourcé (choix du package), gèle au jalon 2.}
+}
+
+\section{Début des ratios }{
+ Aucun ratio n'est calculé pour une date \code{d_i}
+antérieure au 1er janvier de l'année \code{annee_noyau + 1} (2019 par défaut).
+Les images plus anciennes servent encore à la moyenne \code{Mb} d'une date
+ultérieure. Cela écarte les faux minima de début de série, où \code{Mb}
+repose sur trop peu d'images. \strong{Provisoire, déduit de M24, § II-B.1,
+p. 13746 (noyau du filtre calculé sur 2018, images filtrées à partir du
+1er janvier 2019), gèle au jalon 2.}
 }
 
 \section{Xa en jours }{
@@ -96,6 +108,14 @@ serie[1, 1, 6:10] <- 0.05 * db_vers_lineaire(-6) # chute de 6 dB
 r <- rcr_compute(serie, dates)
 r$ratio_min_db
 yyddd_vers_date(r$date_min[1, 1]) # dates[6]
+
+\donttest{
+# Tracé : la série du pixel [1, 1] et les deux dates qui encadrent la chute
+plot(dates, lineaire_vers_db(serie[1, 1, ]), type = "b",
+     xlab = "Date d'acquisition", ylab = "VH (dB)")
+abline(v = yyddd_vers_date(r$date_avant[1, 1]), lty = 2) # d_i
+abline(v = yyddd_vers_date(r$date_min[1, 1]), lty = 1)   # d_(i+1), date retenue
+}
 
 }
 \seealso{

@@ -25,8 +25,8 @@ exemple une ascendante et une descendante) d'une même grille. Avec
 donne le ratio et ses dates ; une orbite sans ratio pour ce pixel (\code{NA})
 est ignorée. Règle \strong{provisoire, gèle au jalon 2} : non précisée dans M24
 (p. 13748, « mosaicked »), formule ambiguë dans B18 (§ 2.3.2, p. 11). En
-cas d'égalité, la première orbite de la liste l'emporte (choix du
-package, non sourcé).
+cas d'égalité, la première orbite de la liste l'emporte : \strong{provisoire,
+non sourcé (choix du package), gèle au jalon 2.}
 }
 \examples{
 dates <- seq(as.Date("2021-01-05"), by = 12, length.out = 10)
