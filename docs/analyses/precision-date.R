@@ -199,18 +199,22 @@ cat("Contrôle série recalculée vs rcr_compute() : écart max du minimum =",
 ligne_md <- function(v) cat("| ", paste(v, collapse = " | "), " |\n", sep = "")
 xb_txt <- function(x) ifelse(is.infinite(x), "Inf", as.character(x))
 
-cat("## Table complète (pourcentages ; IC de Wilson 95 % sur n pixels)\n\n")
-ligne_md(c("cad. (j)", "chute (dB)", "fen.", "xb", "n coupe", "exacte % [IC]",
+cat("## Table complète (pourcentages ; IC de Wilson 95 % sur n pixels)\n")
+cat("Avec filtre, les pixels voisins partagent leurs valeurs : l'IC sur n est\n",
+    "trop étroit ; l'IC sur n_eff = n / fenetre^2 est l'ordre de grandeur prudent.\n\n")
+ligne_md(c("cad. (j)", "chute (dB)", "fen.", "xb", "n coupe", "exacte % [IC]", "IC sur n_eff = n / fen.^2",
            "±1 % [IC]", "±2 %", "biais méd. (acq.)", "err. moy. (j)",
-           "graine %", "détecté %", "exacte | détecté %",
+           "graine %", "détecté %", "exacte parmi détectés %",
            "FA graine % (n intact)", "intact <= tp %", "FA détecté %", "q1 % RCR min intact (dB)",
            "ts-1er exacte %", "ts-1er ±1 %", "ts-1er précoce %",
            "tp-1er exacte %", "tp-1er précoce %"))
-ligne_md(rep("---", 22))
+ligne_md(rep("---", 23))
 for (k in seq_len(nrow(tab))) {
   t <- tab[k, ]
   ligne_md(c(t$cadence, t$amplitude, t$fenetre, xb_txt(t$xb), t$n_coupe,
              paste(pct(t$exacte / t$n_coupe), ic_txt(t$exacte, t$n_coupe)),
+             paste(ic_txt(round(t$exacte / t$n_coupe * t$n_eff_coupe), t$n_eff_coupe),
+                   sprintf("(n_eff %d)", t$n_eff_coupe)),
              paste(pct(t$a1 / t$n_coupe), ic_txt(t$a1, t$n_coupe)),
              pct(t$a2 / t$n_coupe), t$biais_median, sprintf("%.1f", t$erreur_moy_abs_j),
              pct(t$graine / t$n_coupe), pct(t$detecte / t$n_coupe),

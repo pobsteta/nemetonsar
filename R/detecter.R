@@ -134,7 +134,7 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
     resolution_m <- resolution_carree(modele)
   } else if (!est_scalaire_num(resolution_m) || !is.finite(resolution_m) ||
              resolution_m <= 0) {
-    stop("`resolution_m` doit être NULL ou un nombre strictement positif (en mètres).",
+    stop("`resolution_m` doit \u00eatre NULL ou un nombre strictement positif (en m\u00e8tres).",
          call. = FALSE)
   }
   nl <- terra::nrow(modele)
@@ -144,12 +144,12 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
     lignes_par_bloc <- max(1L, as.integer(floor(2.5e8 / (8 * nc * nt_max))))
   } else if (!est_scalaire_num(lignes_par_bloc) || !is.finite(lignes_par_bloc) ||
              lignes_par_bloc < 1 || lignes_par_bloc != round(lignes_par_bloc)) {
-    stop("`lignes_par_bloc` doit être NULL ou un entier au moins égal à 1.",
+    stop("`lignes_par_bloc` doit \u00eatre NULL ou un entier au moins \u00e9gal \u00e0 1.",
          call. = FALSE)
   }
   lignes_par_bloc <- as.integer(min(lignes_par_bloc, nl))
   if (!is.character(dossier) || length(dossier) != 1L || is.na(dossier) || !nzchar(dossier)) {
-    stop("`dossier` doit être un chemin (chaîne de caractères).", call. = FALSE)
+    stop("`dossier` doit \u00eatre un chemin (cha\u00eene de caract\u00e8res).", call. = FALSE)
   }
   if (!dir.exists(dossier)) {
     dir.create(dossier, recursive = TRUE)
@@ -487,24 +487,24 @@ table_objets_blocs <- function(identifiant, k, taille, surface_pixel_m2,
 valide_orbites <- function(orbites, dates) {
   if (!is.list(orbites) || length(orbites) < 1L ||
       !all(vapply(orbites, inherits, logical(1), what = "SpatRaster"))) {
-    stop("`orbites` doit être une liste d'au moins un SpatRaster (une couche par date).",
+    stop("`orbites` doit \u00eatre une liste d'au moins un SpatRaster (une couche par date).",
          call. = FALSE)
   }
   if (!is.list(dates) || length(dates) != length(orbites)) {
-    stop("`dates` doit être une liste de même longueur que `orbites` (un vecteur de dates par orbite).",
+    stop("`dates` doit \u00eatre une liste de m\u00eame longueur que `orbites` (un vecteur de dates par orbite).",
          call. = FALSE)
   }
   modele <- orbites[[1]]
   if (!nzchar(terra::crs(modele))) {
-    stop("Les rasters de `orbites` doivent avoir un système de coordonnées.", call. = FALSE)
+    stop("Les rasters de `orbites` doivent avoir un syst\u00e8me de coordonn\u00e9es.", call. = FALSE)
   }
   if (isTRUE(terra::is.lonlat(modele))) {
-    stop("Les rasters de `orbites` doivent être dans un système projeté en mètres (par exemple UTM), pas en degrés.",
+    stop("Les rasters de `orbites` doivent \u00eatre dans un syst\u00e8me projet\u00e9 en m\u00e8tres (par exemple UTM), pas en degr\u00e9s.",
          call. = FALSE)
   }
   for (k in seq_along(orbites)) {
     if (k > 1L && !isTRUE(terra::compareGeom(modele, orbites[[k]], stopOnError = FALSE))) {
-      stop("L'orbite ", k, " n'a pas la même grille ou le même système de coordonnées que la première.",
+      stop("L'orbite ", k, " n'a pas la m\u00eame grille ou le m\u00eame syst\u00e8me de coordonn\u00e9es que la premi\u00e8re.",
            call. = FALSE)
     }
     valide_dates_serie(dates[[k]], terra::nlyr(orbites[[k]]))
@@ -515,7 +515,7 @@ valide_orbites <- function(orbites, dates) {
 resolution_carree <- function(r) {
   re <- terra::res(r)
   if (!isTRUE(all.equal(re[1], re[2]))) {
-    stop("Pixels non carrés (", re[1], " x ", re[2], ") : donner `resolution_m`.",
+    stop("Pixels non carr\u00e9s (", re[1], " x ", re[2], ") : donner `resolution_m`.",
          call. = FALSE)
   }
   re[1]

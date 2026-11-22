@@ -73,13 +73,13 @@ ref <- reference(orbites, dates, p_def)
 
 lire <- function(f) terra::values(terra::rast(f), mat = FALSE)
 
-test_that("la référence contient bien les objets attendus", {
+test_that("la r\u00e9f\u00e9rence contient bien les objets attendus", {
   # grande coupe, coupe en L, coupe de l'orbite descendante ; la petite est retirée
   expect_equal(nrow(ref$post$table), 3L)
 })
 
 for (lpb in c(1L, 2L, 5L, 7L, 11L, 30L)) {
-  test_that(paste("résultat par blocs de", lpb, "lignes identique au tableau entier"), {
+  test_that(paste("r\u00e9sultat par blocs de", lpb, "lignes identique au tableau entier"), {
     dossier <- tempfile("detecter-")
     res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = lpb)
     expect_identical(res$lignes_par_bloc, lpb)
@@ -98,7 +98,7 @@ for (lpb in c(1L, 2L, 5L, 7L, 11L, 30L)) {
   })
 }
 
-test_that("fichiers : CRS, grille, type, NA codé", {
+test_that("fichiers : CRS, grille, type, NA cod\u00e9", {
   dossier <- tempfile("detecter-")
   res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = 4)
   expect_setequal(names(res$fichiers), c("dates", "ratio", "objets_raster", "objets"))
@@ -162,7 +162,7 @@ test_that("sans aucune coupe : rasters tout NA, table vide, pas de GeoPackage", 
   unlink(dossier, recursive = TRUE)
 })
 
-test_that("autres réglages : connexité 4, fermeture 5, filtre 5, sans fermeture", {
+test_that("autres r\u00e9glages : connexit\u00e9 4, fermeture 5, filtre 5, sans fermeture", {
   for (p in list(
     parametres_sufosat(connexite = 4L, taille_fermeture = 5L),
     parametres_sufosat(fenetre_filtre = 5L),
@@ -182,7 +182,7 @@ test_that("autres réglages : connexité 4, fermeture 5, filtre 5, sans fermetur
   }
 })
 
-test_that("taille de bloc par défaut et résolution lue dans le raster", {
+test_that("taille de bloc par d\u00e9faut et r\u00e9solution lue dans le raster", {
   dossier <- tempfile("detecter-")
   res <- nemetonsar_detecter(orbites, dates, dossier)
   expect_identical(res$lignes_par_bloc, as.integer(nl))
@@ -194,17 +194,17 @@ test_that("taille de bloc par défaut et résolution lue dans le raster", {
   unlink(dossier, recursive = TRUE)
 })
 
-test_that("entrées invalides refusées", {
+test_that("entr\u00e9es invalides refus\u00e9es", {
   d <- tempfile("detecter-")
   expect_error(nemetonsar_detecter(list(1), dates[1], d), "SpatRaster")
-  expect_error(nemetonsar_detecter(orbites, dates[1], d), "même longueur")
-  expect_error(nemetonsar_detecter(orbites, list(dates_a, dates_a), d), "troisième dimension")
+  expect_error(nemetonsar_detecter(orbites, dates[1], d), "longueur")
+  expect_error(nemetonsar_detecter(orbites, list(dates_a[-1], dates_d), d), "dimension")
   autre <- terra::rast(grille_utm(nl, nc + 1), nlyrs = length(dates_d))
   terra::values(autre) <- 0.05
-  expect_error(nemetonsar_detecter(list(orbites[[1]], autre), dates, d), "même grille")
+  expect_error(nemetonsar_detecter(list(orbites[[1]], autre), dates, d), "grille")
   geo <- terra::rast(nrows = 5, ncols = 5, nlyrs = length(dates_a), crs = "EPSG:4326")
   terra::values(geo) <- 0.05
-  expect_error(nemetonsar_detecter(list(geo), list(dates_a), d), "projeté")
+  expect_error(nemetonsar_detecter(list(geo), list(dates_a), d), "degr")
   expect_error(nemetonsar_detecter(orbites, dates, d, lignes_par_bloc = 0), "lignes_par_bloc")
   expect_error(nemetonsar_detecter(orbites, dates, d, lignes_par_bloc = 2.5), "lignes_par_bloc")
   expect_error(nemetonsar_detecter(orbites, dates, d, resolution_m = -1), "resolution_m")
