@@ -19,6 +19,7 @@ Language: fr
 Depends:
     R (>= 4.1.0)
 Imports:
+    parallel,
     terra
 Suggests:
     covr,
