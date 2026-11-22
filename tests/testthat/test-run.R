@@ -156,6 +156,12 @@ test_that("sorties en Lambert-93 : fichiers, grille, types, codes YYDDD", {
   # Par tuile : grille UTM, masque, détection.
   for (m in res$tuiles$mgrs) {
     dt <- file.path(dossier_principal, "tuiles", m)
+    # Détection brute : ratio en réel 64 bits, aucun GeoPackage (mission 018).
+    for (b in c("detection/brut", "passe_2019/brut")) {
+      expect_setequal(list.files(file.path(dt, b), all.files = TRUE, no.. = TRUE),
+                      c("dates.tif", "ratio.tif", "objets.tif"))
+      expect_identical(terra::datatype(terra::rast(file.path(dt, b, "ratio.tif"))), "FLT8S")
+    }
     expect_true(all(file.exists(file.path(dt, c("dates.tif", "ratio.tif", "objets.tif",
                                                  "masque.tif", "detection/dates.tif",
                                                  "passe_2019/dates.tif")))))
@@ -173,7 +179,8 @@ test_that("coupe \u00e0 cheval sur deux tuiles : un seul objet, entier", {
   # synthétiques). Chaque pixel Lambert-93 étant pris à une seule tuile, la
   # carte assemblée la retrouve à l'échantillonnage près des deux grilles
   # (mesuré : 156 pixels contre 154). 014 tolérait 0,12 ha (un pixel en
-  # double par ligne, 166 pixels).
+  # double par ligne, 166 pixels). La tolérance de 2 pixels est une
+  # non-régression (l'écart mesuré), pas une règle de la méthode.
   pl <- terra::project(coupes_run$c1$v, "EPSG:2154")
   g <- terra::crop(terra::rast(terra::rast(res$fichiers[["objets_raster"]])),
                    terra::ext(terra::buffer(pl, 100)), snap = "out")
@@ -365,13 +372,15 @@ test_that("identit\u00e9 avec nemetonsar_detecter() sur une seule tuile", {
                                 lignes_par_bloc = 7, foret = foret)
   dt <- file.path(dossier, "tuiles", prep$tuiles$mgrs)
   lire <- function(f) terra::values(terra::rast(f), mat = FALSE)
+  # Identité exacte (mission 018 : ratio brut relu en double).
   for (n in c("dates", "ratio", "objets")) {
-    expect_equal(lire(file.path(dt, "detection", paste0(n, ".tif"))),
-                 lire(direct$fichiers[[if (n == "objets") "objets_raster" else n]]))
+    expect_identical(lire(file.path(dt, "detection", paste0(n, ".tif"))),
+                     lire(direct$fichiers[[if (n == "objets") "objets_raster" else n]]))
   }
   # Tous les objets sont dans la période : la tuile garde tout.
-  expect_equal(lire(file.path(dt, "dates.tif")), lire(direct$fichiers[["dates"]]))
-  expect_equal(lire(file.path(dt, "objets.tif")), lire(direct$fichiers[["objets_raster"]]))
+  expect_identical(lire(file.path(dt, "dates.tif")), lire(direct$fichiers[["dates"]]))
+  expect_identical(lire(file.path(dt, "ratio.tif")), lire(direct$fichiers[["ratio"]]))
+  expect_identical(lire(file.path(dt, "objets.tif")), lire(direct$fichiers[["objets_raster"]]))
   # Carte finale (Lambert-93) : mêmes objets, mêmes dates, surfaces proches.
   expect_equal(nrow(r1$objets), nrow(direct$objets))
   expect_equal(sort(r1$objets$date_mediane_date), sort(direct$objets$date_mediane_date))
@@ -393,8 +402,13 @@ test_that("détection brute puis segmenter_blocs() : identique à nemetonsar_det
   foret <- masque_foret(tcd_run, grille) & !trou &
     (terra::rasterize(prep$aoi[[1]], grille, background = 0) == 1)
   p <- parametres_sufosat()
-  brut <- detection_brute(imgs$orbites, imgs$dates, tempfile("brut-"), parametres_bruts(p),
+  dossier_brut <- tempfile("brut-")
+  brut <- detection_brute(imgs$orbites, imgs$dates, dossier_brut, parametres_bruts(p),
                           NULL, masque_foret(tcd_run, grille))
+  # Mission 018 : ratio brut en réel 64 bits, aucun GeoPackage écrit.
+  expect_identical(terra::datatype(terra::rast(brut[["ratio"]])), "FLT8S")
+  expect_setequal(list.files(dossier_brut, all.files = TRUE, no.. = TRUE),
+                  c("dates.tif", "ratio.tif", "objets.tif"))
   lire <- function(f) terra::values(terra::rast(f), mat = FALSE)
   for (lpb in list(NULL, 1L, 7L)) {
     direct <- nemetonsar_detecter(imgs$orbites, imgs$dates, tempfile("det-"), p,
@@ -403,11 +417,12 @@ test_that("détection brute puis segmenter_blocs() : identique à nemetonsar_det
                            p, tempfile("seg-"), lpb, gpkg = TRUE)
     expect_gt(nrow(seg$objets), 0L)
     for (n in c("dates", "ratio", "objets_raster")) {
-      expect_equal(lire(seg$fichiers[[n]]), lire(direct$fichiers[[n]]))
+      expect_identical(lire(seg$fichiers[[n]]), lire(direct$fichiers[[n]]))
     }
-    expect_equal(seg$objets[, c("identifiant", "nb_pixels", "nb_pixels_dates", "date_mediane")],
-                 direct$objets[, c("identifiant", "nb_pixels", "nb_pixels_dates", "date_mediane")])
-    expect_equal(seg$objets$ratio_moyen_db, direct$objets$ratio_moyen_db, tolerance = 1e-6)
+    # Table identique, ratio moyen compris (plus de tolérance liée au FLT4S).
+    sans_date <- function(t) t[, names(t) != "date_mediane_date"]
+    expect_identical(sans_date(seg$objets), sans_date(direct$objets))
+    expect_equal(seg$objets$date_mediane_date, direct$objets$date_mediane_date)
     expect_true(file.exists(seg$fichiers[["objets"]]))
   }
   # Paramètres bruts : seuils, surface et fermeture.

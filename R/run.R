@@ -27,12 +27,13 @@
 #'      avec le seul masque forêt (toute la grille) et des paramètres
 #'      **bruts** : les zones `ratio <= tp`, sans exiger de graine (seuil
 #'      des graines porté à `tp`), sans surface minimale ni fermeture
-#'      (`detection/brut/`, `passe_2019/brut/`). La détection de la tuile
-#'      (`detection/`, `passe_2019/`) en est tirée avec le masque de la
-#'      tuile, par les passes 2 et 3 de [nemetonsar_detecter()] (graine,
-#'      0,1 ha, fermeture) : mêmes résultats, au ratio près relu en réel 32
-#'      bits et aux pixels de forêt sans ratio (voir l'assemblage). La
-#'      carte finale, elle, est jugée après l'assemblage.
+#'      (`detection/brut/`, `passe_2019/brut/` : ratio en réel 64 bits,
+#'      sans GeoPackage). La détection de la tuile (`detection/`,
+#'      `passe_2019/`) en est tirée avec le masque de la tuile, par le même
+#'      code que les passes 2 et 3 de [nemetonsar_detecter()] (graine,
+#'      0,1 ha, fermeture) : mêmes résultats, aux pixels de forêt sans
+#'      ratio près (voir l'assemblage). La carte finale, elle, est jugée
+#'      après l'assemblage.
 #'   4. **Correction 2019** (si `tcd` est donné, `correction_2019 = TRUE`,
 #'      `annee_noyau` antérieure à 2019 et des images de 2019 lues) : une
 #'      première détection, sur les images jusqu'au 31 décembre 2019 et les
@@ -77,8 +78,7 @@
 #'
 #'   **Limites** : un pixel de forêt sans ratio (images manquantes) n'est
 #'   pas neutre pour la fermeture, contrairement à [nemetonsar_detecter()] ;
-#'   le ratio est relu en réel 32 bits (une graine ou une zone à moins de
-#'   1e-6 dB d'un seuil peut basculer) ; le plus proche voisin peut, au
+#'   le plus proche voisin peut, au
 #'   pixel près, souder deux objets voisins ou couper un objet filiforme ;
 #'   les surfaces sont celles de la grille Lambert-93 (nombre de pixels x
 #'   100 m²).
@@ -111,7 +111,7 @@
 #'     l'AOI, 0 sinon, `NA` sans donnée TCD), `foret.tif` (1 forêt, 0
 #'     sinon, sur toute la grille), `detection/` (détection de la tuile,
 #'     comme [nemetonsar_detecter()] ; `detection/brut/` : zones brutes,
-#'     entrée de l'assemblage), `passe_2019/` (première détection, si
+#'     ratio en `FLT8S`, entrée de l'assemblage), `passe_2019/` (première détection, si
 #'     faite, et `passe_2019/brut/`), et `dates.tif`, `ratio.tif`,
 #'     `objets.tif` des objets gardés de la tuile (jugés dans la tuile : ils
 #'     peuvent différer de la carte finale à la limite de deux tuiles).
@@ -557,14 +557,14 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
        brut = list(a = brut_a, b = brut_b), foret = f_foret, passe_2019 = passe_2019)
 }
 
-# Détection brute d'une tuile : nemetonsar_detecter() avec les paramètres
-# de parametres_bruts() et le masque forêt de toute la grille (sans le
-# morceau d'AOI). Rend les chemins de `dates.tif` et `ratio.tif` ; le
-# GeoPackage des zones brutes, inutile, est effacé.
+# Détection brute d'une tuile : nemetonsar_detecter() (detecter_blocs())
+# avec les paramètres de parametres_bruts() et le masque forêt de toute la
+# grille (sans le morceau d'AOI), sans GeoPackage (pas de polygonisation),
+# ratio écrit en réel 64 bits (`FLT8S`) : segmenter_blocs() le relit tel que
+# la passe 1 l'a calculé. Rend les chemins de `dates.tif` et `ratio.tif`.
 detection_brute <- function(orbites, dates, dossier, pb, lignes_par_bloc, foret) {
-  res <- nemetonsar_detecter(orbites, dates, dossier, pb, lignes_par_bloc = lignes_par_bloc,
-                             foret = foret)
-  if ("objets" %in% names(res$fichiers)) unlink(res$fichiers[["objets"]])
+  res <- detecter_blocs(orbites, dates, dossier, pb, lignes_par_bloc, NULL, foret,
+                        ecrire_objets = FALSE, type_ratio = "FLT8S")
   res$fichiers[c("dates", "ratio")]
 }
 
@@ -635,7 +635,10 @@ run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc, periode,
   qui <- terra::rast(tmp[["qui"]])
 
   # Une couche de chaque tuile, au plus proche voisin, sur ses seuls pixels.
+  # Le ratio (`FLT8S`) reste en réel 64 bits, y compris dans les fichiers
+  # temporaires de `terra` (dont le type par défaut est `FLT4S`).
   assembler <- function(fichiers, nom, type) {
+    wopt <- if (type == "FLT8S") list(datatype = "FLT8S") else list()
     morceaux <- list()
     for (k in seq_along(fichiers)) {
       if (is.null(fichiers[[k]])) next
@@ -643,17 +646,18 @@ run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc, periode,
       zone <- terra::project(terra::densify(terra::as.polygons(terra::ext(ru), crs = terra::crs(ru)),
                                             10 * r), l93)
       sous <- terra::crop(modele, terra::ext(zone), snap = "out")
-      x <- terra::project(ru, sous, method = "near")
-      morceaux[[length(morceaux) + 1L]] <- terra::ifel(terra::crop(qui, x) == k, x, NA)
+      x <- terra::project(ru, sous, method = "near", wopt = wopt)
+      morceaux[[length(morceaux) + 1L]] <- terra::ifel(terra::crop(qui, x) == k, x, NA,
+                                                       wopt = wopt)
     }
     m <- if (length(morceaux) == 0L) {
       terra::rast(modele, vals = NA_real_)
     } else if (length(morceaux) == 1L) {
       morceaux[[1]]
     } else {
-      terra::merge(terra::sprc(morceaux))
+      terra::merge(terra::sprc(morceaux), wopt = wopt)
     }
-    m <- terra::crop(terra::extend(m, modele), modele)
+    m <- terra::crop(terra::extend(m, modele, wopt = wopt), modele, wopt = wopt)
     terra::writeRaster(m, tmp[[nom]], overwrite = TRUE, datatype = type, names = nom)
     terra::rast(tmp[[nom]])
   }
@@ -672,7 +676,7 @@ run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc, periode,
   res_a <- NULL
   donnee_b <- donnee_a
   if (any(avec_a)) {
-    res_a <- segmenter_blocs(assembler(brut("a", "ratio"), "a_ratio", "FLT4S"),
+    res_a <- segmenter_blocs(assembler(brut("a", "ratio"), "a_ratio", "FLT8S"),
                              assembler(brut("a", "dates"), "a_dates", "INT4S"),
                              donnee_a, p, dossiers_seg[1], lignes_par_bloc)
     # Correction 2019 sur la carte assemblée : pixels datés de 2019 par la
@@ -684,7 +688,7 @@ run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc, periode,
   }
   res_b <- NULL
   if (any(avec_b)) {
-    res_b <- segmenter_blocs(assembler(brut("b", "ratio"), "b_ratio", "FLT4S"),
+    res_b <- segmenter_blocs(assembler(brut("b", "ratio"), "b_ratio", "FLT8S"),
                              assembler(brut("b", "dates"), "b_dates", "INT4S"),
                              donnee_b, p, dossiers_seg[2], lignes_par_bloc)
   }
