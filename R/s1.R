@@ -213,10 +213,13 @@ s1_lire <- function(items, grille, signer = TRUE, methode = "bilinear",
   }
 
   # Lecture distante : ne pas lister le dossier du fichier (inutile et lent
-  # sur un stockage objet).
-  ancien <- terra::getGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN")
-  terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
-  on.exit(terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", ancien), add = TRUE)
+  # sur un stockage objet). Pas pour les fichiers locaux, dont GDAL doit
+  # pouvoir lire les fichiers annexes (.aux.xml).
+  if (!all(file.exists(adresses))) {
+    ancien <- terra::getGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN")
+    terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
+    on.exit(terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", ancien), add = TRUE)
+  }
 
   sans_unite <- 0L
   series <- unique(items$serie)
@@ -346,8 +349,11 @@ s1_table_items <- function(features, date_debut, date_fin, parametres) {
     v <- f$properties[[nom]]
     if (is.null(v) || length(v) == 0L) defaut else v[[1]]
   }
+  # Les items les plus anciens du catalogue écrivent "2025-06-15 06:17:05",
+  # les plus récents "2025-06-15T06:17:05.123Z" : on lit les deux.
   instant <- function(x) {
-    as.POSIXct(substr(as.character(x), 1L, 19L), format = "%Y-%m-%dT%H:%M:%S", tz = "UTC")
+    x <- sub(" ", "T", substr(as.character(x), 1L, 19L), fixed = TRUE)
+    as.POSIXct(x, format = "%Y-%m-%dT%H:%M:%S", tz = "UTC")
   }
   n <- length(features)
   table <- data.frame(
@@ -380,8 +386,11 @@ s1_table_items <- function(features, date_debut, date_fin, parametres) {
 
   # Une ligne par tranche : même capteur, orbite et début d'acquisition ->
   # le traitement le plus récent.
-  debut <- ifelse(is.na(table$debut), format(table$heure, tz = "UTC"), table$debut)
-  cle <- paste(table$capteur, table$orbite, debut)
+  # Sans s1:processing_datetime (items anciens), l'item passe après ceux qui
+  # en ont une, puis l'ordre des identifiants départage.
+  debut <- instant(table$debut)
+  debut[is.na(debut)] <- table$heure[is.na(debut)]
+  cle <- paste(table$capteur, table$orbite, format(debut, "%Y-%m-%dT%H:%M:%S", tz = "UTC"))
   ordre <- order(cle, -as.numeric(table$traitement), table$id, na.last = TRUE)
   table <- table[ordre, , drop = FALSE]
   table <- table[!duplicated(cle[ordre]), , drop = FALSE]

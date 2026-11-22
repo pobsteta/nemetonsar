@@ -1,5 +1,5 @@
 {
- "_note": "Reponse STAC du Planetary Computer (collection sentinel-1-rtc, point -0.80 E 44.20 N, 2025-06-01/2025-06-20), enregistree le 2026-11-22 et reduite (proprietes utiles, assets vh et vv sans jeton). Quatre items ajoutes a la main pour les tests : republication ancienne (_ANCIEN_), seconde tranche de la meme acquisition (TRANCHE2), item hors periode (HORS_PERIODE), item VV seul (VV_SEUL).",
+ "_note": "Reponse STAC du Planetary Computer (collection sentinel-1-rtc, point -0.80 E 44.20 N, 2025-06-01/2025-06-20), enregistree le 2026-11-22 et reduite (proprietes utiles, assets vh et vv sans jeton). Quatre items ajoutes a la main pour les tests : republication plus ancienne de l'image S1C du 2025-06-17 (_ANCIEN_), seconde tranche de la meme acquisition (TRANCHE2), item hors periode (HORS_PERIODE), item VV seul (VV_SEUL).",
  "type": "FeatureCollection",
  "features": [
   {
@@ -578,62 +578,62 @@
   {
    "type": "Feature",
    "stac_version": "1.0.0",
-   "id": "S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_ANCIEN_rtc",
+   "id": "S1C_IW_GRDH_1SDV_20250617T175439_20250617T175504_002826_ANCIEN_rtc",
    "collection": "sentinel-1-rtc",
    "bbox": [
-    -3.8946034594302006,
-    43.87110541201297,
-    -0.3920563750941518,
-    45.75902142254009
+    -2.0300001418653206,
+    42.55431847797914,
+    1.4147150609803194,
+    44.44228528018583
    ],
    "geometry": {
     "type": "Polygon",
     "coordinates": [
      [
       [
-       -3.8946034594302006,
-       43.87110541201297
+       -2.0300001418653206,
+       42.55431847797914
       ],
       [
-       -0.3920563750941518,
-       43.87110541201297
+       1.4147150609803194,
+       42.55431847797914
       ],
       [
-       -0.3920563750941518,
-       45.75902142254009
+       1.4147150609803194,
+       44.44228528018583
       ],
       [
-       -3.8946034594302006,
-       45.75902142254009
+       -2.0300001418653206,
+       44.44228528018583
       ],
       [
-       -3.8946034594302006,
-       43.87110541201297
+       -2.0300001418653206,
+       42.55431847797914
       ]
      ]
     ]
    },
    "properties": {
-    "datetime": "2025-06-15T06:17:17.904030Z",
-    "start_datetime": "2025-06-15 06:17:05.404658+00:00",
-    "end_datetime": "2025-06-15 06:17:30.403403+00:00",
-    "platform": "SENTINEL-1A",
-    "sat:relative_orbit": 81,
-    "sat:orbit_state": "descending",
+    "datetime": "2025-06-17T17:54:51.994667Z",
+    "start_datetime": "2025-06-17T17:54:39.495337Z",
+    "end_datetime": "2025-06-17T17:55:04.493996Z",
+    "platform": "sentinel-1c",
+    "sat:relative_orbit": 30,
+    "sat:orbit_state": "ascending",
     "sar:polarizations": [
      "VV",
      "VH"
     ],
-    "proj:epsg": 32630,
-    "s1:processing_datetime": "2025-06-15T07:00:00.000000Z"
+    "s1:processing_datetime": "2025-06-17T18:00:00.000000Z",
+    "proj:epsg": 32630
    },
    "assets": {
     "vh": {
-     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/15/IW/DV/S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_E2BE/measurement/iw-vh-ancien.rtc.tiff",
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/17/IW/DV/S1C_IW_GRDH_1SDV_20250617T175439_20250617T175504_002826_005CC5_3D79/measurement/iw-vh-ancien.rtc.tiff",
      "type": "image/tiff; application=geotiff; profile=cloud-optimized"
     },
     "vv": {
-     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/15/IW/DV/S1A_IW_GRDH_1SDV_20250615T061705_20250615T061730_059653_076829_E2BE/measurement/iw-vv.rtc.tiff",
+     "href": "https://sentinel1euwestrtc.blob.core.windows.net/sentinel1-grd-rtc/GRD/2025/6/17/IW/DV/S1C_IW_GRDH_1SDV_20250617T175439_20250617T175504_002826_005CC5_3D79/measurement/iw-vv-ancien.rtc.tiff",
      "type": "image/tiff; application=geotiff; profile=cloud-optimized"
     }
    },
