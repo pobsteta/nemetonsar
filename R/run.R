@@ -18,6 +18,9 @@
 #'      les images antérieures (`xb = Inf`). Avec les défauts (noyau 2018),
 #'      une période en 2025 lit donc toutes les images depuis 2018. Une
 #'      orbite sans image de l'année du noyau est écartée (dit au journal).
+#'      Les images sont lues **par bandes de lignes** de la tuile (voir
+#'      « Lecture par bandes ») et effacées dès qu'elles ont servi : elles ne
+#'      sont pas gardées d'une exécution à l'autre (décision du 2026-11-22).
 #'   2. **Masque.** Le masque de la tuile est le masque forêt (TCD si
 #'      `tcd` est donné, BD Forêt v2 de l'IGN si `bdforet` est donné, lue
 #'      sur l'emprise de la tuile) **et** le morceau d'AOI de la tuile (cellules dont
@@ -52,6 +55,28 @@
 #'      dans `[date_debut, date_fin]`. Une coupe des `xa` dernières images
 #'      n'a pas encore de ratio : elle n'est pas détectée (elle le sera en
 #'      prolongeant la période).
+#'
+#' @section Lecture par bandes : Avec `hauteur_bande` (512 lignes par
+#'   défaut, la hauteur des tuiles internes des COG RTC ; **provisoire, à
+#'   mesurer**), la tuile est découpée en bandes de `hauteur_bande` lignes.
+#'   Pour chaque bande : les images sont lues sur la bande bordée de
+#'   `(fenetre_filtre - 1) / 2` lignes de chaque côté (le rayon du filtre,
+#'   seule opération spatiale de la passe 1), la passe 1 (filtre, ratio,
+#'   combinaison des orbites, masque forêt) est faite sur la bande, ses
+#'   lignes centrales sont recollées dans le ratio et la date de la tuile,
+#'   puis les images de la bande sont effacées. La segmentation brute
+#'   (zones `ratio <= tp`) est faite ensuite une seule fois sur la tuile
+#'   recollée. Le disque des images ne dépasse donc pas celui d'une bande
+#'   (≈ 23 Go pour 512 lignes d'une tuile MGRS et 900 images, calcul de la
+#'   mission 019), au prix d'un téléchargement plus lourd : les bandes ne
+#'   tombent pas sur les tuiles internes des COG, qui sont relues par deux
+#'   bandes voisines.
+#'
+#'   Les résultats sont **identiques au bit près** à ceux d'une lecture
+#'   d'un seul tenant (`hauteur_bande = NULL`) : la reprojection des images
+#'   est exacte, cellule par cellule ([s1_lire()]), et la passe 1 d'un pixel
+#'   ne dépend que des pixels à moins du rayon du filtre. Avec le lecteur
+#'   par défaut, la recherche STAC est faite une seule fois par tuile.
 #'
 #' @section Assemblage : Les sorties **brutes** de chaque tuile (UTM : zones
 #'   `ratio <= tp`, ratio et date) et son masque forêt sont reprojetés au
@@ -109,7 +134,7 @@
 #'     (`docs/referentiels/licences.md`), durée. Il est écrit même si le
 #'     calcul s'arrête sur une erreur (statut « interrompu ») ;
 #'   - `tuiles/<mgrs>/` : par tuile, sur sa grille UTM (celle des fichiers
-#'     SUFOSAT publiés) : `s1/` (piles lues), `masque.tif` (1 forêt dans
+#'     SUFOSAT publiés) : `masque.tif` (1 forêt dans
 #'     l'AOI, 0 sinon, `NA` sans donnée TCD), `foret.tif` (1 forêt, 0
 #'     sinon, sur toute la grille), `detection/` (détection de la tuile,
 #'     comme [nemetonsar_detecter()] ; `detection/brut/` : zones brutes,
@@ -118,8 +143,9 @@
 #'     `objets.tif` des objets gardés de la tuile (jugés dans la tuile : ils
 #'     peuvent différer de la carte finale à la limite de deux tuiles).
 #'
-#'   Rien n'est écrit hors de `dossier`, sauf les fichiers temporaires de
-#'   `terra`.
+#'   Les images lues (`tuiles/<mgrs>/s1/`) et les fichiers des bandes sont
+#'   effacés après usage, même sur erreur. Rien n'est écrit hors de
+#'   `dossier`, sauf les fichiers temporaires de `terra`.
 #'
 #' @param aoi L'AOI : chemin d'un fichier vecteur ou `SpatVector` de
 #'   polygones (voir [aoi_preparer()]).
@@ -149,19 +175,32 @@
 #'   déroulé). Défaut `TRUE`.
 #' @param lignes_par_bloc Passé à [nemetonsar_detecter()] ; sert aussi à
 #'   l'assemblage (`NULL` : environ 2,5e7 cellules par bloc).
-#' @param lire_images `NULL` (défaut : [s1_rechercher()] puis [s1_lire()]
-#'   sur la grille de la tuile), ou une fonction
-#'   `function(grille, date_debut, date_fin, parametres, dossier)` qui rend
-#'   une liste comme [s1_lire()] (`orbites`, `dates`, `attribution`,
-#'   `items` avec au moins les colonnes `id`, `date`, `serie`). Sert aux
+#' @param lire_images `NULL` (défaut : [s1_rechercher()] sur la grille de
+#'   la tuile, une fois, puis [s1_lire()] sur la grille de chaque bande), ou
+#'   une fonction `function(grille, date_debut, date_fin, parametres,
+#'   dossier)` qui rend une liste comme [s1_lire()] (`orbites`, `dates`,
+#'   `attribution`, `items` avec au moins les colonnes `id`, `date`,
+#'   `serie`), avec des piles **sur `grille`** : la tuile entière, ou une
+#'   bande de lignes de la tuile (toute sa largeur). Pour une même tuile,
+#'   elle doit rendre les mêmes orbites et les mêmes dates à chaque bande,
+#'   et la valeur d'un pixel ne doit pas dépendre de la bande lue. Ce
+#'   qu'elle écrit dans `dossier` est effacé après la bande. Sert aux
 #'   tests et à des images déjà téléchargées.
+#' @param hauteur_bande Hauteur des bandes de lecture, en lignes de la
+#'   tuile (entier, défaut 512, **provisoire**), ou `NULL` pour lire chaque
+#'   tuile d'un seul tenant (disque des images d'une tuile entière). Voir
+#'   « Lecture par bandes ».
+#' @param flux Nombre de processus qui lisent les images en même temps
+#'   (passé à [s1_lire()] par le lecteur par défaut). Défaut 4,
+#'   **provisoire**.
 #'
 #' @return (invisible) Une liste : `fichiers` (chemins écrits, nommés),
 #'   `objets` (table des objets gardés : `identifiant`, `nb_pixels`,
 #'   `surface_ha`, `nb_pixels_dates`, `date_mediane` en `YYDDD`,
 #'   `date_mediane_date`, `ratio_moyen_db`, et `part_brulee` si `effis` est
 #'   donné), `tuiles` (une ligne par tuile : images, orbites, objets par
-#'   étape), `feu` (table de [masque_feu()], ou `NULL`), `journal` (chemin
+#'   étape, nombre de bandes `nb_bandes`, disque maximal des images d'une
+#'   bande `disque_max_mo` en Mo), `feu` (table de [masque_feu()], ou `NULL`), `journal` (chemin
 #'   du journal).
 #'
 #' @seealso [aoi_preparer()], [s1_rechercher()], [s1_lire()],
@@ -190,7 +229,9 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
                            correction_2019 = TRUE,
                            lignes_par_bloc = NULL,
                            lire_images = NULL,
-                           bdforet = NULL) {
+                           bdforet = NULL,
+                           hauteur_bande = 512L,
+                           flux = 4L) {
   debut_calcul <- Sys.time()
   p <- valide_parametres(parametres)
   periode <- valide_periode(date_debut, date_fin)
@@ -252,9 +293,19 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
     }
     effis <- valide_effis(effis, effis_annee)
   }
+  if (!is.null(hauteur_bande) &&
+      (!est_scalaire_num(hauteur_bande) || !is.finite(hauteur_bande) || hauteur_bande < 1 ||
+       hauteur_bande != round(hauteur_bande))) {
+    stop("`hauteur_bande` doit \u00eatre NULL ou un entier au moins \u00e9gal \u00e0 1.", call. = FALSE)
+  }
+  if (!est_scalaire_num(flux) || !is.finite(flux) || flux < 1 || flux != round(flux)) {
+    stop("`flux` doit \u00eatre un entier au moins \u00e9gal \u00e0 1.", call. = FALSE)
+  }
   if (is.null(lire_images)) {
-    lire_images <- lire_images_s1
-    source_images <- "s1_rechercher() + s1_lire() (STAC sentinel-1-rtc, Microsoft Planetary Computer)"
+    source_images <- paste0("s1_rechercher() + s1_lire() (STAC sentinel-1-rtc, Microsoft Planetary Computer), ",
+                            flux, " flux ; reprojection exacte (terra::project(use_gdal = FALSE), ",
+                            "d\u00e9cision du 2026-11-22) : valeurs diff\u00e9rentes de la version GDAL ",
+                            "ant\u00e9rieure pour les orbites d'une autre zone UTM que la tuile")
   } else {
     if (!is.function(lire_images)) {
       stop("`lire_images` doit \u00eatre NULL ou une fonction (voir la documentation).", call. = FALSE)
@@ -303,6 +354,10 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
          " (noyau du filtre : ann\u00e9e ", p$annee_noyau, " ; Mb : xb = ",
          texte_xb(p$xb), ")")
   ecrire("Source des images : ", source_images)
+  ecrire("Lecture des images : ",
+         if (is.null(hauteur_bande)) "d'un seul tenant par tuile" else
+           paste0("par bandes de ", hauteur_bande, " lignes de la tuile (plus la bordure du filtre)"),
+         " ; images effac\u00e9es apr\u00e8s usage (non gard\u00e9es d'une ex\u00e9cution \u00e0 l'autre)")
   ecrire("Dossier : ", normalizePath(dossier))
   ecrire("")
   ecrire("## AOI")
@@ -347,7 +402,8 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
     tuile <- prep$tuiles[i, , drop = FALSE]
     resultats[[tuile$mgrs]] <- run_tuile(
       tuile, prep$aoi[[tuile$mgrs]], periode, debut_images, dossier, p,
-      tcd, correction_2019, lignes_par_bloc, lire_images, ecrire, bdforet
+      tcd, correction_2019, lignes_par_bloc, lire_images, ecrire, bdforet,
+      hauteur_bande, flux
     )
   }
 
@@ -423,6 +479,8 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
          "masque for\u00eat apr\u00e8s la passe 1 ; ",
          if (!is.null(bdforet)) paste0("BD For\u00eat : rast\u00e9risation au centre des cellules, ",
                                        "postes FF0 et FO0 (sans couvert arbor\u00e9) compt\u00e9s for\u00eat ; ") else "",
+         "hauteur des bandes de lecture, nombre de flux, compression DEFLATE + pr\u00e9dicteur 3 ",
+         "des images lues ; ",
          "voir aussi les r\u00e9glages marqu\u00e9s provisoires de parametres_sufosat().")
 
   j$statut <- "termin\u00e9"
@@ -439,12 +497,14 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
 
 # Une tuile --------------------------------------------------------------------
 
-# Lit les images, prépare le masque, détecte (avec la correction 2019 si
-# elle s'applique), garde les objets de la période ; écrit dans
-# dossier/tuiles/<mgrs>/. Rend list(fichiers, resume, attribution).
+# Lit les images (d'un seul tenant, ou par bandes de lignes si
+# `hauteur_bande` est donné), prépare le masque, détecte (avec la correction
+# 2019 si elle s'applique), garde les objets de la période ; écrit dans
+# dossier/tuiles/<mgrs>/. Les images sont effacées après usage. Rend
+# list(fichiers, resume, attribution, brut, foret, passe_2019).
 run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
                       correction_2019, lignes_par_bloc, lire_images, ecrire,
-                      bdforet = NULL) {
+                      bdforet = NULL, hauteur_bande = NULL, flux = 4L) {
   mgrs <- tuile$mgrs
   dt <- file.path(dossier, "tuiles", mgrs)
   dir.create(dt, showWarnings = FALSE, recursive = TRUE)
@@ -453,29 +513,69 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   resume <- data.frame(mgrs = mgrs, nb_orbites = 0L, nb_images = 0L,
                        orbites_ecartees = 0L, passe_2019 = FALSE,
                        objets_2019 = NA_integer_, objets_detection = NA_integer_,
-                       objets_gardes = 0L, stringsAsFactors = FALSE)
+                       objets_gardes = 0L, nb_bandes = 0L, disque_max_mo = 0,
+                       stringsAsFactors = FALSE)
   vide <- list(fichiers = NULL, resume = resume, attribution = NA_character_)
 
-  imgs <- lire_images(grille, debut_images, periode[2], p, file.path(dt, "s1"))
-  if (!is.list(imgs) || !all(c("orbites", "dates") %in% names(imgs))) {
-    stop("`lire_images` doit rendre une liste avec `orbites` et `dates` (comme s1_lire()).",
-         call. = FALSE)
+  # Images : jamais gardées au-delà de leur usage (décision du 2026-11-22).
+  d_s1 <- file.path(dt, "s1")
+  d_bandes <- file.path(dt, ".nemetonsar_tmp_bandes")
+  on.exit(unlink(c(d_s1, d_bandes), recursive = TRUE), add = TRUE)
+  lire <- if (is.null(lire_images)) lecteur_s1(grille, flux) else lire_images
+  nl <- terra::nrow(grille)
+  nc <- terra::ncol(grille)
+  rf <- (p$fenetre_filtre - 1L) %/% 2L
+  bandes <- NULL
+  if (!is.null(hauteur_bande)) {
+    h <- as.integer(min(hauteur_bande, nl))
+    debuts <- seq(1L, nl, by = h)
+    bandes <- data.frame(debut = debuts, n = pmin(h, nl - debuts + 1L))
   }
+  disque_s1 <- function() {
+    f <- list.files(d_s1, recursive = TRUE, full.names = TRUE, all.files = TRUE)
+    sum(file.size(f), na.rm = TRUE) / 1e6
+  }
+  # Lit les images de la bande `b` (bordée de `rf` lignes) ou de la tuile.
+  lire_images_bande <- function(b) {
+    lu <- NULL
+    g <- grille
+    if (!is.null(bandes)) {
+      lu <- bande_bordee(bandes$debut[b], bandes$n[b], rf, nl)
+      g <- grille_lignes(grille, lu$debut, lu$n)
+    }
+    unlink(d_s1, recursive = TRUE)
+    imgs <- lire(g, debut_images, periode[2], p, d_s1)
+    if (!is.list(imgs) || !all(c("orbites", "dates") %in% names(imgs))) {
+      stop("`lire_images` doit rendre une liste avec `orbites` et `dates` (comme s1_lire()).",
+           call. = FALSE)
+    }
+    if (length(imgs$orbites) > 0L && is.null(names(imgs$orbites))) {
+      names(imgs$orbites) <- paste0("orbite", seq_along(imgs$orbites))
+    }
+    names(imgs$dates) <- names(imgs$orbites)
+    for (o in imgs$orbites) {
+      if (!isTRUE(terra::compareGeom(o, g, stopOnError = FALSE))) {
+        stop("`lire_images` doit rendre des piles sur la grille demandée (celle de la tuile ",
+             "ou de la bande).", call. = FALSE)
+      }
+    }
+    resume$disque_max_mo <<- max(resume$disque_max_mo, disque_s1())
+    list(imgs = imgs, lu = lu, grille = g)
+  }
+
+  x1 <- lire_images_bande(1L)
+  imgs <- x1$imgs
   attribution <- if (is.null(imgs$attribution)) NA_character_ else as.character(imgs$attribution)
   vide$attribution <- attribution
   orbites <- imgs$orbites
   dates <- imgs$dates
-  if (length(orbites) > 0L && is.null(names(orbites))) {
-    names(orbites) <- paste0("orbite", seq_along(orbites))
-  }
-  names(dates) <- names(orbites)
   items <- imgs$items
 
   # Orbites sans image de l'année du noyau : écartées.
   noyau <- vapply(dates, function(d) any(format(d, "%Y") == as.character(p$annee_noyau)),
                   logical(1))
   if (any(!noyau)) {
-    ecrire("Orbite(s) \u00e9cart\u00e9e(s), sans image de l'ann\u00e9e du noyau (", p$annee_noyau, ") : ",
+    ecrire("Orbite(s) écartée(s), sans image de l'année du noyau (", p$annee_noyau, ") : ",
            paste(names(orbites)[!noyau], collapse = ", "))
   }
   resume$orbites_ecartees <- sum(!noyau)
@@ -485,7 +585,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   resume$nb_images <- sum(lengths(dates))
   vide$resume <- resume
 
-  ecrire("Images utilis\u00e9es : ", resume$nb_images, " sur ", length(orbites), " orbite(s)")
+  ecrire("Images utilisées : ", resume$nb_images, " sur ", length(orbites), " orbite(s)")
   for (s in names(orbites)) {
     d <- dates[[s]]
     ecrire("  ", s, " : ", length(d), " image(s), du ", format(min(d)), " au ", format(max(d)))
@@ -498,13 +598,14 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     ecrire(paste0("    ", capturer(liste, row.names = FALSE)))
   }
   if (length(orbites) == 0L) {
-    ecrire("Aucune image utilisable : tuile sans d\u00e9tection.")
+    ecrire("Aucune image utilisable : tuile sans détection.")
     ecrire("")
+    vide$resume$disque_max_mo <- resume$disque_max_mo
     return(vide)
   }
 
   # Masque : forêt (TCD ou BD Forêt) et morceau d'AOI.
-  modele <- terra::rast(orbites[[1]], nlyrs = 1)
+  modele <- if (is.null(bandes)) terra::rast(orbites[[1]], nlyrs = 1) else terra::rast(grille)
   dans_aoi <- terra::rasterize(morceau, modele, field = 1, background = 0, touches = FALSE) == 1
   masque_aoi <- function(foret) {
     m <- if (is.null(foret)) dans_aoi else foret & dans_aoi
@@ -517,12 +618,12 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     foret0 <- masque_foret_bdforet(bdforet, modele)
     info <- attr(foret0, "bdforet")
     cod <- info$codes
-    ecrire("Masque for\u00eat BD For\u00eat : ", info$nb_polygones, " polygone(s) lu(s) sur l'emprise",
+    ecrire("Masque forêt BD Forêt : ", info$nb_polygones, " polygone(s) lu(s) sur l'emprise",
            if (nrow(cod) > 0L) paste0(" ; codes TFV : ",
                                       paste0(ifelse(is.na(cod$code), "NA", cod$code), " (", cod$nb,
-                                             ifelse(cod$foret, ", for\u00eat", ""), ")",
+                                             ifelse(cod$foret, ", forêt", ""), ")",
                                              collapse = ", ")) else "",
-           " ; cellules for\u00eat : ", sum(terra::values(foret0, mat = FALSE) %in% TRUE),
+           " ; cellules forêt : ", sum(terra::values(foret0, mat = FALSE) %in% TRUE),
            " sur ", terra::ncell(foret0))
   }
   a_foret <- !is.null(foret0)
@@ -534,18 +635,105 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
 
   passe_2019 <- a_foret && correction_2019 && p$annee_noyau < 2019L &&
     any(vapply(dates, function(d) any(format(d, "%Y") == "2019"), logical(1)))
-  res_a <- NULL
-  brut_a <- NULL
+  indices <- NULL
+  dates_a <- NULL
   if (passe_2019) {
     fin19 <- as.Date("2019-12-31")
     indices <- lapply(dates, function(d) {
       apres <- which(d > fin19)[seq_len(p$xa)]
       sort(c(which(d <= fin19), apres[!is.na(apres)]))
     })
-    orbites_a <- Map(function(o, k) o[[k]], orbites, indices)
     dates_a <- Map(function(d, k) d[k], dates, indices)
-    brut_a <- detection_brute(orbites_a, dates_a, file.path(dt, "passe_2019", "brut"), pb,
+  }
+  sous_a <- function(orbs) Map(function(o, k) o[[k]], orbs, indices)
+
+  # Détections brutes (passe 1, puis zones <= tp) : première détection (a)
+  # et détection principale (b).
+  brut_a <- NULL
+  if (is.null(bandes)) {
+    if (passe_2019) {
+      brut_a <- detection_brute(sous_a(orbites), dates_a, file.path(dt, "passe_2019", "brut"), pb,
+                                lignes_par_bloc, foret0)
+    }
+    brut_b <- detection_brute(orbites, dates, file.path(dt, "detection", "brut"), pb,
                               lignes_par_bloc, foret0)
+    resume$nb_bandes <- 1L
+    ecrire("Lecture d'un seul tenant ; disque des images : ",
+           format(round(resume$disque_max_mo, 1), nsmall = 1), " Mo (effacées ensuite)")
+  } else {
+    noms_1 <- names(imgs$orbites)
+    dates_1 <- imgs$dates
+    passes <- c(if (passe_2019) "a", "b")
+    q <- parametres_tout_garder(pb)
+    dir.create(d_bandes, showWarnings = FALSE, recursive = TRUE)
+    brutes <- list()
+    for (ps in passes) {
+      f <- file.path(d_bandes, paste0("tuile_", ps, c("_ratio.tif", "_dates.tif")))
+      brutes[[ps]] <- list(fichiers = f, ratio = ecrivain(modele, f[1], "FLT8S"),
+                           dates = ecrivain(modele, f[2], "INT4S"))
+    }
+    for (b in seq_len(nrow(bandes))) {
+      x <- if (b == 1L) x1 else lire_images_bande(b)
+      if (b > 1L && (!identical(names(x$imgs$orbites), noms_1) ||
+                     !identical(unname(x$imgs$dates), unname(dates_1)))) {
+        stop("`lire_images` doit rendre les mêmes orbites et les mêmes dates pour chaque ",
+             "bande de la tuile.", call. = FALSE)
+      }
+      orbs <- x$imgs$orbites[noyau]
+      foret_b <- if (is.null(foret0)) NULL else terra::crop(foret0, terra::ext(x$grille))
+      for (ps in passes) {
+        db <- file.path(d_bandes, paste0("bande_", ps))
+        r <- detecter_blocs(if (ps == "a") sous_a(orbs) else orbs,
+                            if (ps == "a") dates_a else dates,
+                            db, q, lignes_par_bloc, NULL, foret_b,
+                            ecrire_objets = FALSE, type_ratio = "FLT8S")
+        for (champ in c("ratio", "dates")) {
+          rr <- terra::rast(r$fichiers[[champ]])
+          terra::readStart(rr)
+          v <- terra::readValues(rr, row = x$lu$centre[1], nrows = bandes$n[b], col = 1,
+                                 ncols = nc, mat = FALSE)
+          terra::readStop(rr)
+          terra::writeValues(brutes[[ps]][[champ]], v, bandes$debut[b], bandes$n[b])
+        }
+        unlink(db, recursive = TRUE)
+      }
+      rm(x, orbs, foret_b)
+      if (b == 1L) {
+        x1 <- NULL
+        orbites <- NULL
+        imgs <- NULL
+      }
+      unlink(d_s1, recursive = TRUE)
+    }
+    brut <- list()
+    for (ps in passes) {
+      terra::writeStop(brutes[[ps]]$ratio)
+      terra::writeStop(brutes[[ps]]$dates)
+      d_ps <- if (ps == "a") dates_a else dates
+      # Taille de bloc de detecter_blocs() sur la tuile entière (le résultat
+      # n'en dépend pas).
+      lpb <- if (is.null(lignes_par_bloc)) {
+        max(1L, as.integer(floor(2.5e8 / (8 * nc * max(lengths(d_ps))))))
+      } else {
+        lignes_par_bloc
+      }
+      res <- segmenter_blocs(terra::rast(brutes[[ps]]$fichiers[1]), terra::rast(brutes[[ps]]$fichiers[2]),
+                             NULL, pb,
+                             file.path(dt, if (ps == "a") "passe_2019" else "detection", "brut"),
+                             lpb, gpkg = FALSE, type_ratio = "FLT8S")
+      brut[[ps]] <- res$fichiers[c("dates", "ratio")]
+    }
+    brut_a <- brut$a
+    brut_b <- brut$b
+    resume$nb_bandes <- nrow(bandes)
+    ecrire("Lecture par bandes : ", nrow(bandes), " bande(s) de ", bandes$n[1], " ligne(s) (bordure de ",
+           rf, " ligne(s)) ; disque maximal des images d'une bande : ",
+           format(round(resume$disque_max_mo, 1), nsmall = 1), " Mo (effacées après chaque bande)")
+  }
+  unlink(d_s1, recursive = TRUE)
+
+  res_a <- NULL
+  if (passe_2019) {
     m0 <- masque_aoi(foret0)
     res_a <- segmenter_blocs(terra::rast(brut_a[["ratio"]]), terra::rast(brut_a[["dates"]]), m0,
                              p, file.path(dt, "passe_2019"), lignes_par_bloc, gpkg = TRUE)
@@ -557,19 +745,17 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
       corriger_2019(foret0, det19, modele) # même règle que masque_foret()
     }
     n19 <- sum(terra::values(det19, mat = FALSE) %in% TRUE)
-    ecrire("Correction 2019 : premi\u00e8re d\u00e9tection sur ", sum(lengths(dates_a)),
+    ecrire("Correction 2019 : première détection sur ", sum(lengths(dates_a)),
            " image(s) (jusqu'au 2019-12-31 et ", p$xa, " suivantes), ", nrow(res_a$objets),
-           " objet(s) ; ", n19, " pixel(s) dat\u00e9(s) de 2019 retir\u00e9(s) de la for\u00eat")
+           " objet(s) ; ", n19, " pixel(s) daté(s) de 2019 retiré(s) de la forêt")
     resume$passe_2019 <- TRUE
     resume$objets_2019 <- nrow(res_a$objets)
   } else {
     foret1 <- foret0
     if (a_foret && correction_2019) {
-      ecrire("Correction 2019 : non faite (aucune image de 2019 lue, ou noyau post\u00e9rieur \u00e0 2018).")
+      ecrire("Correction 2019 : non faite (aucune image de 2019 lue, ou noyau postérieur à 2018).")
     }
   }
-  brut_b <- detection_brute(orbites, dates, file.path(dt, "detection", "brut"), pb,
-                            lignes_par_bloc, foret0)
   m1 <- masque_aoi(foret1)
   res_b <- segmenter_blocs(terra::rast(brut_b[["ratio"]]), terra::rast(brut_b[["dates"]]), m1,
                            p, file.path(dt, "detection"), lignes_par_bloc, gpkg = TRUE)
@@ -657,14 +843,46 @@ parametres_bruts <- function(p) {
   valide_parametres(b)
 }
 
-# Lecteur par défaut : recherche STAC puis lecture sur la grille.
-lire_images_s1 <- function(grille, date_debut, date_fin, parametres, dossier) {
-  items <- s1_rechercher(grille, date_debut, date_fin, parametres)
-  if (nrow(items) == 0L) {
-    return(list(orbites = list(), dates = list(),
-                attribution = attr(items, "attribution"), items = items))
+# Lecteur par défaut d'une tuile : recherche STAC une seule fois, sur la
+# grille de la tuile, puis lecture sur la grille demandée (la tuile ou une
+# de ses bandes).
+lecteur_s1 <- function(grille_tuile, flux) {
+  items <- NULL
+  function(grille, date_debut, date_fin, parametres, dossier) {
+    if (is.null(items)) {
+      items <<- s1_rechercher(grille_tuile, date_debut, date_fin, parametres)
+    }
+    if (nrow(items) == 0L) {
+      return(list(orbites = list(), dates = list(),
+                  attribution = attr(items, "attribution"), items = items))
+    }
+    s1_lire(items, grille, dossier = dossier, flux = flux)
   }
-  s1_lire(items, grille, dossier = dossier)
+}
+
+# Grille des lignes [debut, debut + n - 1] de `grille`, toute sa largeur.
+grille_lignes <- function(grille, debut, n) {
+  r <- terra::yres(grille)
+  haut <- terra::ymax(grille) - (debut - 1) * r
+  terra::rast(nrows = n, ncols = terra::ncol(grille), xmin = terra::xmin(grille),
+              xmax = terra::xmax(grille), ymin = haut - n * r, ymax = haut,
+              crs = terra::crs(grille))
+}
+
+# Paramètres de la passe 1 d'une bande : ratio et date rendus pour tout
+# pixel dont le ratio est <= au seuil des zones de `pb` (chacun est sa
+# propre graine : seuil des graines porté entre les deux seuils de zones),
+# sans surface minimale ni fermeture. La segmentation brute (pb) est ensuite
+# faite une seule fois sur la tuile recollée : mêmes sorties que
+# detection_brute() sur la tuile entière, même pour une zone dont la graine
+# est dans une autre bande.
+parametres_tout_garder <- function(pb) {
+  q <- pb
+  q$ts_db <- pb$tp_db / 2
+  q$tp_db <- pb$tp_db / 4
+  q$surface_min_ha <- 0
+  q$fermeture <- FALSE
+  valide_parametres(q)
 }
 
 # Assemblage -------------------------------------------------------------------

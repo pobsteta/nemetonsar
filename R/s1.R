@@ -137,6 +137,33 @@ s1_rechercher <- function(emprise, date_debut, date_fin,
 #'   la donnent pour ce cas (S1Tiling projette lui-même sur la grille MGRS) ;
 #'   à mesurer contre l'option A (ADR 0001).
 #'
+#'   La reprojection est **exacte** : chaque cellule de `grille` reçoit la
+#'   valeur interpolée au point exact où son centre tombe dans l'image
+#'   ([terra::project()] avec `use_gdal = FALSE`), indépendamment des autres
+#'   cellules. Une image lue sur une grille ou sur une bande de lignes de
+#'   cette grille donne donc les mêmes valeurs au bit près, ce qui permet la
+#'   lecture par bandes de [nemetonsar_run()]. Décision de Pascal du
+#'   2026-11-22 (mission 022) : la reprojection de GDAL, utilisée
+#'   auparavant, interpole les coordonnées (erreur tolérée de 0,125 pixel)
+#'   et dépend du découpage de la grille. **Les valeurs changent donc par
+#'   rapport aux versions antérieures pour les images d'une autre zone UTM
+#'   que la grille** (mesuré sur l'orbite D008, UTM 31N, lue sur une tuile
+#'   en UTM 30N : écart médian 0,9 %, jusqu'à 9 % du gamma0) ; elles ne
+#'   changent pas pour les images de la même zone (simple
+#'   rééchantillonnage). Coût mesuré : 0,70 s par million de pixels sur un
+#'   fil, contre 0,22 s pour GDAL en multi-fil : le parallélisme vient des
+#'   `flux`.
+#'
+#' @section Téléchargements en parallèle et fichiers : Chaque date d'une
+#'   orbite (toutes ses tranches) est lue, reprojetée et écrite par un
+#'   processus parmi `flux` ([parallel::mclapply()], fork ; en série là où
+#'   le fork n'existe pas, sous Windows). Chaque date est écrite dans son
+#'   fichier, `<dossier>/s1_<serie>/<AAAA-MM-JJ>.tif`, en réel 32 bits
+#'   (`FLT4S`), compression DEFLATE avec prédicteur flottant
+#'   (`PREDICTOR=3`), comme les fichiers RTC sources. La pile d'une orbite
+#'   est faite de ces fichiers. **Provisoire, à mesurer** : `flux = 4`,
+#'   DEFLATE et prédicteur 3 (mission 022).
+#'
 #' @param items Un `data.frame` rendu par [s1_rechercher()] (au moins les
 #'   colonnes `date`, `heure`, `serie`, `url`).
 #' @param grille Un `SpatRaster` modèle dans un système projeté en mètres
@@ -145,9 +172,11 @@ s1_rechercher <- function(emprise, date_debut, date_fin,
 #' @param signer Signer les adresses par le Planetary Computer (`TRUE`, il
 #'   faut `rstac`) ou les lire telles quelles (`FALSE`).
 #' @param methode Méthode de rééchantillonnage passée à [terra::project()].
-#' @param dossier `NULL` (piles gardées par `terra`, en mémoire ou en fichier
-#'   temporaire) ou un dossier où écrire une pile par orbite,
-#'   `s1_<serie>.tif` (fichiers existants écrasés).
+#' @param dossier `NULL` (fichiers écrits dans un dossier temporaire de la
+#'   session R) ou un dossier où écrire un fichier par date et par orbite,
+#'   `s1_<serie>/<AAAA-MM-JJ>.tif` (fichiers existants écrasés).
+#' @param flux Nombre de processus qui lisent les images en même temps
+#'   (entier, au moins 1). Défaut 4, **provisoire**.
 #'
 #' @return Une liste :
 #'   - `orbites` : liste nommée par `serie` de `SpatRaster`, une couche par
@@ -177,7 +206,7 @@ s1_rechercher <- function(emprise, date_debut, date_fin,
 #'
 #' @export
 s1_lire <- function(items, grille, signer = TRUE, methode = "bilinear",
-                    dossier = NULL) {
+                    dossier = NULL, flux = 4L) {
   colonnes <- c("date", "heure", "serie", "url")
   if (!is.data.frame(items) || !all(colonnes %in% names(items))) {
     stop("`items` doit \u00eatre un data.frame rendu par s1_rechercher() ",
@@ -206,8 +235,13 @@ s1_lire <- function(items, grille, signer = TRUE, methode = "bilinear",
       stop("`dossier` doit \u00eatre NULL ou un chemin (cha\u00eene de caract\u00e8res).",
            call. = FALSE)
     }
-    dir.create(dossier, showWarnings = FALSE, recursive = TRUE)
+  } else {
+    dossier <- tempfile("nemetonsar_s1_")
   }
+  if (!est_scalaire_num(flux) || !is.finite(flux) || flux < 1 || flux != round(flux)) {
+    stop("`flux` doit \u00eatre un entier au moins \u00e9gal \u00e0 1.", call. = FALSE)
+  }
+  dir.create(dossier, showWarnings = FALSE, recursive = TRUE)
 
   items <- items[order(items$serie, items$date, items$heure), , drop = FALSE]
   rownames(items) <- NULL
@@ -229,32 +263,43 @@ s1_lire <- function(items, grille, signer = TRUE, methode = "bilinear",
     on.exit(terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", ancien), add = TRUE)
   }
 
-  sans_unite <- 0L
+  # Une tâche par orbite et par date : ses tranches, son fichier.
   series <- unique(items$serie)
-  orbites <- list()
-  dates <- list()
+  taches <- list()
   for (s in series) {
     lignes <- which(items$serie == s)
     jours <- sort(unique(items$date[lignes]))
-    couches <- vector("list", length(jours))
+    dir.create(file.path(dossier, paste0("s1_", s)), showWarnings = FALSE)
     for (j in seq_along(jours)) {
-      tranches <- lignes[items$date[lignes] == jours[j]]
-      couche <- NULL
-      for (k in tranches) {
-        lu <- s1_lire_un(adresses[k], grille, methode)
-        sans_unite <- sans_unite + lu$sans_unite
-        couche <- if (is.null(couche)) lu$raster else terra::cover(couche, lu$raster)
-      }
-      names(couche) <- format(jours[j])
-      couches[[j]] <- couche
+      taches[[length(taches) + 1L]] <- list(
+        serie = s, jour = jours[j],
+        tranches = lignes[items$date[lignes] == jours[j]],
+        fichier = file.path(dossier, paste0("s1_", s), paste0(format(jours[j]), ".tif"))
+      )
     }
-    pile <- terra::rast(couches)
+  }
+  une_date <- function(t) {
+    couche <- NULL
+    sans <- 0L
+    for (k in t$tranches) {
+      lu <- s1_lire_un(adresses[k], grille, methode)
+      sans <- sans + lu$sans_unite
+      couche <- if (is.null(couche)) lu$raster else terra::cover(couche, lu$raster)
+    }
+    terra::writeRaster(couche, t$fichier, overwrite = TRUE, datatype = "FLT4S",
+                       names = format(t$jour), gdal = s1_options_gtiff)
+    sans
+  }
+  sans_par_tache <- s1_appliquer(taches, une_date, flux)
+  sans_unite <- sum(sans_par_tache)
+
+  orbites <- list()
+  dates <- list()
+  for (s in series) {
+    t <- taches[vapply(taches, `[[`, character(1), "serie") == s]
+    jours <- do.call(c, lapply(t, `[[`, "jour"))
+    pile <- terra::rast(vapply(t, `[[`, character(1), "fichier"))
     names(pile) <- format(jours)
-    if (!is.null(dossier)) {
-      fichier <- file.path(dossier, paste0("s1_", s, ".tif"))
-      terra::writeRaster(pile, fichier, overwrite = TRUE, datatype = "FLT4S")
-      pile <- terra::rast(fichier)
-    }
     orbites[[s]] <- pile
     dates[[s]] <- jours
   }
@@ -275,6 +320,9 @@ s1_lire <- function(items, grille, signer = TRUE, methode = "bilinear",
 # Constantes ----------------------------------------------------------------
 
 s1_url_stac <- "https://planetarycomputer.microsoft.com/api/stac/v1"
+# Fichiers locaux : DEFLATE et prédicteur flottant, comme les COG RTC
+# (provisoire, mission 022).
+s1_options_gtiff <- c("COMPRESS=DEFLATE", "PREDICTOR=3")
 s1_collection <- "sentinel-1-rtc"
 
 # Internes ------------------------------------------------------------------
@@ -484,6 +532,25 @@ s1_lire_un <- function(adresse, grille, methode) {
   } else if (!is.na(unite$contenu) && !unite$contenu %in% c("intensity", "power")) {
     stop("Contenu inconnu (SARPixelContent=", unite$contenu, ") : ", basename(sub("\\?.*$", "", adresse)), call. = FALSE)
   }
-  sortie <- terra::project(morceau, grille, method = methode)
+  # Reprojection exacte, cellule par cellule (voir s1_lire(), « Rééchantillonnage »).
+  sortie <- terra::project(morceau, grille, method = methode, use_gdal = FALSE)
   list(raster = sortie, sans_unite = sans_unite)
+}
+
+# Applique `f` à chaque tâche, en `flux` processus (fork) si possible ; une
+# erreur d'un processus arrête la lecture avec son message. Rend un vecteur
+# d'entiers.
+s1_appliquer <- function(taches, f, flux) {
+  flux <- as.integer(flux)
+  if (flux > 1L && length(taches) > 1L && .Platform$OS.type == "unix") {
+    res <- parallel::mclapply(taches, function(t) {
+      tryCatch(f(t), error = function(e) structure(conditionMessage(e), class = "s1_erreur"))
+    }, mc.cores = min(flux, length(taches)), mc.preschedule = FALSE)
+    for (r in res) {
+      if (inherits(r, "s1_erreur")) stop(unclass(r), call. = FALSE)
+      if (inherits(r, "try-error")) stop(as.character(r), call. = FALSE)
+    }
+    return(vapply(res, as.integer, integer(1)))
+  }
+  vapply(taches, function(t) as.integer(f(t)), integer(1))
 }
