@@ -105,8 +105,8 @@ s1_filter_multitemp <- function(serie, dates, parametres = parametres_sufosat())
   negatif <- !is.na(serie) & serie <= 0
   if (any(negatif)) {
     warning(
-      sum(negatif), " valeur(s) linéaire(s) nulle(s) ou négative(s) ",
-      "traitée(s) comme images écartées (NA).",
+      sum(negatif), " valeur(s) lin\u00e9aire(s) nulle(s) ou n\u00e9gative(s) ",
+      "trait\u00e9e(s) comme images \u00e9cart\u00e9es (NA).",
       call. = FALSE
     )
     serie[negatif] <- NA_real_
@@ -117,8 +117,8 @@ s1_filter_multitemp <- function(serie, dates, parametres = parametres_sufosat())
   reference <- which(annees == p$annee_noyau)
   if (length(reference) == 0L) {
     stop(
-      "Aucune image de `serie` n'est de l'année `annee_noyau` (",
-      p$annee_noyau, ") : le noyau du filtre ne peut pas être calculé.",
+      "Aucune image de `serie` n'est de l'ann\u00e9e `annee_noyau` (",
+      p$annee_noyau, ") : le noyau du filtre ne peut pas \u00eatre calcul\u00e9.",
       call. = FALSE
     )
   }
