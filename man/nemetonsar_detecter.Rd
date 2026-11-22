@@ -11,7 +11,8 @@ nemetonsar_detecter(
   parametres = parametres_sufosat(),
   lignes_par_bloc = NULL,
   resolution_m = NULL,
-  foret = NULL
+  foret = NULL,
+  processus = NULL
 )
 }
 \arguments{
@@ -41,6 +42,11 @@ couche sur la même grille que les piles (par exemple \code{\link[=masque_foret]
 à trois états : \code{TRUE} (ou 1) forêt, \code{FALSE} (ou 0) non-forêt, \code{NA}
 sans donnée, \strong{traité comme non-forêt}. Voir la section « Masque
 forêt ».}
+
+\item{processus}{Nombre de processus de la passe 1 (voir la section
+« Parallélisme »). \code{NULL} : \verb{min(nombre d'orbites, coeurs - 1)}, au
+moins 1 (\code{\link[parallel:detectCores]{parallel::detectCores()}}). \code{1} : calcul en série. Jamais plus
+que le nombre d'orbites. \strong{Provisoire} (mission 021).}
 }
 \value{
 Une liste : \code{fichiers}, vecteur nommé des chemins écrits
@@ -108,6 +114,21 @@ et 3 ne gardent qu'une bande de quelques matrices pixels, plus une
 entrée par composante connexe (étiquettes, tailles, première cellule) et
 par couple (objet, date) : ces tables grandissent avec le nombre de
 composantes de la tuile, pas avec sa surface.
+}
+
+\section{Parallélisme }{
+ Dans la passe 1, les orbites d'une même bande
+sont traitées en parallèle (lecture, filtre, ratio), un processus par
+orbite, par \code{\link[parallel:mclapply]{parallel::mclapply()}} (fork) ; la combinaison, le masque et
+l'écriture restent dans le processus principal. Chaque processus enfant
+ouvre sa pile (\code{\link[terra:readwrite]{terra::readStart()}}) pour sa seule bande. Le résultat est
+\strong{identique au bit près} à celui du calcul en série : mêmes fonctions,
+mêmes données, même ordre de combinaison. Là où le fork n'existe pas
+(Windows), le calcul se fait en série. Mémoire (mission 019,
+\code{docs/analyses/lecture-parallele.md}) : environ 1,6 Go par processus
+enfant à 300 dates et 9 lignes par bloc, soit un pic total de l'ordre de
+4,2 à 4,6 Go pour trois orbites, contre 2,4 Go en série. Sous
+\verb{R CMD check} (variable \verb{_R_CHECK_LIMIT_CORES_}), au plus 2 processus.
 }
 
 \section{Masque forêt }{
