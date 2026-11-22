@@ -57,7 +57,8 @@
 #'   de `seuil_objet` de sa surface est détectée par la référence. Alors
 #'   `rappel` = objets de référence retrouvés / objets de référence,
 #'   `precision` = objets recalculés confirmés / objets recalculés,
-#'   `f1 = 2 * precision * rappel / (precision + rappel)`. **Écart au
+#'   `f1 = 2 * precision * rappel / (precision + rappel)` (0 si
+#'   les deux sont nuls ; `NA` si l'une n'est pas calculable, faute d'objet). **Écart au
 #'   protocole de l'article** : celui-ci compte des polygones de référence
 #'   photo-interprétés, coupes et forêts intactes ; ici les deux cartes
 #'   sont des détections, et la précision est calculée sur les objets
@@ -204,8 +205,8 @@ compare_reference <- function(sorties, reference, periode, seuil_objet = 0.75,
 
   rappel <- if (nrow(t_ref) > 0L) mean(t_ref$retrouve) else NA_real_
   precision <- if (nrow(t_rec) > 0L) mean(t_rec$retrouve) else NA_real_
-  f1 <- if (is.na(rappel) || is.na(precision) || rappel + precision == 0) NA_real_ else
-    2 * precision * rappel / (precision + rappel)
+  f1 <- if (is.na(rappel) || is.na(precision)) NA_real_ else
+    if (rappel + precision == 0) 0 else 2 * precision * rappel / (precision + rappel)
 
   resume <- data.frame(
     surface_publiee_ha = n_pub * surface_px_ha,

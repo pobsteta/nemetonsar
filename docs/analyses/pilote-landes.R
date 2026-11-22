@@ -143,13 +143,19 @@ if (ETAPE == "resumer") {
   cat("\n## Objets par année (date médiane)\n"); print(par_annee)
   cat("\nTotal :", nrow(tab), "objets,", round(sum(tab$surface_ha), 2), "ha\n")
 
-  # Trois coupes à contrôler : la plus grande, celle de surface médiane, et la
-  # plus récente (dernière date médiane) ; centroïde dans l'objet
-  # (terra::centroids(inside = TRUE)).
+  # Dates médianes partagées par plusieurs objets (une même acquisition qui
+  # fait chuter le ratio sur de grandes surfaces est suspecte).
+  partage <- aggregate(cbind(objets = 1, surface_ha = tab$surface_ha) ~ date_mediane_date,
+                       data = tab, FUN = sum)
+  partage <- utils::head(partage[order(-partage$surface_ha), ], 5L)
+  cat("\n## Dates médianes qui portent le plus de surface\n"); print(partage, row.names = FALSE)
+  # Trois coupes à contrôler : la plus grande, la plus grande de 2019 (première
+  # année de ratio : effet de début de série possible) et la plus récente ;
+  # centroïde dans l'objet (terra::centroids(inside = TRUE)).
   poly <- terra::vect(file.path(SORTIES, "objets.gpkg"), layer = "objets")
-  ordre <- order(tab$surface_ha)
+  t19 <- tab[tab$annee == 2019L, ]
   choix <- unique(c(tab$identifiant[which.max(tab$surface_ha)],
-                    tab$identifiant[ordre[ceiling(length(ordre) / 2)]],
+                    t19$identifiant[which.max(t19$surface_ha)],
                     tab$identifiant[which.max(tab$date_mediane_date)]))
   sel <- poly[poly$identifiant %in% choix, ]
   ctr <- terra::centroids(sel, inside = TRUE)
@@ -161,7 +167,7 @@ if (ETAPE == "resumer") {
                          lon = round(ll[, 1], 5), lat = round(ll[, 2], 5),
                          x_l93 = round(l93[, 1]), y_l93 = round(l93[, 2]))
   cat("\n## Trois coupes détectées à contrôler sur orthophoto\n"); print(controle)
-  saveRDS(list(par_annee = par_annee, controle = controle), file.path(DOSSIER, "resume.rds"))
+  saveRDS(list(par_annee = par_annee, partage = partage, controle = controle), file.path(DOSSIER, "resume.rds"))
 }
 
 # Étape 3 : comparaison à la v3.0.1 -----------------------------------------------
@@ -176,7 +182,9 @@ if (ETAPE == "comparer") {
   }
   cmp <- compare_reference(SORTIES, reference, periode = c(DEBUT, FIN),
                            aoi = aoi_pilote(), seuil_objet = 0.75)
-  print(cmp)
+  cat("\n## Grille\n", cmp$reprojection, "\n")
+  cat("\n## Résumé\n"); print(t(cmp$resume))
+  cat("\n## Par année\n"); print(cmp$par_annee, row.names = FALSE)
   saveRDS(cmp, file.path(DOSSIER, "comparaison.rds"))
   # Trois désaccords à contrôler : les deux plus grands objets de référence
   # non retrouvés et le plus grand objet recalculé absent de la référence.

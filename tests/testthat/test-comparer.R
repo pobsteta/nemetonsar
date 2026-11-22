@@ -115,7 +115,7 @@ test_that("0 et NA de la r\u00e9f\u00e9rence valent pas de coupe", {
   expect_equal(r$surface_commune_ha, 0)
   expect_equal(r$part_recalculee_absente, 1)
   expect_true(is.na(r$ecart_date_median_j))
-  expect_equal(r$f1, NA_real_)
+  expect_equal(c(r$rappel, r$precision, r$f1), c(0, 0, 0))
 })
 
 test_that("une r\u00e9f\u00e9rence sur une autre grille est reprojet\u00e9e au plus proche voisin, et dit", {
