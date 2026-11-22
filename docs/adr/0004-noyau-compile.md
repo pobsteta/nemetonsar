@@ -1,7 +1,7 @@
 # ADR 0004 — Noyau compilé pour le filtre et le ratio
 
 - **Date :** 2026-11-22
-- **Statut :** proposée
+- **Statut :** tranchée par Pascal le 2026-11-22 : **option 3** (orbites en parallèle, base R), pas de noyau C pour l'instant ; le C se rejuge sur une tuile réelle si la passe 1 domine encore
 - **Proposée par :** Claude (orchestrateur), d'après la mission 016 (`docs/analyses/performance.md`)
 - **Tranchée par :** Pascal
 
@@ -99,3 +99,12 @@ maintenant. Une mission de mesure d'abord : lecture réelle d'une orbite (COG
 distants contre copie locale) et option 3 (orbites en parallèle). Le C ne se
 décide qu'ensuite, si la lecture n'est pas le goulot et si le parallélisme ne
 suffit pas.
+
+## Décision de Pascal (2026-11-22)
+
+Après la mesure de la mission 019 (`docs/analyses/lecture-parallele.md` : tuile
+≈ 49 h extrapolées, dont 85 % d'acquisition ; passe 1 à 7,2 h en série,
+3,2 h en parallèle, ≈ 2,8 h en C), Pascal retient l'**option 3** : les orbites
+sont traitées en parallèle en base R (fork ; repli en série là où le fork
+manque), sans compilateur. Les options 1, 2 et 4 (C, Rcpp) ne sont pas retenues
+maintenant.

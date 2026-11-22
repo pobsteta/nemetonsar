@@ -60,6 +60,8 @@
 | [018](missions/018-suites-015.md) suites de 015 (FLT8S, une copie des passes 2-3, sans GeoPackage brut) | `dev` | opus | donner | 3 oui | 7 |
 | [019](missions/019-mesure-lecture-parallele.md) mesurer la lecture réelle et le parallélisme | `analyste` | opus | donner | 3 oui | 8 |
 | [020](missions/020-masque-bdforet.md) masque forêt BD Forêt v2 | `dev` | opus | donner | 3 oui | 8 |
+| [021](missions/021-orbites-parallele.md) orbites en parallèle (option 3) | `dev` | opus | donner | 3 oui | 9 |
+| [022](missions/022-acquisition-bandes.md) acquisition par bandes à disque borné | `dev` | opus | donner | 3 oui | 9 |
 
 ### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
 
