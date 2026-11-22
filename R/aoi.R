@@ -122,26 +122,26 @@ aoi_lire <- function(aoi, couche = NULL) {
   } else if (inherits(aoi, "SpatVector")) {
     v <- aoi
   } else {
-    stop("`aoi` doit être un chemin de fichier vecteur ou un SpatVector.", call. = FALSE)
+    stop("`aoi` doit \u00eatre un chemin de fichier vecteur ou un SpatVector.", call. = FALSE)
   }
   if (nrow(v) < 1L) {
-    stop("`aoi` ne contient aucune géométrie.", call. = FALSE)
+    stop("`aoi` ne contient aucune g\u00e9om\u00e9trie.", call. = FALSE)
   }
   if (terra::geomtype(v) != "polygons") {
     stop("`aoi` doit contenir des polygones (lu : ", terra::geomtype(v), ").", call. = FALSE)
   }
   if (is.na(terra::crs(v)) || terra::crs(v) == "") {
-    stop("`aoi` n'a pas de système de coordonnées.", call. = FALSE)
+    stop("`aoi` n'a pas de syst\u00e8me de coordonn\u00e9es.", call. = FALSE)
   }
   valide <- terra::is.valid(v)
   if (anyNA(valide) || !all(valide)) {
     v <- terra::makeValid(v)
     valide <- terra::is.valid(v)
     if (nrow(v) < 1L || terra::geomtype(v) != "polygons" || anyNA(valide) || !all(valide)) {
-      stop("`aoi` : géométrie invalide, non réparable par terra::makeValid().",
+      stop("`aoi` : g\u00e9om\u00e9trie invalide, non r\u00e9parable par terra::makeValid().",
            call. = FALSE)
     }
-    warning("`aoi` : géométrie invalide, réparée par terra::makeValid().",
+    warning("`aoi` : g\u00e9om\u00e9trie invalide, r\u00e9par\u00e9e par terra::makeValid().",
             call. = FALSE)
   }
   terra::values(v) <- NULL
@@ -230,7 +230,7 @@ aoi_lire <- function(aoi, couche = NULL) {
 aoi_preparer <- function(aoi, resolution_m = 10, couche = NULL) {
   if (!is.numeric(resolution_m) || length(resolution_m) != 1L || is.na(resolution_m) ||
       resolution_m <= 0 || abs(1e5 / resolution_m - round(1e5 / resolution_m)) > 1e-9) {
-    stop("`resolution_m` doit être un nombre positif qui divise 100 000 (en mètres).",
+    stop("`resolution_m` doit \u00eatre un nombre positif qui divise 100 000 (en m\u00e8tres).",
          call. = FALSE)
   }
   v <- aoi_lire(aoi, couche)
@@ -239,15 +239,15 @@ aoi_preparer <- function(aoi, resolution_m = 10, couche = NULL) {
   fr <- .aoi_emprise_france
   if (e[["xmin"]] < fr[["xmin"]] || e[["xmax"]] > fr[["xmax"]] ||
       e[["ymin"]] < fr[["ymin"]] || e[["ymax"]] > fr[["ymax"]]) {
-    stop("`aoi` sort de l'emprise de la France métropolitaine (longitude ",
-         fr[["xmin"]], " à ", fr[["xmax"]], ", latitude ", fr[["ymin"]], " à ",
+    stop("`aoi` sort de l'emprise de la France m\u00e9tropolitaine (longitude ",
+         fr[["xmin"]], " \u00e0 ", fr[["xmax"]], ", latitude ", fr[["ymin"]], " \u00e0 ",
          fr[["ymax"]], ").", call. = FALSE)
   }
   surface_km2 <- sum(terra::expanse(ll, unit = "km"))
   if (surface_km2 > .aoi_surface_max_km2) {
     stop("`aoi` trop grande : ", format(round(surface_km2, 1), nsmall = 1),
          " km2, pour au plus ", .aoi_surface_max_km2,
-         " km2 (plus grand département métropolitain, la Gironde).", call. = FALSE)
+         " km2 (plus grand d\u00e9partement m\u00e9tropolitain, la Gironde).", call. = FALSE)
   }
 
   # Zones de grille MGRS touchées (pas d'exception de zone en France).
@@ -296,7 +296,7 @@ aoi_preparer <- function(aoi, resolution_m = 10, couche = NULL) {
     }
   }
   if (length(lignes) == 0L) {
-    stop("`aoi` : aucune tuile de calcul (surface nulle après découpage).", call. = FALSE)
+    stop("`aoi` : aucune tuile de calcul (surface nulle apr\u00e8s d\u00e9coupage).", call. = FALSE)
   }
   ordre <- sort(names(lignes))
   tuiles <- do.call(rbind, lignes[ordre])
@@ -340,7 +340,7 @@ aoi_grille <- function(tuile, mgrs = NULL) {
       tuile <- t
     } else {
       if (!is.character(mgrs) || length(mgrs) != 1L || !mgrs %in% t$mgrs) {
-        stop("`mgrs` doit être l'identifiant d'une des tuiles : ",
+        stop("`mgrs` doit \u00eatre l'identifiant d'une des tuiles : ",
              paste(t$mgrs, collapse = ", "), ".", call. = FALSE)
       }
       tuile <- t[t$mgrs == mgrs, , drop = FALSE]
@@ -348,7 +348,7 @@ aoi_grille <- function(tuile, mgrs = NULL) {
   }
   colonnes <- c("epsg", "xmin", "ymin", "xmax", "ymax", "resolution_m")
   if (!is.data.frame(tuile) || nrow(tuile) != 1L || !all(colonnes %in% names(tuile))) {
-    stop("`tuile` doit être une ligne de `aoi_preparer(...)$tuiles` ou le résultat de aoi_preparer().",
+    stop("`tuile` doit \u00eatre une ligne de `aoi_preparer(...)$tuiles` ou le r\u00e9sultat de aoi_preparer().",
          call. = FALSE)
   }
   r <- tuile$resolution_m
@@ -358,7 +358,7 @@ aoi_grille <- function(tuile, mgrs = NULL) {
 
 #' @export
 print.nemetonsar_aoi <- function(x, ...) {
-  cat("AOI préparée : ", format(round(x$surface_km2, 3), nsmall = 3), " km2, ",
+  cat("AOI pr\u00e9par\u00e9e : ", format(round(x$surface_km2, 3), nsmall = 3), " km2, ",
       nrow(x$tuiles), " tuile(s) de calcul\n", sep = "")
   print(x$tuiles[, c("mgrs", "epsg", "xmin", "ymin", "xmax", "ymax", "ncol", "nrow",
                      "surface_ha")], row.names = FALSE)
