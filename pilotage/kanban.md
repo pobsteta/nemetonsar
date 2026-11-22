@@ -25,8 +25,8 @@ _Modèle de carte :_
 
 ## Planifié
 
-- 015 limite de tuiles (segmentation et 0,1 ha après assemblage) · depuis le cycle 5 · fiche à écrire
-- 016 performance (passe 1 ; ≈ 10 h par tuile estimées) · depuis le cycle 5 · fiche à écrire
+- [015-limite-tuiles](missions/015-limite-tuiles.md) · depuis le cycle 5 · lancée au cycle 6
+- [016-performance](missions/016-performance.md) · depuis le cycle 5 · lancée au cycle 6
 - 017 tuile pilote réelle avec TCD et EFFIS, comparaison à la v3.0.1 · depuis le cycle 5 · attend Pascal (AOI pilote, accès CLMS)
 
 
