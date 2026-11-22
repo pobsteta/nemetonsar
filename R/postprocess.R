@@ -125,7 +125,7 @@ postprocess <- function(segmentation, rcr = NULL,
                         resolution_m = 10) {
   p <- valide_parametres(parametres)
   if (!est_scalaire_num(resolution_m) || !is.finite(resolution_m) || resolution_m <= 0) {
-    stop("`resolution_m` doit être un nombre strictement positif (en mètres).", call. = FALSE)
+    stop("`resolution_m` doit \u00eatre un nombre strictement positif (en m\u00e8tres).", call. = FALSE)
   }
   entree <- valide_segmentation(segmentation)
   sans_donnee <- is.na(entree)
@@ -263,14 +263,14 @@ valide_segmentation <- function(x) {
   if (is.list(x) && !is.data.frame(x)) {
     if (!"detection" %in% names(x)) {
       stop(
-        "`segmentation` doit être une matrice logique ou un résultat de rcr_segment().",
+        "`segmentation` doit \u00eatre une matrice logique ou un r\u00e9sultat de rcr_segment().",
         call. = FALSE
       )
     }
     x <- x$detection
   }
   if (!is.matrix(x) || !is.logical(x)) {
-    stop("`segmentation` doit être une matrice logique (TRUE = détecté).", call. = FALSE)
+    stop("`segmentation` doit \u00eatre une matrice logique (TRUE = d\u00e9tect\u00e9).", call. = FALSE)
   }
   x
 }
@@ -280,7 +280,7 @@ valide_segmentation <- function(x) {
 valide_rcr_post <- function(rcr, d) {
   if (!is.list(rcr) || !all(c("ratio_min_db", "date_min") %in% names(rcr))) {
     stop(
-      "`rcr` doit être NULL ou un résultat de rcr_compute() ou rcr_combine_orbites().",
+      "`rcr` doit \u00eatre NULL ou un r\u00e9sultat de rcr_compute() ou rcr_combine_orbites().",
       call. = FALSE
     )
   }
@@ -289,10 +289,10 @@ valide_rcr_post <- function(rcr, d) {
   if (is.logical(ratio) && all(is.na(ratio))) storage.mode(ratio) <- "double"
   if (is.logical(date_min) && all(is.na(date_min))) storage.mode(date_min) <- "integer"
   if (!is.matrix(ratio) || !is.numeric(ratio) || !is.matrix(date_min) || !is.numeric(date_min)) {
-    stop("`rcr$ratio_min_db` et `rcr$date_min` doivent être des matrices numériques.", call. = FALSE)
+    stop("`rcr$ratio_min_db` et `rcr$date_min` doivent \u00eatre des matrices num\u00e9riques.", call. = FALSE)
   }
   if (!identical(dim(ratio), d) || !identical(dim(date_min), d)) {
-    stop("`rcr` doit avoir les mêmes dimensions que `segmentation`.", call. = FALSE)
+    stop("`rcr` doit avoir les m\u00eames dimensions que `segmentation`.", call. = FALSE)
   }
   if (any(is.infinite(ratio))) {
     stop("`rcr$ratio_min_db` ne doit pas contenir de valeur infinie.", call. = FALSE)

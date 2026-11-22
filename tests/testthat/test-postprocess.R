@@ -35,7 +35,7 @@ fermeture_naive <- function(x, sans_donnee, k) {
   ero
 }
 
-test_that("un objet de 9 pixels (0,09 ha) est retiré, un de 10 pixels (0,1 ha) gardé", {
+test_that("un objet de 9 pixels (0,09 ha) est retir\u00e9, un de 10 pixels (0,1 ha) gard\u00e9", {
   det <- vide(12, 12)
   det[2:4, 2:4] <- TRUE   # 9 pixels
   det[8:9, 2:6] <- TRUE   # 10 pixels
@@ -65,7 +65,7 @@ test_that("la surface minimale suit resolution_m et surface_min_ha", {
   expect_equal(sum(postprocess(un, parametres = p0)$detection), 1L)
 })
 
-test_that("la surface suit la connexité (diagonales)", {
+test_that("la surface suit la connexit\u00e9 (diagonales)", {
   # 10 pixels reliés seulement en diagonale : un objet en 8, dix en 4
   det <- vide(12, 12)
   for (i in 1:10) det[i, i] <- TRUE
@@ -87,7 +87,7 @@ test_that("la fermeture comble un trou d'un pixel", {
   expect_false(postprocess(det, parametres = p_sans_fermeture)$detection[5, 5])
 })
 
-test_that("la fermeture ne fusionne pas deux objets éloignés, et relie deux objets proches", {
+test_that("la fermeture ne fusionne pas deux objets \u00e9loign\u00e9s, et relie deux objets proches", {
   k <- p_def$taille_fermeture
   # Deux carrés 4x4 (0,16 ha) séparés par k colonnes vides : pas de fusion
   det <- vide(8, 8 + k + 2)
@@ -122,7 +122,7 @@ test_that("l'ordre est surface puis fermeture", {
   expect_equal(nrow(pp$table), 0L)
 })
 
-test_that("la fermeture vectorisée égale la référence naïve", {
+test_that("la fermeture vectoris\u00e9e \u00e9gale la r\u00e9f\u00e9rence na\u00efve", {
   set.seed(6)
   for (essai in 1:30) {
     nr <- sample(1:15, 1)
@@ -162,7 +162,7 @@ test_that("bords : rien de rogn\u00e9, rien de reli\u00e9 au bord, rien hors de 
   expect_identical(postprocess(plein)$detection, plein)
 })
 
-test_that("NA : sans donnée, jamais détecté, ni ajouté par la fermeture, ni érodant", {
+test_that("NA : sans donn\u00e9e, jamais d\u00e9tect\u00e9, ni ajout\u00e9 par la fermeture, ni \u00e9rodant", {
   det <- vide(10, 10)
   det[3:7, 3:7] <- TRUE
   det[5, 5] <- NA        # trou sans donnée : reste non détecté
@@ -189,7 +189,7 @@ test_that("NA : sans donnée, jamais détecté, ni ajouté par la fermeture, ni 
   expect_equal(nrow(pp3$table), 0L)
 })
 
-test_that("réétiquetage dans l'ordre du premier pixel, colonne par colonne", {
+test_that("r\u00e9\u00e9tiquetage dans l'ordre du premier pixel, colonne par colonne", {
   det <- vide(12, 12)
   det[8:9, 1:5] <- TRUE    # premier pixel : (8, 1)
   det[1:2, 8:12] <- TRUE   # premier pixel : (1, 8)
@@ -235,7 +235,7 @@ test_that("table des objets juste sur un cas connu", {
   expect_equal(date_vers_yyddd(tb$date_mediane_date), tb$date_mediane)
 })
 
-test_that("médiane d'un nombre pair : la plus ancienne des deux dates du milieu", {
+test_that("m\u00e9diane d'un nombre pair : la plus ancienne des deux dates du milieu", {
   det <- vide(4, 6)
   det[1:2, 1:5] <- TRUE   # 10 pixels
   date_min <- matrix(NA_integer_, 4, 6)
@@ -251,7 +251,7 @@ test_that("médiane d'un nombre pair : la plus ancienne des deux dates du milieu
   expect_equal(tb2$nb_pixels_dates, 0L)
 })
 
-test_that("chaîne complète : rcr_compute, rcr_segment, postprocess", {
+test_that("cha\u00eene compl\u00e8te : rcr_compute, rcr_segment, postprocess", {
   dates <- seq(as.Date("2021-01-05"), by = 12, length.out = 10)
   det <- vide(12, 12)
   det[2:6, 2:6] <- TRUE
@@ -286,7 +286,7 @@ test_that("sans rcr, les colonnes de date et de ratio valent NA", {
   expect_s3_class(tb$date_mediane_date, "Date")
 })
 
-test_that("noms de dimensions gardés, aucune détection", {
+test_that("noms de dimensions gard\u00e9s, aucune d\u00e9tection", {
   det <- vide(3, 4)
   dimnames(det) <- list(paste0("l", 1:3), paste0("c", 1:4))
   pp <- postprocess(det)
@@ -296,7 +296,7 @@ test_that("noms de dimensions gardés, aucune détection", {
   expect_identical(pp$resolution_m, 10)
 })
 
-test_that("entrées invalides refusées", {
+test_that("entr\u00e9es invalides refus\u00e9es", {
   det <- vide(3, 3)
   expect_error(postprocess(matrix(0, 3, 3)), "logique")
   expect_error(postprocess(list(a = 1)), "rcr_segment")
