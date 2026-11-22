@@ -20,9 +20,31 @@ _Modèle de carte :_
 
 ## Bac à sable
 
+- [004-rcr-compute](missions/004-rcr-compute.md) · depuis le cycle 0
+  - Homme : `dev` (opus)
+  - Mission : ratio et date du minimum, sur tableau R, après 003
+  - Moyens : séries synthétiques, testthat
+- [005-rcr-segment](missions/005-rcr-segment.md) · depuis le cycle 0
+  - Homme : `dev` (opus)
+  - Mission : graines sous ts, croissance jusqu'à tp, après 004
+  - Moyens : rasters synthétiques, testthat
+
 ## Validé
 
 ## Planifié
+
+- [001-parametres-methode](missions/001-parametres-methode.md) · depuis le cycle 0
+  - Homme : `acquereur`
+  - Mission : table des paramètres sourcés, cycle 1
+  - Moyens : article section II, Bouvet et al., web
+- [002-licences-sources](missions/002-licences-sources.md) · depuis le cycle 0
+  - Homme : `acquereur`
+  - Mission : licence et attribution par source, cycle 1
+  - Moyens : ADR 0002, pages des fournisseurs
+- [003-parametres-et-db](missions/003-parametres-et-db.md) · depuis le cycle 0
+  - Homme : `dev` (opus), plan d'abord
+  - Mission : `parametres_sufosat()` et conversions dB, plan au cycle 1, code après 001
+  - Moyens : spec, table 001, testthat
 
 ## Terminé
 

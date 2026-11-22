@@ -1,7 +1,7 @@
 # ADR 0001 — Prétraitement Sentinel-1 : mesurer avant de choisir
 
 - **Date :** 2026-11-22
-- **Statut :** proposée
+- **Statut :** acceptée par Pascal le 2026-11-22
 - **Proposée par :** Claude (orchestrateur), d'après le brief et la critique du `contradicteur`
 - **Tranchée par :** Pascal
 

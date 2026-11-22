@@ -1,7 +1,7 @@
 # nemetonsar — spécification v1
 
 22 novembre 2026 · rédigée par Claude (orchestrateur) à partir de `docs/brief.md`
-(arbitrages du 22 novembre compris). **Statut : proposée, à valider par Pascal**
+(arbitrages du 22 novembre compris). **Statut : validée par Pascal le 2026-11-22**
 (porte n° 1). Un lien plutôt qu'une copie : les paramètres de la méthode et leurs
 sources sont dans le brief, rubrique « Méthode à reproduire ».
 

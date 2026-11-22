@@ -4,13 +4,13 @@
 > tout démarrage. Règle de staffing : un agent par mission qui passe les trois
 > questions, jamais un agent « par principe ».
 
-- **Statut :** proposée
+- **Statut :** proposée (2026-11-22)
 - **Validée par :** _…_
 
 ## Plafond humain
 
 - **PR ouvertes en même temps, au plus :** 3
-- **Rythme de relecture de Pascal :** _…_
+- **Rythme de relecture de Pascal :** à dire par Pascal
 
 ## Délégation
 
@@ -43,3 +43,18 @@
 
 | Mission | Agent | Modèle | Temps de la main | Les 3 questions | Cycle |
 |---|---|---|---|---|---|
+| [001](missions/001-parametres-methode.md) paramètres de la méthode, à la source | `acquereur` | sonnet | donner | 3 oui | 1 |
+| [002](missions/002-licences-sources.md) licences et attributions | `acquereur` | sonnet | donner | 3 oui | 1 |
+| [003](missions/003-parametres-et-db.md) paramètres exposés et dB | `dev` | opus | prendre (plan d'abord) | 3 oui | 1 (plan), après 001 |
+| [004](missions/004-rcr-compute.md) ratio et date du minimum | `dev` | opus | donner | 3 oui | après 003 |
+| [005](missions/005-rcr-segment.md) segmentation en deux seuils | `dev` | opus | donner | 3 oui | après 004 |
+
+### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
+
+| Mission pressentie | Question qui bloque | Ce qu'il faut |
+|---|---|---|
+| Mesure A contre B en γ0 sur forêt stable (ADR 0001, jalon 0) | 3e : pas d'AOI pilote, pas de Docker ni de compte Planetary Computer, lieu de calcul non dit | Pascal choisit l'AOI pilote (une tuile) et le poste ou serveur de calcul |
+| Référence locale de validation (protocole, premiers polygones) | 3e : orthophotos ou données terrain sur l'AOI inconnues | Pascal dit ce dont il dispose |
+| Lecture des images et de l'AOI en raster (`terra`, `sf`, `rstac`) | 2e : aucune ADR sur les dépendances | ADR 0003 « dépendances R » à proposer |
+| Filtre de Quegan et Yu, post-traitement, masques, `nemetonsar_run()` | 3e : dépendent des missions ci-dessus | Cycles suivants |
+

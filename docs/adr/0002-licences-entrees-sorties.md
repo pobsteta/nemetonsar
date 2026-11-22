@@ -1,7 +1,7 @@
 # ADR 0002 — Une licence par entrée et par sortie
 
 - **Date :** 2026-11-22
-- **Statut :** proposée
+- **Statut :** acceptée par Pascal le 2026-11-22
 - **Proposée par :** Claude (orchestrateur), d'après l'arbitrage n° 4 du brief
 - **Tranchée par :** Pascal
 
