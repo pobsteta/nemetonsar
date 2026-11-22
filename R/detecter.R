@@ -46,7 +46,8 @@
 #'
 #' @section Mémoire : Le pic vient de la passe 1 : pour une orbite, la bande
 #'   bordée est un tableau pixels x dates en double, que le filtre puis
-#'   [rcr_compute()] recopient (de l'ordre de six copies, mesuré). Les passes 2
+#'   [rcr_compute()] recopient (de l'ordre de trois copies, mesuré par la
+#'   mission 016, `docs/analyses/performance.md`). Les passes 2
 #'   et 3 ne gardent qu'une bande de quelques matrices pixels, plus une
 #'   entrée par composante connexe (étiquettes, tailles, première cellule) et
 #'   par couple (objet, date) : ces tables grandissent avec le nombre de
@@ -203,10 +204,10 @@ nemetonsar_detecter <- function(orbites, dates, dossier,
   for (b in seq_len(nrow(blocs))) {
     lu <- bande_bordee(blocs$debut[b], blocs$n[b], rf, nl)
     resultats <- lapply(seq_along(orbites), function(k) {
-      v <- terra::readValues(orbites[[k]], row = lu$debut, nrows = lu$n,
-                             col = 1, ncols = nc, mat = TRUE)
-      serie <- array(v, dim = c(nc, lu$n, ncol(v)))
-      rm(v)
+      # Lu en vecteur puis mis en forme par dim<- : pas de copie.
+      serie <- terra::readValues(orbites[[k]], row = lu$debut, nrows = lu$n,
+                                 col = 1, ncols = nc, mat = FALSE)
+      dim(serie) <- c(nc, lu$n, terra::nlyr(orbites[[k]]))
       serie <- s1_filter_multitemp(serie, dates[[k]], p)
       attr(serie, "nb_images_noyau") <- NULL
       rcr_compute(serie, dates[[k]], p)
@@ -489,16 +490,19 @@ table_objets_blocs <- function(identifiant, k, taille, surface_pixel_m2,
     nb_dates <- as.integer(round(somme_par(n, obj, k)))
     # Médiane basse par objet : dates YYDDD triées (ordre chronologique dans
     # un même siècle), comptes cumulés.
+    # Un seul tri, puis comptes cumulés dans chaque objet : la médiane est la
+    # première date dont le compte cumulé atteint le rang (nb + 1) %/% 2.
+    # Linéaire en nombre de couples (objet, date) après le tri.
     o <- order(obj, d)
     obj <- obj[o]
     d <- d[o]
-    n <- n[o]
-    for (j in id[nb_dates > 0L]) {
-      sel <- obj == j
-      cum <- cumsum(n[sel])
-      rang <- (nb_dates[j] + 1L) %/% 2L
-      mediane[j] <- d[sel][which(cum >= rang)[1L]]
-    }
+    cum <- cumsum(as.numeric(n[o]))
+    debut <- !duplicated(obj)
+    avant <- c(0, cum)[which(debut)][cumsum(debut)]
+    rang <- (nb_dates[obj] + 1L) %/% 2L
+    atteint <- which(cum - avant >= rang)
+    premiere <- atteint[!duplicated(obj[atteint])]
+    mediane[obj[premiere]] <- d[premiere]
     lab_r <- unlist(lapply(somme_lin, `[[`, "lab"), use.names = FALSE)
     lin <- unlist(lapply(somme_lin, `[[`, "lin"), use.names = FALSE)
     obj_r <- identifiant[lab_r]
