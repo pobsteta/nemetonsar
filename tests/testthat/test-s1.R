@@ -1,4 +1,10 @@
 # Mission 013 : recherche et lecture des images Sentinel-1 RTC.
+#
+# Le test reel (dernier test du fichier) interroge le Planetary Computer. Il
+# ne tourne que si la variable d'environnement NEMETONSAR_TESTS_RESEAU vaut
+# "true", en plus de skip_on_cran(), skip_if_not_installed("rstac") et
+# skip_if_offline(). Pour le lancer :
+#   NEMETONSAR_TESTS_RESEAU=true Rscript -e 'testthat::test_local(filter = "s1")'
 
 fixture_s1 <- function() {
   skip_if_not_installed("rstac")
@@ -308,6 +314,8 @@ test_that("s1_lire() refuse les entr\u00e9es mal form\u00e9es", {
 # Essai réel (réseau) -----------------------------------------------------------
 
 test_that("essai r\u00e9el : images de 2025 sur un point des Landes, une petite fen\u00eatre lue", {
+  skip_if(Sys.getenv("NEMETONSAR_TESTS_RESEAU") != "true",
+          "test r\u00e9seau : d\u00e9finir NEMETONSAR_TESTS_RESEAU=true")
   skip_on_cran()
   skip_if_not_installed("rstac")
   skip_if_offline("planetarycomputer.microsoft.com")

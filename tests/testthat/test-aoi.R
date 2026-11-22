@@ -8,7 +8,7 @@ skip_if_not_installed("terra")
 # (sentinels.copernicus.eu, téléchargé le 2026-11-22, sha256 ffcd58f1...),
 # champs TILE_ID et UTM_WKT : toutes les tuiles des zones 30 à 32, bandes T et
 # U, dont le centre tombe dans l'emprise de la France métropolitaine (134),
-# plus neuf tuiles ailleurs (hémisphère sud, exceptions de Norvège et du
+# plus huit tuiles ailleurs (hémisphère sud, exceptions de Norvège et du
 # Svalbard). Une tuile Sentinel-2 couvre son carré MGRS de 100 km et déborde
 # de 9,8 km à l'est et au sud ; son coin haut-gauche est à moins de 40 m du
 # coin nord-ouest du carré.
@@ -41,7 +41,7 @@ ref_s2 <- c(
   "31UDS 399960 5700000", "31UEP 499980 5400000", "31UEQ 499980 5500020", "31UER 499980 5600040",
   "31UES 499980 5700000", "31UFP 600000 5400000", "31UFQ 600000 5500020", "31UFR 600000 5600040",
   "31UFS 600000 5700000", "31UGP 699960 5400000", "31UGQ 699960 5500020", "31UGR 699960 5600040",
-  "31UGS 699960 5700000", "31VEG 499980 6700020", "32TKM 199980 4700040", "32TLM 300000 4700040",
+  "31UGS 699960 5700000", "32TKM 199980 4700040", "32TLM 300000 4700040",
   "32TLN 300000 4800000", "32TLP 300000 4900020", "32TLQ 300000 5000040", "32TLR 300000 5100000",
   "32TLS 300000 5200020", "32TLT 300000 5300040", "32TMM 399960 4700040", "32TMN 399960 4800000",
   "32TMP 399960 4900020", "32TMQ 399960 5000040", "32TMR 399960 5100000", "32TMS 399960 5200020",
@@ -90,7 +90,18 @@ test_that("les identifiants MGRS sont ceux des tuiles Sentinel-2 de l'ESA", {
     expect_true(all(r$epsg == epsg[j]), info = nom[j])
     n_testes <- n_testes + 1L
   }
-  expect_equal(n_testes, 143L)
+  expect_equal(n_testes, 142L)
+})
+
+test_that("31VEG : tuile Sentinel-2 dans la zone 32V de la norme", {
+  # La grille Sentinel-2 de l'ESA a une tuile 31VEG (EPSG:32631, coin
+  # haut-gauche 499980, 6700020), à l'est de 3 degrés E ; la norme MGRS
+  # rattache cette surface à la zone 32V (exception de Norvège). On suit la
+  # norme.
+  ll <- terra::crds(terra::project(terra::vect(cbind(550000, 6650000), crs = "EPSG:32631"),
+                                   "EPSG:4326"))
+  expect_gt(ll[1, 1], 3)
+  expect_equal(substr(mgrs_point(ll[1, 1], ll[1, 2])$mgrs, 1, 3), "32V")
 })
 
 test_that("les coins des tuiles Sentinel-2 sont sur la grille de 10 et 20 m", {
@@ -195,8 +206,8 @@ test_that("une AOI en Lambert-93 est reprojet\u00e9e", {
 
 test_that("une AOI hors de France m\u00e9tropolitaine est refus\u00e9e", {
   expect_error(aoi_preparer(rect(-3.8, -3.6, 40.3, 40.5)), "France")   # Madrid
-  expect_error(aoi_preparer(rect(2.0, 2.2, 41.2, 41.4)), "France")     # deborde au sud
-  expect_error(aoi_preparer(rect(9.5, 9.7, 42.0, 42.1)), "France")     # deborde a l est
+  expect_error(aoi_preparer(rect(2.0, 2.2, 41.2, 41.4)), "France")     # déborde au sud
+  expect_error(aoi_preparer(rect(9.5, 9.7, 42.0, 42.1)), "France")     # déborde à l'est
 })
 
 test_that("une AOI plus grande que le plus grand d\u00e9partement est refus\u00e9e", {

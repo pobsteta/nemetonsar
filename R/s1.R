@@ -113,6 +113,12 @@ s1_rechercher <- function(emprise, date_debut, date_fin,
 #'   ces adresses avec `signer = FALSE`. Avec `signer = FALSE`, une adresse
 #'   qui désigne un fichier local est lue telle quelle.
 #'
+#' @section Tranches d'une même acquisition : Quand l'emprise touche
+#'   plusieurs tranches d'une même acquisition (même `serie`, même `date`),
+#'   elles sont assemblées en une couche par [terra::cover()] : la tranche la
+#'   plus tôt (`heure`) l'emporte là où elles se recouvrent, les suivantes ne
+#'   comblent que ses vides. **Provisoire, non sourcé, gèle au jalon 2.**
+#'
 #' @section Unité : Les images RTC sont des gamma0 (γ0) corrigés du
 #'   terrain, en **puissance linéaire** : la documentation de la collection
 #'   (`sentinel-1-rtc`, « Methodology ») dit que le GRD est « converted to
