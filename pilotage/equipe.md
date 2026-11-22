@@ -48,6 +48,7 @@
 | [005](missions/005-rcr-segment.md) segmentation en deux seuils | `dev` | opus | donner | 3 oui | après 004 |
 | [006](missions/006-postprocess.md) post-traitement : surface minimale et fermeture | `dev` | opus | donner | 3 oui | 2 |
 | [007](missions/007-filtre-quegan.md) filtre multitemporel de Quegan et Yu | `dev` | opus | donner (formule sourcée d'abord) | 3 oui, la 2e sous condition | 2 |
+| [008](missions/008-precision-date.md) précision de la date sur séries synthétiques | `analyste` | opus | donner | 3 oui | 3 |
 
 ### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
 
