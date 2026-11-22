@@ -1,5 +1,9 @@
 skip_if_not_installed("terra")
 
+# Le dernier test (essai réel) interroge le Planetary Computer ; il ne tourne
+# que si NEMETONSAR_TESTS_RESEAU vaut "true" :
+#   NEMETONSAR_TESTS_RESEAU=true Rscript -e 'testthat::test_local(filter = "run")'
+
 # Bout en bout sur entrées synthétiques, sans réseau : une AOI de
 # 1 km x 0,55 km à cheval sur le méridien 0 (zones UTM 30 et 31, deux
 # tuiles), des images lues par une fonction `lire_images` qui fabrique des
@@ -359,4 +363,29 @@ test_that("ann\u00e9e EFFIS lue d'un entier, d'une Date ou d'un texte", {
   expect_equal(annee_effis(c(2019, NA)), c(2019L, NA))
   expect_equal(annee_effis(as.Date(c("2019-07-01", NA))), c(2019L, NA))
   expect_equal(annee_effis(c("2018-08-12 00:00:00", "x", NA)), c(2018L, NA, NA))
+})
+
+# Essai réel (réseau) -----------------------------------------------------------
+
+test_that("essai r\u00e9el : 1 km x 1 km dans les Landes, premier trimestre 2025", {
+  skip_if(Sys.getenv("NEMETONSAR_TESTS_RESEAU") != "true",
+          "test r\u00e9seau : d\u00e9finir NEMETONSAR_TESTS_RESEAU=true")
+  skip_on_cran()
+  skip_if_not_installed("rstac")
+  skip_if_offline("planetarycomputer.microsoft.com")
+  centre <- terra::crds(terra::project(terra::vect(cbind(-0.80, 44.20), crs = "EPSG:4326"),
+                                       "EPSG:2154"))
+  aoi <- terra::as.polygons(terra::ext(centre[1] - 500, centre[1] + 500,
+                                       centre[2] - 500, centre[2] + 500), crs = "EPSG:2154")
+  dossier <- tempfile("run-reel-")
+  # Noyau sur 2024 : les images sont lues depuis le 2024-01-01.
+  r <- nemetonsar_run(aoi, "2025-01-01", "2025-03-31", dossier,
+                      parametres = parametres_sufosat(annee_noyau = 2024L))
+  expect_equal(nrow(r$tuiles), 1L)
+  expect_gt(r$tuiles$nb_images, 50L)
+  expect_true(all(file.exists(r$fichiers[c("dates", "ratio", "objets_raster", "journal")])))
+  j <- paste(readLines(r$journal), collapse = "\n")
+  expect_match(j, "Contains modified Copernicus Sentinel data 2024-2025", fixed = TRUE,
+               useBytes = TRUE)
+  unlink(dossier, recursive = TRUE)
 })
