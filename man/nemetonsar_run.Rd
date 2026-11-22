@@ -95,12 +95,13 @@ sa partie dans l'AOI.
 avec le seul masque forêt (toute la grille) et des paramètres
 \strong{bruts} : les zones \code{ratio <= tp}, sans exiger de graine (seuil
 des graines porté à \code{tp}), sans surface minimale ni fermeture
-(\verb{detection/brut/}, \verb{passe_2019/brut/}). La détection de la tuile
-(\verb{detection/}, \verb{passe_2019/}) en est tirée avec le masque de la
-tuile, par les passes 2 et 3 de \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} (graine,
-0,1 ha, fermeture) : mêmes résultats, au ratio près relu en réel 32
-bits et aux pixels de forêt sans ratio (voir l'assemblage). La
-carte finale, elle, est jugée après l'assemblage.
+(\verb{detection/brut/}, \verb{passe_2019/brut/} : ratio en réel 64 bits,
+sans GeoPackage). La détection de la tuile (\verb{detection/},
+\verb{passe_2019/}) en est tirée avec le masque de la tuile, par le même
+code que les passes 2 et 3 de \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} (graine,
+0,1 ha, fermeture) : mêmes résultats, aux pixels de forêt sans
+ratio près (voir l'assemblage). La carte finale, elle, est jugée
+après l'assemblage.
 \item \strong{Correction 2019} (si \code{tcd} est donné, \code{correction_2019 = TRUE},
 \code{annee_noyau} antérieure à 2019 et des images de 2019 lues) : une
 première détection, sur les images jusqu'au 31 décembre 2019 et les
@@ -148,8 +149,7 @@ table (surface, date médiane, ratio moyen) suit les règles de
 
 \strong{Limites} : un pixel de forêt sans ratio (images manquantes) n'est
 pas neutre pour la fermeture, contrairement à \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} ;
-le ratio est relu en réel 32 bits (une graine ou une zone à moins de
-1e-6 dB d'un seuil peut basculer) ; le plus proche voisin peut, au
+le plus proche voisin peut, au
 pixel près, souder deux objets voisins ou couper un objet filiforme ;
 les surfaces sont celles de la grille Lambert-93 (nombre de pixels x
 100 m²).
@@ -189,7 +189,7 @@ SUFOSAT publiés) : \verb{s1/} (piles lues), \code{masque.tif} (1 forêt dans
 l'AOI, 0 sinon, \code{NA} sans donnée TCD), \code{foret.tif} (1 forêt, 0
 sinon, sur toute la grille), \verb{detection/} (détection de la tuile,
 comme \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} ; \verb{detection/brut/} : zones brutes,
-entrée de l'assemblage), \verb{passe_2019/} (première détection, si
+ratio en \code{FLT8S}, entrée de l'assemblage), \verb{passe_2019/} (première détection, si
 faite, et \verb{passe_2019/brut/}), et \code{dates.tif}, \code{ratio.tif},
 \code{objets.tif} des objets gardés de la tuile (jugés dans la tuile : ils
 peuvent différer de la carte finale à la limite de deux tuiles).
