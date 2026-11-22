@@ -57,6 +57,7 @@
 | [014](missions/014-nemetonsar-run.md) une commande unique, `nemetonsar_run()` | `dev` | opus | donner | 3 oui | 5 |
 | [015](missions/015-limite-tuiles.md) coupes à la limite de deux tuiles | `dev` | opus | donner | 3 oui | 6 |
 | [016](missions/016-performance.md) performance de la passe 1 | `dev` | opus | donner | 3 oui | 6 |
+| [018](missions/018-suites-015.md) suites de 015 (FLT8S, une copie des passes 2-3, sans GeoPackage brut) | `dev` | opus | donner | 3 oui | 7 |
 
 ### Missions qui ne passent pas les trois questions (pas de fiche, pas d'agent)
 

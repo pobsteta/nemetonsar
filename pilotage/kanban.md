@@ -25,8 +25,8 @@ _Modèle de carte :_
 
 ## Planifié
 
-- 018 suites de 015 (ratio brut en FLT8S, passes 2-3 en une copie, détection brute sans GeoPackage) · depuis le cycle 6 · fiche à écrire
-- ADR 0004 noyau C (≈ 2 à 2,5 h par tuile estimées) · depuis le cycle 6 · à Pascal
+- [018-suites-015](missions/018-suites-015.md) · depuis le cycle 6 · lancée au cycle 7
+- ADR 0004 noyau C (≈ 2 à 2,5 h par tuile estimées) · depuis le cycle 6 · proposée au cycle 7, à trancher par Pascal
 - 017 tuile pilote réelle avec TCD et EFFIS, comparaison à la v3.0.1 · depuis le cycle 5 · attend Pascal (AOI pilote, accès CLMS)
 
 
