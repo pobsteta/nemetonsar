@@ -69,3 +69,33 @@ réserve d'un compilateur (CRAN fournit des binaires) ; communauté, celle de R.
 ## Question de contrôle
 
 Cette décision tient-elle nos six valeurs, et que sommes-nous prêts à payer pour cela ?
+
+## Critique du `contradicteur` (2026-11-22) et amendement proposé
+
+1. **La lecture réelle n'est pas mesurée.** Les 1,2 h viennent de piles GeoTIFF
+   locales ; les vraies données sont environ 300 COG distants par orbite, lus par
+   bandes de 9 lignes. Une fois le calcul accéléré, la lecture dominera.
+   → Mesurer d'abord la lecture d'une orbite réelle (distante, puis copiée en
+   local) ; aligner la hauteur des blocs sur les tuiles internes des COG ou
+   rapatrier les images. « 2 à 2,5 h » devient une **valeur provisoire**.
+2. **Pas de repli à l'installation.** Un package avec `src/` se compile à
+   l'installation depuis les sources : sous Windows, `remotes::install_github()`
+   exige Rtools. Le repli sur la base R ne joue qu'à l'exécution.
+   → L'écrire ; binaires par r-universe à vérifier.
+3. **Identité au bit près fausse sur macOS arm64** (`long double` = `double`,
+   *R Installation and Administration*). → Au bit près sur une même plateforme,
+   tolérance stricte entre plateformes ; les empreintes MD5 restent x86_64.
+4. **Sécurité mémoire et contrôle CRAN** : `PROTECT`, enregistrement des
+   routines, `R_CheckUserInterrupt`, sanitizers et valgrind (*Writing R
+   Extensions* 4.3, 5.4). → Critères : `R CMD check --as-cran` propre, CI Linux,
+   macOS arm64 et Windows, une tâche avec sanitizers. Le compromis `.Call` contre
+   Rcpp (protection mémoire contre dépendance) est à trancher avec le reste.
+5. **Le parallélisme est sous-évalué.** Trois orbites en parallèle : environ ×3
+   sur le calcul, environ 5 Go de mémoire, sans compilateur (PSOCK sous
+   Windows). Environ 2,5 à 3 h par tuile possibles sans C (non mesuré).
+
+**Recommandation de l'orchestrateur, après critique :** ne pas trancher le C
+maintenant. Une mission de mesure d'abord : lecture réelle d'une orbite (COG
+distants contre copie locale) et option 3 (orbites en parallèle). Le C ne se
+décide qu'ensuite, si la lecture n'est pas le goulot et si le parallélisme ne
+suffit pas.
