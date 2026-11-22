@@ -283,8 +283,8 @@ test_that("foret : la coupe hors forêt disparaît, la coupe en forêt reste", {
   # la grande coupe (colonnes 4-11) garde sa partie en forêt (colonnes 8-11).
   expect_equal(nrow(sans$objets), 3L)
   expect_equal(nrow(res$objets), 1L)
-  expect_equal(res$objets$date_mediane, date_vers_yyddd(as.Date("2019-06-15")),
-               tolerance = 30)
+  ecart <- abs(as.numeric(res$objets$date_mediane_date - as.Date("2019-06-15")))
+  expect_lte(ecart, 24)
   o <- matrix(lire(res$fichiers[["objets_raster"]]), nrow = nc)
   expect_true(all(is.na(o[1:7, ])))
   expect_true(any(!is.na(o[8:11, 6:17])))
