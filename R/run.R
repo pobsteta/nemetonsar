@@ -72,7 +72,7 @@
 #'   tombent pas sur les tuiles internes des COG, qui sont relues par deux
 #'   bandes voisines. S'y ajoutent, pour toute la tuile, le ratio (réel
 #'   64 bits) et la date recollés, au plus 12 octets par cellule et par
-#'   passe avant compression (≤ 1,4 Go par passe pour une tuile MGRS, deux
+#'   passe avant compression (≈ 1,45 Go par passe pour une tuile MGRS, deux
 #'   passes avec la correction 2019 ; GeoTIFF compressé par `terra`, bien
 #'   moins hors forêt), effacés en fin de tuile : `res$tuiles` donne les deux
 #'   disques (`disque_images_mo`, `disque_max_mo`).

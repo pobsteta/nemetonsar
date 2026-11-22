@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 7 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 9 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -25,12 +25,19 @@ _Modèle de carte :_
 
 ## Planifié
 
-- ADR 0004 noyau C (≈ 2 à 2,5 h par tuile estimées) · depuis le cycle 6 · proposée au cycle 7, à trancher par Pascal
 - 017 tuile pilote réelle avec TCD et EFFIS, comparaison à la v3.0.1 · depuis le cycle 5 · attend Pascal (AOI pilote, accès CLMS)
 
 
 ## Terminé
 
+- [019-mesure-lecture-parallele](missions/019-mesure-lecture-parallele.md) · depuis le cycle 9
+  - Mission : mesure de la lecture réelle et du parallélisme (analyste)
+- [020-masque-bdforet](missions/020-masque-bdforet.md) · depuis le cycle 9
+  - Mission : masque forêt BD Forêt v2 de l'IGN
+- [021-orbites-parallele](missions/021-orbites-parallele.md) · depuis le cycle 9
+  - Mission : orbites en parallèle (ADR 0004, option 3)
+- [022-acquisition-bandes](missions/022-acquisition-bandes.md) · depuis le cycle 9
+  - Mission : acquisition par bandes à disque borné, reprojection exacte
 - [018-suites-015](missions/018-suites-015.md) · depuis le cycle 7
   - Homme : `dev` (opus)
   - Mission : ratio en double, une copie des passes 2-3, sans GeoPackage brut
@@ -128,3 +135,4 @@ l'inscrit avec ce qu'elle nous apprend._
 - cycle 5 · une commande unique : `nemetonsar_run(aoi, date_debut, date_fin, dossier, tcd, effis)` de l'AOI aux sorties Lambert-93 et au journal d'exécution ; essai réel 2 km × 2 km dans les Landes, 123 images, 95 s, 1 objet de 0,97 ha au 2025-03-06 (sans masque forêt) · pour Pascal · de plus que le cycle 4 : le premier critère du brief est tenu sur une vraie AOI ; mauvaise nouvelle apprise : une coupe à la limite de deux tuiles peut être perdue
 - cycle 6 · coupes à la limite des tuiles ni perdues ni gonflées (015) ; détection quatre fois plus rapide à résultats identiques, ≈ 7 h par tuile au lieu de ≈ 27 h extrapolées (016) · pour Pascal · de plus que le cycle 5 : une carte juste aux limites de tuiles, et un temps par tuile mesuré ; mauvaise nouvelle apprise : l'estimation de 10 h était trop basse, il faudrait du C pour descendre vers 2 h
 - cycle 7 · chaîne exacte de bout en bout (ratio en double précision, une seule copie de la segmentation, plus de GeoPackage intermédiaire) ; ADR 0004 (noyau C) proposée et critiquée · pour Pascal · de plus que le cycle 6 : `nemetonsar_run()` rend exactement `nemetonsar_detecter()` sur une tuile ; décision du C renvoyée à une mesure de la lecture réelle et du parallélisme
+- cycles 8 et 9 · masque forêt BD Forêt v2 (IGN, ouvert) ; mesure réelle : une tuile ≈ 49 h extrapolées, dont 85 % d'acquisition ; orbites en parallèle (passe 1 × 2,6) ; acquisition par bandes à disque borné (≈ 12 Go par bande extrapolés au lieu de ≈ 490 Go), reprojection exacte, identique au bit près à la lecture d'un seul tenant · pour Pascal · de plus que le cycle 7 : une chaîne qui tient sur le disque d'un poste et un masque forêt sans compte ; mauvaise nouvelle apprise : c'est le téléchargement, pas le calcul, qui fait la durée

@@ -173,7 +173,7 @@ mission 019), au prix d'un téléchargement plus lourd : les bandes ne
 tombent pas sur les tuiles internes des COG, qui sont relues par deux
 bandes voisines. S'y ajoutent, pour toute la tuile, le ratio (réel
 64 bits) et la date recollés, au plus 12 octets par cellule et par
-passe avant compression (≤ 1,4 Go par passe pour une tuile MGRS, deux
+passe avant compression (≈ 1,45 Go par passe pour une tuile MGRS, deux
 passes avec la correction 2019 ; GeoTIFF compressé par \code{terra}, bien
 moins hors forêt), effacés en fin de tuile : \code{res$tuiles} donne les deux
 disques (\code{disque_images_mo}, \code{disque_max_mo}).
