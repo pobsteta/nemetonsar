@@ -6,7 +6,7 @@
 
 **En une phrase (quoi, et pourquoi) :** Relever dans Mermoz et al. (2024), section II, et Bouvet et al. (2018), chaque paramètre de la méthode avec sa page, pour que le code n'utilise aucune valeur non sourcée.
 
-**Redite par l'agent :** _à compléter par l'agent avant d'agir._
+**Redite par l'agent :** Relever dans Mermoz et al. (2024) § II et Bouvet et al. (2018) chaque paramètre de la méthode, avec sa page, pour que le code n'utilise aucune valeur non sourcée. *(Rendu de l'`acquereur`, reporté par l'orchestrateur.)*
 
 ## Les trois questions (règle de staffing)
 

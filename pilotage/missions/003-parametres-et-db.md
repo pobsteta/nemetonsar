@@ -6,7 +6,7 @@
 
 **En une phrase (quoi, et pourquoi) :** Écrire `parametres_sufosat()` et les conversions linéaire ↔ dB et seuils (ts, tp × facteur), pour que toutes les fonctions de détection partagent les mêmes réglages sourcés.
 
-**Redite par l'agent :** _à compléter par l'agent avant d'agir._
+**Redite par l'agent :** Écrire `parametres_sufosat()`, objet unique de réglages validés et sourcés, avec les conversions linéaire ↔ dB et les seuils effectifs ts et tp, pour que 004 et 005 n'aient aucune valeur en dur. *(Rendu du `dev`, reporté par l'orchestrateur.)*
 
 ## Les trois questions (règle de staffing)
 

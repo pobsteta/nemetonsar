@@ -6,7 +6,7 @@
 
 **En une phrase (quoi, et pourquoi) :** Établir la licence, le lien et l'attribution exigée de chaque donnée d'entrée et de sortie, pour appliquer l'ADR 0002.
 
-**Redite par l'agent :** _à compléter par l'agent avant d'agir._
+**Redite par l'agent :** Établir, pour chaque source d'entrée et de sortie de l'ADR 0002, la licence, le lien du texte, l'attribution et les usages permis, sans conclure sans document ni donner d'avis juridique. *(Rendu de l'`acquereur`, reporté par l'orchestrateur.)*
 
 ## Les trois questions (règle de staffing)
 
