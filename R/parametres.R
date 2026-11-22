@@ -18,7 +18,19 @@
 #'   jours, voir [xa_en_jours()].
 #' @param xb Nombre d'images avant la date pour la moyenne Mb ; `Inf` pour
 #'   toutes les images antérieures. Défaut `Inf` : B18, § 2.3.2, p. 10 ; non
-#'   précisé dans M24. **Provisoire, gèle au jalon 2.**
+#'   précisé dans M24. **Provisoire, gèle au jalon 2.** Sert au ratio de
+#'   **détection** (`ratio_min_db` de [rcr_compute()]).
+#' @param xb_date Nombre d'images avant la date pour la moyenne Mb du ratio
+#'   qui sert à **dater** la coupe ; `Inf` pour toutes les images
+#'   antérieures. Entier au moins égal à 1, ou `Inf`. La détection reste
+#'   calculée avec `xb` ; la date retenue est celle du minimum du ratio calculé
+#'   avec `xb_date` (voir [rcr_compute()], section « Date retenue »). Défaut 5 :
+#'   non précisé dans M24 ni B18. **Provisoire : simulation
+#'   `docs/analyses/precision-date.md` (mission 008 ; fenêtre 3, chute de
+#'   -6 dB, cadence 12 j), 96,4 % de dates exactes contre 15,6 % à
+#'   `xb = Inf` ; repli 10 ; gèle au jalon 2** (mesure sur données réelles).
+#'   Avec `xb_date = xb`, la date est celle du ratio de détection (comportement
+#'   d'avant la mission 010 si `xb = xb_date = Inf`).
 #' @param facteur_seuil Facteur multiplicatif appliqué à `ts_db` et `tp_db`.
 #'   Défaut 1,15 : M24, § III-A, p. 13750 (plage étudiée 0,8 à 1,2).
 #' @param ts_db Seuil des ombres radar, en dB, avant facteur. Défaut -4,5 :
@@ -82,6 +94,7 @@
 parametres_sufosat <- function(polarisation = "VH",
                                xa = 3L,
                                xb = Inf,
+                               xb_date = 5L,
                                facteur_seuil = 1.15,
                                ts_db = -4.5,
                                tp_db = -3,
@@ -100,6 +113,7 @@ parametres_sufosat <- function(polarisation = "VH",
     polarisation = polarisation,
     xa = xa,
     xb = xb,
+    xb_date = xb_date,
     facteur_seuil = facteur_seuil,
     ts_db = ts_db,
     tp_db = tp_db,
@@ -215,7 +229,8 @@ print.parametres_sufosat <- function(x, ...) {
     "Param\u00e8tres SUFOSAT",
     paste0("  polarisation        : ", x$polarisation),
     paste0("  xa                  : ", x$xa, " images"),
-    paste0("  xb                  : ", if (is.infinite(x$xb)) "Inf (toutes les images ant\u00e9rieures)" else paste(x$xb, "images")),
+    paste0("  xb                  : ", texte_xb(x$xb), " (d\u00e9tection)"),
+    paste0("  xb_date             : ", texte_xb(x$xb_date), " (date de coupe)"),
     paste0("  facteur_seuil       : ", format(x$facteur_seuil)),
     paste0("  ts_db, tp_db        : ", format(x$ts_db), " dB, ", format(x$tp_db), " dB (avant facteur)"),
     paste0("  ts, tp effectifs    : ", format(s[["ts"]]), " dB, ", format(s[["tp"]]), " dB"),
@@ -234,10 +249,14 @@ print.parametres_sufosat <- function(x, ...) {
   invisible(x)
 }
 
+texte_xb <- function(xb) {
+  if (is.infinite(xb)) "Inf (toutes les images ant\u00e9rieures)" else paste(xb, "images")
+}
+
 # Validation ----------------------------------------------------------------
 
 noms_parametres <- c(
-  "polarisation", "xa", "xb", "facteur_seuil", "ts_db", "tp_db",
+  "polarisation", "xa", "xb", "xb_date", "facteur_seuil", "ts_db", "tp_db",
   "combinaison_orbites", "connexite", "surface_min_ha", "fermeture",
   "taille_fermeture", "fenetre_filtre", "annee_noyau", "seuil_tcd",
   "seuil_feu", "capteurs", "source_neige"
@@ -262,11 +281,8 @@ valide_parametres <- function(p) {
 
   choix(p$polarisation, "polarisation", c("VH", "VV"))
   p$xa <- entier(p$xa, "xa", min = 1L)
-  if (!est_scalaire_num(p$xb) || (!identical(as.numeric(p$xb), Inf) &&
-      (!is.finite(p$xb) || p$xb < 1 || p$xb != floor(p$xb)))) {
-    stop("`xb` doit \u00eatre un entier au moins \u00e9gal \u00e0 1, ou Inf.", call. = FALSE)
-  }
-  p$xb <- as.numeric(p$xb)
+  p$xb <- entier_ou_inf(p$xb, "xb")
+  p$xb_date <- entier_ou_inf(p$xb_date, "xb_date")
   if (!est_scalaire_num(p$facteur_seuil) || !is.finite(p$facteur_seuil) || p$facteur_seuil <= 0) {
     stop("`facteur_seuil` doit \u00eatre un nombre strictement positif.", call. = FALSE)
   }
@@ -370,6 +386,15 @@ entier <- function(x, nom, min = NULL) {
     )
   }
   as.integer(x)
+}
+
+# Entier au moins égal à 1, ou Inf ; rendu en double (pour garder Inf).
+entier_ou_inf <- function(x, nom) {
+  if (!est_scalaire_num(x) || (!identical(as.numeric(x), Inf) &&
+      (!is.finite(x) || x < 1 || x != floor(x)))) {
+    stop("`", nom, "` doit \u00eatre un entier au moins \u00e9gal \u00e0 1, ou Inf.", call. = FALSE)
+  }
+  as.numeric(x)
 }
 
 entier_impair <- function(x, nom) {

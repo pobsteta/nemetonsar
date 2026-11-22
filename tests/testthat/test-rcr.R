@@ -4,13 +4,22 @@ dates_12 <- function(n, debut = "2021-01-05") seq(as.Date(debut), by = 12, lengt
 
 # Référence naïve, pixel par pixel, écrite directement depuis la définition
 # (Mb = xb dernières images valides jusqu'à d_i incluse, Ma = xa premières
-# images valides après d_i), pour contrôler la version vectorisée.
-rcr_naif <- function(serie, dates, xa, xb, annee_noyau = 2018L) {
+# images valides après d_i), pour contrôler la version vectorisée. Le ratio
+# minimal est celui calculé avec `xb` ; les dates, celles du minimum du ratio
+# calculé avec `xb_date`.
+rcr_naif <- function(serie, dates, xa, xb, annee_noyau = 2018L, xb_date = xb) {
   debut <- as.Date(sprintf("%d-01-01", annee_noyau + 1L))
   d <- dim(serie)
   ratio <- matrix(NA_real_, d[1], d[2])
+  ratio_date <- matrix(NA_real_, d[1], d[2])
   apres <- matrix(NA_integer_, d[1], d[2])
   avant <- matrix(NA_integer_, d[1], d[2])
+  duree <- matrix(NA_integer_, d[1], d[2])
+  rapport <- function(v, idx, j, nb) {
+    b <- idx[max(1, if (is.infinite(nb)) 1 else j - nb + 1):j]
+    a <- idx[(j + 1):(j + xa)]
+    10 * log10(mean(v[a]) / mean(v[b]))
+  }
   for (l in seq_len(d[1])) for (k in seq_len(d[2])) {
     v <- serie[l, k, ]
     v[!is.na(v) & v <= 0] <- NA
@@ -18,17 +27,18 @@ rcr_naif <- function(serie, dates, xa, xb, annee_noyau = 2018L) {
     for (j in seq_along(idx)) {
       if (j + xa > length(idx)) break
       if (dates[idx[j]] < debut) next
-      b <- idx[max(1, if (is.infinite(xb)) 1 else j - xb + 1):j]
-      a <- idx[(j + 1):(j + xa)]
-      r <- 10 * log10(mean(v[a]) / mean(v[b]))
-      if (is.na(ratio[l, k]) || r < ratio[l, k]) {
-        ratio[l, k] <- r
+      r <- rapport(v, idx, j, xb)
+      if (is.na(ratio[l, k]) || r < ratio[l, k]) ratio[l, k] <- r
+      r <- rapport(v, idx, j, xb_date)
+      if (is.na(ratio_date[l, k]) || r < ratio_date[l, k]) {
+        ratio_date[l, k] <- r
         apres[l, k] <- date_vers_yyddd(dates[idx[j + 1]])
         avant[l, k] <- date_vers_yyddd(dates[idx[j]])
+        duree[l, k] <- as.integer(dates[idx[j + xa]] - dates[idx[j]])
       }
     }
   }
-  list(ratio_min_db = ratio, date_min = apres, date_avant = avant)
+  list(ratio_min_db = ratio, date_min = apres, date_avant = avant, duree_xa_jours = duree)
 }
 
 test_that("une chute de 6 dB est retrouvée à la date injectée", {
@@ -90,13 +100,18 @@ test_that("la version vectorisée égale la définition pixel par pixel", {
   serie[sample(length(serie), 120)] <- NA
   serie[1, 1, ] <- NA # pixel jamais valide
   serie[1, 2, 4:nt] <- NA # trop peu d'images valides
-  for (xa in c(1L, 3L)) for (xb in c(Inf, 1, 4)) for (an in c(2018L, 2017L)) {
-    p <- parametres_sufosat(xa = xa, xb = xb, annee_noyau = an)
-    r <- rcr_compute(serie, dates, p)
-    attendu <- rcr_naif(serie, dates, xa, xb, an)
-    expect_equal(r$ratio_min_db, attendu$ratio_min_db)
-    expect_identical(r$date_min, attendu$date_min)
-    expect_identical(r$date_avant, attendu$date_avant)
+  for (xa in c(1L, 3L)) for (xb in c(Inf, 1, 4)) for (xb_date in c(Inf, 2, 5)) {
+    for (an in c(2018L, 2017L)) {
+      p <- parametres_sufosat(xa = xa, xb = xb, xb_date = xb_date, annee_noyau = an)
+      r <- rcr_compute(serie, dates, p)
+      attendu <- rcr_naif(serie, dates, xa, xb, an, xb_date = xb_date)
+      expect_equal(r$ratio_min_db, attendu$ratio_min_db)
+      expect_identical(r$date_min, attendu$date_min)
+      expect_identical(r$date_avant, attendu$date_avant)
+      expect_identical(r$duree_xa_jours, attendu$duree_xa_jours)
+      # un pixel a une date si et seulement s'il a un ratio
+      expect_identical(is.na(r$date_min), is.na(r$ratio_min_db))
+    }
   }
   expect_true(is.na(r$ratio_min_db[1, 1]))
   expect_true(is.na(r$date_min[1, 2]))
@@ -147,8 +162,9 @@ test_that("xb est paramétrable : un xb fini change le résultat", {
   # Niveau 1 sur 6 images, puis 0,5 sur 6 images, puis 0,25 sur 6 images.
   dates <- dates_12(18)
   serie <- array(rep(c(1, 0.5, 0.25), each = 6), dim = c(1, 1, 18))
-  p_inf <- parametres_sufosat(xa = 3L, xb = Inf)
-  p_3 <- parametres_sufosat(xa = 3L, xb = 3)
+  # xb_date = xb : la date se lit sur le ratio de détection, ce que vérifie ce test
+  p_inf <- parametres_sufosat(xa = 3L, xb = Inf, xb_date = Inf)
+  p_3 <- parametres_sufosat(xa = 3L, xb = 3, xb_date = 3)
   r_inf <- rcr_compute(serie, dates, p_inf)
   r_3 <- rcr_compute(serie, dates, p_3)
   # xb = Inf : Mb sur les 12 premières images (6 x 1 + 6 x 0,5) / 12 = 0,75

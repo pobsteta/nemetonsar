@@ -2,8 +2,8 @@
 #'
 #' Calcule, pour chaque pixel d'une série Sentinel-1 d'**une seule orbite
 #' relative**, le ratio de changement radar à chaque date, puis garde le ratio
-#' le plus bas et sa date. Définition (M24, § II-D.1, p. 13747 ; B18, § 2.3.2,
-#' p. 10, éq. 1) : à la date d'acquisition `d_i`,
+#' le plus bas et une date de coupe. Définition (M24, § II-D.1, p. 13747 ; B18,
+#' § 2.3.2, p. 10, éq. 1) : à la date d'acquisition `d_i`,
 #'
 #' * `Mb` = moyenne de la rétrodiffusion sur les `xb` images **jusqu'à `d_i`
 #'   incluse** (toutes les images depuis le début si `xb = Inf`) ;
@@ -25,11 +25,35 @@
 #'   avertissement qui en donne le nombre, comme [lineaire_vers_db()]. Une
 #'   valeur infinie est refusée.
 #'
+#' @section Deux ratios, détection et date : Le ratio est calculé deux fois,
+#'   avec la même `Ma` et deux longueurs de `Mb` :
+#'
+#'   * avec `xb` : c'est le ratio de **détection**, `ratio_min_db` (son
+#'     minimum), seul lu par la segmentation ([rcr_segment()]) ;
+#'   * avec `xb_date` : c'est le ratio de **datation** ; la date de coupe
+#'     (`date_min`, `date_avant`, `duree_xa_jours`) est celle de **son**
+#'     minimum, qui peut différer de la date du minimum du ratio de détection.
+#'
+#'   Avec `xb = Inf`, `Mb` garde après la coupe les images d'avant : le ratio
+#'   reste presque à plat sur plusieurs dates et son minimum tombe souvent
+#'   trop tard. En simulation (`docs/analyses/precision-date.md`, mission 008 ;
+#'   fenêtre 3, chute de -6 dB, cadence 12 j), la date est exacte pour 15,6 %
+#'   des pixels coupés à `xb = Inf` contre 96,4 % à `xb = 5`, sans changer ce
+#'   qui est détecté. **Provisoire (`xb_date = 5`, repli 10), gèle au jalon 2.**
+#'   Si `xb_date == xb`, un seul ratio est calculé et la date est celle du
+#'   ratio de détection (comportement d'avant la mission 010 avec
+#'   `xb = xb_date = Inf`).
+#'
+#'   Un pixel a une date si et seulement s'il a un ratio de détection : les
+#'   deux ratios sont calculés aux mêmes dates (celles qui ont `xa` images
+#'   valides après elles).
+#'
 #' @section Date retenue : La coupe a lieu entre `d_i` (dernière image avant
 #'   la chute) et `d_(i+1)` (première image après) : B18, § 2.3.2, p. 11,
 #'   intervalle `[d_k, d_(k+1)]`. M24 retient « la date correspondant au RCR
 #'   le plus bas » sans dire laquelle des deux. `date_min` est la **première
-#'   image valide après la chute**, `d_(i+1)` ; `date_avant` donne `d_i`.
+#'   image valide après la chute**, `d_(i+1)` ; `date_avant` donne `d_i`, où
+#'   `d_i` est la date du minimum du ratio de **datation** (voir plus haut).
 #'   **Provisoire (non précisé dans M24), gèle au jalon 2** : à confronter aux
 #'   dates de la carte SUFOSAT v3.0.1.
 #'
@@ -52,7 +76,9 @@
 #'
 #' @section Mémoire : Le calcul est vectorisé sur les pixels, avec une boucle
 #'   sur les dates. Il garde en mémoire environ trois fois la taille de
-#'   `serie` (sommes cumulées et positions des images valides).
+#'   `serie` (sommes cumulées et positions des images valides). Le ratio de
+#'   datation réutilise les mêmes sommes cumulées : il n'ajoute que quelques
+#'   vecteurs de la taille d'une image.
 #'
 #' @param serie Tableau numérique à trois dimensions (lignes x colonnes x
 #'   dates) de rétrodiffusion **linéaire** (intensité, pas des dB) d'une
@@ -60,17 +86,19 @@
 #' @param dates Vecteur de classe `Date`, strictement croissant, sans `NA`, de
 #'   longueur `dim(serie)[3]` : la date d'acquisition de chaque image.
 #' @param parametres Un objet créé par [parametres_sufosat()] ; seuls `xa`,
-#'   `xb` et `annee_noyau` servent ici.
+#'   `xb`, `xb_date` et `annee_noyau` servent ici.
 #'
 #' @return Une liste :
-#'   * `ratio_min_db` : matrice (lignes x colonnes) du ratio minimal, en dB ;
-#'     `NA` si le pixel n'a aucun ratio ;
+#'   * `ratio_min_db` : matrice (lignes x colonnes) du minimum du ratio de
+#'     détection (calculé avec `xb`), en dB ; `NA` si le pixel n'a aucun
+#'     ratio ;
 #'   * `date_min` : matrice d'entiers `YYDDD` (voir [date_vers_yyddd()]) de
-#'     la première image valide après la chute ;
+#'     la première image valide après la chute, au minimum du ratio de
+#'     datation (calculé avec `xb_date`) ;
 #'   * `date_avant` : matrice d'entiers `YYDDD` de la dernière image valide
-#'     avant la chute ;
+#'     avant la chute, au même minimum ;
 #'   * `duree_xa_jours` : matrice d'entiers, durée en jours de `d_i` à la
-#'     dernière image de la fenêtre `Ma` ;
+#'     dernière image de la fenêtre `Ma`, au même minimum ;
 #'   * `parametres` : l'objet `parametres` validé.
 #'
 #'   Les matrices gardent les noms des deux premières dimensions de `serie`.
@@ -103,6 +131,9 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
   npix <- d[1] * d[2]
   xa <- p$xa
   xb <- p$xb
+  xb_date <- p$xb_date
+  # Un seul calcul si la date se lit sur le ratio de détection.
+  dater_a_part <- !identical(xb_date, xb)
   # Dates d_i admises pour un ratio (voir la section « Début des ratios »).
   debut <- as.Date(sprintf("%d-01-01", p$annee_noyau + 1L))
   admise <- dates >= debut
@@ -141,8 +172,19 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
 
   lire <- function(m, pix, k) m[cbind(pix, k + 1L)]
 
+  # Ratio en dB à la k-ième image valide des pixels `pix`, Mb sur `nb_avant`
+  # images (Inf : toutes), à partir des sommes cumulées.
+  ratio_k <- function(pix, k, s_apres, nb_avant) {
+    nb <- if (is.infinite(nb_avant)) k else pmin(k, as.integer(nb_avant))
+    mb <- (lire(cumul, pix, k) - lire(cumul, pix, k - nb)) / nb
+    lineaire_vers_db((s_apres / xa) / mb)
+  }
+
   # Passe 2 : ratio à chaque date valide suivie d'au moins xa images valides.
+  # `meilleur` : minimum du ratio de détection (xb) ; `meilleur_date` et
+  # `k_avant` : minimum du ratio de datation (xb_date) et sa position.
   meilleur <- rep(Inf, npix)
+  meilleur_date <- if (dater_a_part) rep(Inf, npix) else NULL
   k_avant <- rep(NA_integer_, npix)
   compte <- integer(npix)
   for (i in seq_len(nt)) {
@@ -152,14 +194,18 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
     pix <- which(v & compte + xa <= total)
     if (length(pix) == 0L) next
     k <- compte[pix]
-    nb <- if (is.infinite(xb)) k else pmin(k, as.integer(xb))
-    mb <- (lire(cumul, pix, k) - lire(cumul, pix, k - nb)) / nb
-    ma <- (lire(cumul, pix, k + xa) - lire(cumul, pix, k)) / xa
-    r <- lineaire_vers_db(ma / mb)
+    s_apres <- lire(cumul, pix, k + xa) - lire(cumul, pix, k)
+    r <- ratio_k(pix, k, s_apres, xb)
     mieux <- r < meilleur[pix]
     meilleur[pix[mieux]] <- r[mieux]
+    if (dater_a_part) {
+      r <- ratio_k(pix, k, s_apres, xb_date)
+      mieux <- r < meilleur_date[pix]
+      meilleur_date[pix[mieux]] <- r[mieux]
+    }
     k_avant[pix[mieux]] <- k[mieux]
   }
+  rm(meilleur_date)
 
   trouve <- which(!is.na(k_avant))
   ratio <- rep(NA_real_, npix)
@@ -196,9 +242,11 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
 #' Applique la règle `combinaison_orbites` de [parametres_sufosat()] aux
 #' résultats de [rcr_compute()] obtenus sur plusieurs orbites relatives (par
 #' exemple une ascendante et une descendante) d'une même grille. Avec
-#' `"minimum"`, seule règle permise : par pixel, l'orbite au ratio le plus bas
-#' donne le ratio et ses dates ; une orbite sans ratio pour ce pixel (`NA`)
-#' est ignorée. Règle **provisoire, gèle au jalon 2** : non précisée dans M24
+#' `"minimum"`, seule règle permise : par pixel, l'orbite au ratio de
+#' **détection** (`ratio_min_db`) le plus bas donne le ratio et ses dates
+#' (celles que [rcr_compute()] a tirées, pour cette orbite, du ratio de
+#' datation calculé avec `xb_date`) ; une orbite sans ratio pour ce pixel
+#' (`NA`) est ignorée. Règle **provisoire, gèle au jalon 2** : non précisée dans M24
 #' (p. 13748, « mosaicked »), formule ambiguë dans B18 (§ 2.3.2, p. 11). En
 #' cas d'égalité, la première orbite de la liste l'emporte : **provisoire,
 #' non sourcé (choix du package), gèle au jalon 2.**
