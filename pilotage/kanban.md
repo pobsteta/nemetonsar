@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 0 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 1 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -20,33 +20,34 @@ _Modèle de carte :_
 
 ## Bac à sable
 
-- [004-rcr-compute](missions/004-rcr-compute.md) · depuis le cycle 0
-  - Homme : `dev` (opus)
-  - Mission : ratio et date du minimum, sur tableau R, après 003
-  - Moyens : séries synthétiques, testthat
-- [005-rcr-segment](missions/005-rcr-segment.md) · depuis le cycle 0
-  - Homme : `dev` (opus)
-  - Mission : graines sous ts, croissance jusqu'à tp, après 004
-  - Moyens : rasters synthétiques, testthat
 
 ## Validé
 
 ## Planifié
 
-- [001-parametres-methode](missions/001-parametres-methode.md) · depuis le cycle 0
+
+## Terminé
+
+- [001-parametres-methode](missions/001-parametres-methode.md) · depuis le cycle 1
   - Homme : `acquereur`
   - Mission : table des paramètres sourcés, cycle 1
   - Moyens : article section II, Bouvet et al., web
-- [002-licences-sources](missions/002-licences-sources.md) · depuis le cycle 0
+- [002-licences-sources](missions/002-licences-sources.md) · depuis le cycle 1
   - Homme : `acquereur`
   - Mission : licence et attribution par source, cycle 1
   - Moyens : ADR 0002, pages des fournisseurs
-- [003-parametres-et-db](missions/003-parametres-et-db.md) · depuis le cycle 0
+- [003-parametres-et-db](missions/003-parametres-et-db.md) · depuis le cycle 1
   - Homme : `dev` (opus), plan d'abord
   - Mission : `parametres_sufosat()` et conversions dB, plan au cycle 1, code après 001
   - Moyens : spec, table 001, testthat
-
-## Terminé
+- [004-rcr-compute](missions/004-rcr-compute.md) · depuis le cycle 1
+  - Homme : `dev` (opus)
+  - Mission : ratio et date du minimum, sur tableau R, après 003
+  - Moyens : séries synthétiques, testthat
+- [005-rcr-segment](missions/005-rcr-segment.md) · depuis le cycle 1
+  - Homme : `dev` (opus)
+  - Mission : graines sous ts, croissance jusqu'à tp, après 004
+  - Moyens : rasters synthétiques, testthat
 
 ## Abandonné
 
@@ -68,3 +69,5 @@ l'inscrit avec ce qu'elle nous apprend._
 - bilan du AAAA-MM-JJ · livraison · pour qui · ce qu'elle apporte de plus que la précédente
 - bilan du AAAA-MM-JJ · mauvaise nouvelle : … · pour qui · ce qu'elle nous apprend
 ```
+
+- cycle 1 · le cœur de la détection testé sur données synthétiques : paramètres sourcés (`parametres_sufosat()`), ratio de changement radar et date du minimum (`rcr_compute()`, `rcr_combine_orbites()`), segmentation en deux seuils (`rcr_segment()`), plus les référentiels des paramètres et des licences · pour Pascal · première livraison : on peut voir, sur une série synthétique, une coupe datée et segmentée selon la méthode ; pas encore sur une vraie image
