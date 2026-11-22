@@ -197,6 +197,16 @@ test_that("une AOI \u00e0 cheval sur deux carr\u00e9s de 100 km et deux bandes",
   expect_true(all(t$xmin[t$carre == "EN"] >= 5e5))
 })
 
+test_that("les surfaces des tuiles somment \u00e0 celle de l'AOI, sans avertissement", {
+  # polygone en Lambert-93 aux longs c\u00f4t\u00e9s, sur deux zones et trois carr\u00e9s
+  aoi <- terra::vect("POLYGON ((-0.35 46.05, 0.25 46.02, 0.42 46.20, 0.10 46.33, -0.30 46.28, -0.35 46.05))",
+                     crs = "EPSG:4326")
+  aoi <- terra::project(aoi, "EPSG:2154")
+  expect_silent(p <- aoi_preparer(aoi))
+  expect_equal(p$tuiles$mgrs, c("30TYS", "31TBL", "31TBM", "31TCM"))
+  expect_equal(sum(p$tuiles$surface_ha) / 100, p$surface_km2, tolerance = 1e-5)
+})
+
 test_that("une AOI en Lambert-93 est reprojet\u00e9e", {
   l93 <- terra::project(rect(2.30, 2.40, 48.80, 48.88), "EPSG:2154")
   p <- aoi_preparer(l93)

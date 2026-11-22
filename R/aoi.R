@@ -169,7 +169,8 @@ aoi_lire <- function(aoi, couche = NULL) {
 #' - une géométrie invalide est **réparée** par [terra::makeValid()], avec un
 #'   avertissement ; elle est refusée si la réparation échoue ;
 #' - les polygones sont réunis en un seul (union) ; les attributs sont
-#'   abandonnés ;
+#'   abandonnés ; leurs côtés sont densifiés (un sommet tous les 100 m,
+#'   droits dans le système d'origine) avant toute reprojection ;
 #' - l'AOI doit tenir dans l'emprise de la France métropolitaine (Corse
 #'   comprise) : longitude de -5,1413 à 9,5600, latitude de 41,3335 à 51,0892
 #'   (EPSG:4326 ; emprise des 96 départements d'IGN Admin Express COG,
@@ -236,7 +237,10 @@ aoi_preparer <- function(aoi, resolution_m = 10, couche = NULL) {
          call. = FALSE)
   }
   v <- aoi_lire(aoi, couche)
-  ll <- terra::project(v, "EPSG:4326")
+  # Côtés densifiés (un sommet tous les 100 m, en ligne droite dans le
+  # système d'origine, géodésique en degrés) : reprojetés, ils restent les
+  # mêmes lignes, et les surfaces des tuiles somment à celle de l'AOI.
+  ll <- terra::project(terra::densify(v, 100, flat = !terra::is.lonlat(v)), "EPSG:4326")
   e <- as.vector(terra::ext(ll))
   fr <- .aoi_emprise_france
   if (e[["xmin"]] < fr[["xmin"]] || e[["xmax"]] > fr[["xmax"]] ||
@@ -263,6 +267,7 @@ aoi_preparer <- function(aoi, resolution_m = 10, couche = NULL) {
     for (b in bandes) {
       lat0 <- -80 + 8 * b
       gzd <- rectangle_lonlat(-180 + 6 * (z - 1), -180 + 6 * z, lat0, lat0 + 8)
+      if (!terra::relate(ll, gzd, "intersects")[1, 1]) next
       p <- terra::intersect(ll, gzd)
       if (nrow(p) < 1L || sum(terra::expanse(p)) <= 0) next
       p <- terra::project(p, crs_utm)
@@ -273,6 +278,7 @@ aoi_preparer <- function(aoi, resolution_m = 10, couche = NULL) {
           carre <- terra::as.polygons(
             terra::ext(cx * 1e5, (cx + 1) * 1e5, cy * 1e5, (cy + 1) * 1e5),
             crs = crs_utm)
+          if (!terra::relate(p, carre, "intersects")[1, 1]) next
           m <- terra::intersect(p, carre)
           if (nrow(m) < 1L) next
           surface_ha <- sum(terra::expanse(m, unit = "ha"))
