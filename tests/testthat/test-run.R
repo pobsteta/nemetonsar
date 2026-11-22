@@ -168,17 +168,22 @@ test_that("coupe \u00e0 cheval sur deux tuiles : un seul objet, entier", {
   ids <- objets_sur(res, "c1")
   expect_length(ids, 1L)
   o <- res$objets[res$objets$identifiant == ids, ]
-  # Surface : la somme des deux parties (grilles UTM), à la reprojection près ;
-  # moins que la coupe vraie, dont le filtre 3 x 3 rogne le bord.
-  parties <- vapply(res$tuiles$mgrs, function(m) {
-    r <- terra::rast(file.path(dossier_principal, "tuiles", m, "objets.tif"))
-    v <- terra::extract(r, terra::project(coupes_run$c1$v, terra::crs(r)))[[2]]
-    sum(!is.na(v))
-  }, numeric(1))
-  # Chaque pixel Lambert-93 est pris à une seule tuile : la surface est
-  # celle des deux parties, à un pixel près (mission 015 ; 014 tolérait un
-  # pixel en double par ligne, 0,12 ha).
-  expect_lte(abs(o$nb_pixels - sum(parties)), 1)
+  # Surface vraie : celle de la même coupe détectée sur une seule grille
+  # Lambert-93, sans limite de tuile (nemetonsar_detecter(), mêmes images
+  # synthétiques). Chaque pixel Lambert-93 étant pris à une seule tuile, la
+  # carte assemblée la retrouve à l'échantillonnage près des deux grilles
+  # (mesuré : 156 pixels contre 154). 014 tolérait 0,12 ha (un pixel en
+  # double par ligne, 166 pixels).
+  pl <- terra::project(coupes_run$c1$v, "EPSG:2154")
+  g <- terra::crop(terra::rast(terra::rast(res$fichiers[["objets_raster"]])),
+                   terra::ext(terra::buffer(pl, 100)), snap = "out")
+  im <- lire_synthetique(g, as.Date("2018-01-01"), as.Date("2020-06-30"), parametres_sufosat(),
+                         tempfile("img-"))
+  ref <- nemetonsar_detecter(im$orbites, im$dates, tempfile("det-"))
+  r_ref <- terra::rast(ref$fichiers[["objets_raster"]])
+  id_ref <- unique(stats::na.omit(terra::extract(r_ref, pl)[[2]]))
+  expect_length(id_ref, 1L)
+  expect_lte(abs(o$nb_pixels - ref$objets$nb_pixels[id_ref]), 2)
   attendu_ha <- terra::expanse(coupes_run$c1$v, unit = "ha")
   expect_gt(o$surface_ha, 0.6 * attendu_ha)
   expect_lt(o$surface_ha, 1.05 * attendu_ha)
@@ -371,6 +376,43 @@ test_that("identit\u00e9 avec nemetonsar_detecter() sur une seule tuile", {
   expect_equal(nrow(r1$objets), nrow(direct$objets))
   expect_equal(sort(r1$objets$date_mediane_date), sort(direct$objets$date_mediane_date))
   expect_equal(sort(r1$objets$surface_ha), sort(direct$objets$surface_ha), tolerance = 0.1)
+})
+
+test_that("détection brute puis segmenter_blocs() : identique à nemetonsar_detecter()", {
+  prep <- aoi_preparer(rect_ll(0.0005, 0.006, 44.500, 44.505))
+  grille <- aoi_grille(prep)
+  imgs <- lire_synthetique(grille, as.Date("2018-01-01"), as.Date("2020-06-30"),
+                           parametres_sufosat(), tempfile("img-"))
+  # Masque à trous (TCD, morceau d'AOI, une bande de non-forêt dans c4).
+  trou <- terra::rasterize(terra::project(rect_ll(0.0030, 0.0034, 44.5030, 44.5042),
+                                          terra::crs(grille)), grille, background = 0) == 1
+  foret <- masque_foret(tcd_run, grille) & !trou &
+    (terra::rasterize(prep$aoi[[1]], grille, background = 0) == 1)
+  p <- parametres_sufosat()
+  brut <- detection_brute(imgs$orbites, imgs$dates, tempfile("brut-"), parametres_bruts(p),
+                          NULL, masque_foret(tcd_run, grille))
+  lire <- function(f) terra::values(terra::rast(f), mat = FALSE)
+  for (lpb in list(NULL, 1L, 7L)) {
+    direct <- nemetonsar_detecter(imgs$orbites, imgs$dates, tempfile("det-"), p,
+                                  lignes_par_bloc = lpb, foret = foret)
+    seg <- segmenter_blocs(terra::rast(brut[["ratio"]]), terra::rast(brut[["dates"]]), foret,
+                           p, tempfile("seg-"), lpb, gpkg = TRUE)
+    expect_gt(nrow(seg$objets), 0L)
+    for (n in c("dates", "ratio", "objets_raster")) {
+      expect_equal(lire(seg$fichiers[[n]]), lire(direct$fichiers[[n]]))
+    }
+    expect_equal(seg$objets[, c("identifiant", "nb_pixels", "nb_pixels_dates", "date_mediane")],
+                 direct$objets[, c("identifiant", "nb_pixels", "nb_pixels_dates", "date_mediane")])
+    expect_equal(seg$objets$ratio_moyen_db, direct$objets$ratio_moyen_db, tolerance = 1e-6)
+    expect_true(file.exists(seg$fichiers[["objets"]]))
+  }
+  # Paramètres bruts : seuils, surface et fermeture.
+  pb <- parametres_bruts(p)
+  expect_equal(seuils_db(pb)[["ts"]], seuils_db(p)[["tp"]])
+  expect_gt(seuils_db(pb)[["tp"]], seuils_db(p)[["tp"]])
+  expect_lt(seuils_db(pb)[["tp"]] - seuils_db(p)[["tp"]], 1e-8)
+  expect_equal(pb$surface_min_ha, 0)
+  expect_false(pb$fermeture)
 })
 
 test_that("p\u00e9riode, sans masque for\u00eat, appariement EFFIS hors ann\u00e9es", {
