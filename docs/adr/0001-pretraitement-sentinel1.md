@@ -23,7 +23,15 @@ options ; le `contradicteur` en ajoute une quatrième, à vérifier.
 | A | S1Tiling (CNES, Apache 2.0) en conteneur Docker, appelé depuis R : prétraitement identique à l'article |
 | B | Produits déjà corrigés du terrain lus par STAC (`rstac`, `gdalcubes`) : par exemple Sentinel-1 RTC du Planetary Computer |
 | C | Google Earth Engine via `rgee` |
-| D | Traitement côté Copernicus Data Space (openEO ou Sentinel Hub ; paquets CRAN `CDSE`, `CopernicusDataspace`) — à vérifier |
+| D | Traitement côté Copernicus Data Space : openEO `sar_backscatter` (σ0 ou γ0, MNT COPERNICUS_30), exemple R dans la documentation ; paquets CRAN `CDSE`, `CopernicusDataspace` |
+
+Faits vérifiés par le `contradicteur` le 2026-11-22 : S1Tiling gère Sentinel-1C depuis
+la 1.2.0 (1D non cité) ; la collection RTC du Planetary Computer contient 1A, 1C et 1D
+jusqu'en novembre 2026 ; les orbites relatives de 1A, 1C et 1D sont les mêmes sur un
+point test. « A = identique à l'article » est trop fort : l'article ne dit pas quelle
+calibration S1Tiling a produite (σ0 NORMLIM ou γ0 RTC). **La mesure A contre B se fait
+en γ0 des deux côtés**, pour isoler l'effet du MNT et de la chaîne ; la calibration de A
+retenue est écrite ici après la mesure.
 
 Décider maintenant, parce que les seuils en dB dépendent de la calibration ; décider
 sans mesure, parce qu'on ne sait pas encore si l'écart entre A et B se recale.
@@ -49,6 +57,8 @@ GRD complètes pour avoir une référence fidèle à l'article. C (Google Earth 
 
 - S1Tiling : https://github.com/CNES/S1Tiling
 - Sentinel-1 RTC, Planetary Computer : https://planetarycomputer.microsoft.com/api/stac/v1/collections/sentinel-1-rtc
+- S1Tiling, notes de version : https://s1-tiling.pages.orfeo-toolbox.org/s1tiling/latest/release_notes.html
+- openEO sur CDSE : https://documentation.dataspace.copernicus.eu/notebook-samples/openeo/Radar_ARD.html
 - CRAN `CDSE` : https://cran.r-project.org/web/packages/CDSE/index.html ;
   `CopernicusDataspace` : https://cran.r-project.org/web/packages/CopernicusDataspace/index.html
 - Mermoz et al. (2024), section II : doi:10.1109/JSTARS.2024.3429012

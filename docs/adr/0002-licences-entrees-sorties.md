@@ -8,14 +8,19 @@
 ## La décision en une phrase
 
 Le package reste sous GPL-3 ; chaque donnée d'entrée et chaque sortie porte sa licence
-dans le journal d'exécution, et seules les sorties de `compare_reference()`, qui
-contiennent la carte SUFOSAT v3.0.1, héritent de sa clause non commerciale.
+et ses attributions (journal d'exécution, métadonnées des GeoTIFF), et seules les
+sorties de `compare_reference()`, dans un rapport de comparaison séparé du rapport
+principal, héritent de la clause non commerciale de la v3.0.1.
 
 ## Contexte
 
 L'usage v1 est interne et non commercial (arbitrage n° 4). Les données SUFOSAT sont sous
 CC BY-NC 4.0, les produits Sentinel-1 sous licence Copernicus, ouverte ; les RTC du
 Planetary Computer sous CC BY 4.0. Un rapport qui intègre la v3.0.1 en est un dérivé.
+Licences à établir par l'`acquereur`, une ligne par source avec son lien : Sentinel-1
+(mention « Copernicus Sentinel data »), RTC Planetary Computer (CC BY 4.0), TCD 2018
+(CLMS), MOD10A1 (NASA), EFFIS (conditions d'usage à vérifier), SUFOSAT v3.0.1
+(CC BY-NC 4.0), article Mermoz et al. (à vérifier).
 Options envisagées : tout marquer non commercial (simple, mais ferme inutilement les
 cartes recalculées) ; séparer par sortie (retenue) ; ne rien noter (exclu).
 
@@ -32,7 +37,7 @@ cartes recalculées) ; séparer par sortie (retenue) ; ne rien noter (exclu).
 
 ## Valeurs sacrifiées
 
-Aucune nommée : la simplicité de « tout en non commercial » est sacrifiée pour garder
+La simplicité : « tout en non commercial » et un seul rapport auraient été plus simples ; on les sacrifie pour garder
 réutilisables les cartes recalculées.
 
 ## Sources

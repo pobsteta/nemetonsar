@@ -40,13 +40,28 @@ par mois.
 | Ratio (RCR), en dB | Détection | Raster du minimum et de sa date, par orbite |
 | Sorties | Voir le brief, « Sorties attendues » | GeoTIFF (dates `YYDDD`, ratio en dB), GeoPackage, HTML, texte |
 
-## Paramètres exposés (valeur par défaut = SUFOSAT)
+## Paramètres exposés
 
-`polarisation = "VH"`, `xa = 3`, `xb = Inf` (tout l'historique), `facteur_seuil = 1.15`,
-`ts_db = -4.5`, `tp_db = -3` (avant facteur), `surface_min_ha = 0.1`,
-`fermeture = TRUE`, `seuil_tcd = 10`, `seuil_feu = 0.75`, `annee_noyau = 2018`,
-`capteurs = c("S1A", "S1C", "S1D")`. Les écarts avec Bouvet et al. (2018) (polarisation,
-filtre, Xb, nettoyage, contour) sont des valeurs possibles de ces paramètres.
+Chaque défaut porte sa source ; « non précisé » quand l'article ne le dit pas.
+
+| Paramètre | Défaut | Source |
+|---|---|---|
+| `polarisation` | `"VH"` | Mermoz et al. (2024) |
+| `xa` | 3 images (exposé aussi en jours) | Mermoz et al. (2024) |
+| `xb` | `Inf` (toutes les images antérieures) | Bouvet et al. (2018) ; **non précisé** dans Mermoz et al. |
+| `facteur_seuil`, `ts_db`, `tp_db` | 1,15 ; −4,5 ; −3 (avant facteur) | Mermoz et al. (2024) |
+| `surface_min_ha`, `fermeture` | 0,1 ; `TRUE` | Mermoz et al. (2024) |
+| `seuil_tcd`, `seuil_feu` | 10 % ; 0,75 | Mermoz et al. (2024) |
+| `annee_noyau` | 2018 | Mermoz et al. (2024) ; recalculable par capteur ou par période |
+| `capteurs` | `"S1A"` jusqu'au 29 juin 2026, puis `c("S1C", "S1D")` | Mermoz et al. (2024) pour 1A seul ; fin de 1A : ESA |
+| `source_neige` | `"MOD10A1"`, paramétrable | Mermoz et al. (2024) ; fin de Terra annoncée (NASA), remplaçant à vérifier |
+
+Les écarts avec Bouvet et al. (2018) (polarisation, filtre, Xb, nettoyage, contour) sont
+des valeurs possibles de ces paramètres. **Point à relire en section II** : comment
+l'ascendante et la descendante se combinent (minimum des deux ratios, date retenue).
+Combiner 1A et 1C pendant leur recouvrement (2025–2026) double la cadence par orbite
+relative (critique du contradicteur, requêtes STAC du 2026-11-22) : ce n'est pas le
+défaut, c'est un essai (critère 9).
 
 ## Hors périmètre v1
 
@@ -72,7 +87,10 @@ commercial.
 6. Sensibilité au facteur de seuil, 0,8 à 1,2 par pas de 0,05, rapportée.
 7. Chaque fonction a ses tests ; les noyaux (filtre de Quegan, ratio, croissance de
    région) sont testés sur des données synthétiques dont le résultat est connu.
-8. Chaque entrée et chaque sortie porte sa licence dans le journal d'exécution.
+8. Chaque entrée et chaque sortie porte sa licence dans le journal d'exécution (ADR 0002).
+9. Sur le recouvrement 1A/1C, l'écart de détection entre « 1A seul » et « 1A + 1C » est
+   mesuré et rapporté.
+10. Le masque neige fonctionne avec une source autre que MOD10A1 (fin de Terra).
 
 ## Valeurs provisoires
 
@@ -81,6 +99,7 @@ commercial.
 | Cibles d'accord avec la v3.0.1 | premier essai sur l'AOI pilote, Pascal juge | jalon 2 |
 | Cibles sur la référence locale | taille de la référence constituée | jalon 2 |
 | Délai entre coupe et détection | prototype, AOI pilote | jalon 1 |
+| Source neige après la fin de Terra | `acquereur` (MYD10A1, VIIRS VNP10A1 : à vérifier) | jalon 2 |
 | Seuils en dB si le prétraitement n'est pas S1Tiling | mesure A contre B sur forêt stable (ADR 0001) | jalon 0 |
 
 ## Besoins en référentiels (pour l'`acquereur`)
