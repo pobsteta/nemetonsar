@@ -89,9 +89,9 @@ publiée.
 
 **Lecture.** Avec `xb = Inf` (défaut provisoire), la date est exacte pour 9 à 16 % des
 pixels coupés et à ±1 acquisition pour 17 à 29 % ; elle est en retard de 4 à 8 acquisitions
-en médiane (48 à 96 jours à 12 j). Avec `xb = 5`, elle est exacte pour 91 à 96 % et à ±1
-acquisition pour 99 % ou plus. `xb = 10` et `xb = 20` se rangent entre les deux. La
-détection et les fausses alertes ne changent pas avec la fenêtre 3 : 98 à 100 % des pixels
+en médiane (48 à 60 jours à 12 j, 42 à 48 jours à 6 j). Avec `xb = 5`, elle est exacte pour
+91 à 96 % et à ±1 acquisition pour 98,8 % ou plus. `xb = 10` et `xb = 20` se rangent entre les deux. La
+détection et les fausses alertes ne changent pas avec la fenêtre 3 : 97,7 à 100 % des pixels
 coupés détectés, 0 fausse alerte sur 3 420 pixels intacts pour les quatre `xb`.
 
 ### Effet du filtre (chute −6 dB, cadence 12 j)
@@ -127,7 +127,7 @@ n'est pas utilisable ; SUFOSAT filtre toujours (M24, § II-B.1, p. 13746).
 | 6 j | Inf | 0,0 | 11,2 | 8,4 | 6,3 | 74,0 |
 | 6 j | 5 | 0,0 | 95,5 | 4,4 | 0,1 | 0,0 |
 
-(en % des 3 420 pixels coupés ; aucune erreur négative avec filtre, dans aucun cas)
+(en % des 3 420 pixels coupés ; sur les 48 cas filtrés, les erreurs précoces ne dépassent pas 1,4 % et sont nulles à −6 dB ; sans filtre, elles vont jusqu'à 37,2 %)
 
 ### Règles de date alternatives (hors package, calculées par le script)
 
@@ -187,7 +187,8 @@ grandeur ; l'écart restant n'est pas expliqué ici.
   `d_k`, dernière image avant la chute), un trait par `xb`, seuils `ts` et `tp` en
   pointillés. Les quatre courbes se confondent jusqu'à j = 0 (0, −1,3, −3,1, −6,0 dB) ;
   après, `xb = Inf` reste à plat vers −5,9 dB, `xb = 5` remonte de 0,7 dB par image et
-  revient à 0 à j = 5, `xb = 10` remonte de 0,3 dB par image, `xb = 20` de 0,15 dB.
+  revient à 0 à j = 5, `xb = 10` remonte d'environ 0,3 à 0,5 dB par image, `xb = 20` de 0,15
+à 0,2 dB.
 
 ## Les causes de l'imprécision
 
@@ -214,8 +215,9 @@ Raisonnement vérifiable. Avec une chute d'un facteur `a` (−6 dB : a = 0,251) 
 | 20 | 0,17 dB | 0,14 dB | 52,3 % |
 | Inf (≈ 75 images avant la coupe à 12 j) | 0,04 dB | 0,01 dB | 15,6 % |
 
-Faits qui la confirment : la date exacte décroît avec `xb` dans les 18 cas filtrés ; les
-erreurs sont toutes tardives (aucune erreur négative avec filtre) ; avec `xb = Inf`, la
+Faits qui la confirment : dans les 12 combinaisons filtrées (fenêtre × cadence × chute),
+la date exacte se range toujours dans l'ordre `xb` = 5 > 10 > 20 > Inf ; les erreurs sont
+presque toutes tardives (au plus 1,4 % d'erreurs précoces avec filtre, aucune à −6 dB) ; avec `xb = Inf`, la
 précision dépend un peu de la longueur de série après la coupe, pas avec `xb = 5`. À 6 j,
 `Mb` compte deux fois plus d'images avant la coupe : le plateau est encore plus plat et la
 date encore moins exacte (11,2 % contre 15,6 %), ce qui va dans le même sens.
@@ -225,15 +227,15 @@ date encore moins exacte (11,2 % contre 15,6 %), ce qui va dans le même sens.
 Les fenêtres `Ma` de deux dates voisines ne diffèrent que d'une image entrée et d'une image
 sortie : l'écart-type du saut de ratio dû au speckle vaut `4,343·√(2 / (9·ENL_eff))` dB,
 soit 0,98 dB sans filtre (ENL 4,4), 0,33 dB en fenêtre 3, 0,19 dB en fenêtre 5 (ENL × 9 et
-× 25 si le speckle est indépendant). Mesuré par le contrôle de l'analyste : 0,97, 0,34 et
-0,20 dB. La date est juste quand `Δ` (cause n° 1) dépasse nettement ce bruit : `xb = 5`
+× 25 si le speckle est indépendant). Mesuré par le script (section « Bruit du saut de
+ratio », autre tirage) : 1,02, 0,33 et 0,20 dB. La date est juste quand `Δ` (cause n° 1) dépasse nettement ce bruit : `xb = 5`
 donne 56,7 % sans filtre, 96,4 % en fenêtre 3, 99,8 % en fenêtre 5 (12 j, −6 dB). Le noyau
 K du filtre n'aide pas : il s'annule dans le ratio (constat de 007, confirmé ici : l'ENL
-d'une image filtrée en fenêtre 3 n'est que de 30, mais le bruit du ratio suit 9 × 4,4).
+d'une image filtrée en fenêtre 3 n'est que de 32, mais le bruit du ratio suit 9 × 4,4).
 
 ### Cause n° 3 (matière) — le contraste de la chute
 
-`Δ` est proportionnel à `1 − a` : à `xb = 5`, 0,71 dB pour −6 dB, 0,58 dB pour −4,5 dB,
+`Δ` est proportionnel à `1 − a` : à `xb = 5`, 0,71 dB pour −6 dB, 0,60 dB pour −4,5 dB,
 0,46 dB pour −3 dB ; la date exacte passe de 96 à 92 puis 82 % (fenêtre 3, 12 j). C'est
 une propriété de la coupe, pas un réglage : on ne peut pas agir dessus.
 
@@ -257,9 +259,9 @@ raisonnement et le profil, pas mesuré en temps quasi réel.
 ## Proposition de réglage
 
 1. **Rendre `xb` fini.** Dans la simulation, `xb = 5` est le meilleur des quatre réglages
-   dans les 12 cas filtrés : à fenêtre 3, date exacte 91 à 96 % (contre 9 à 16 % pour
-   `Inf`) et ±1 acquisition 99 % ou plus (contre 17 à 29 %), sans perte de détection ni
-   fausse alerte (0/3 420). Le coût d'un `xb` court n'apparaît pas ici, car la simulation
+   dans les 12 combinaisons filtrées : à fenêtre 3, chutes −4,5 et −6 dB, date exacte 91 à
+   96 % (contre 9 à 16 % pour `Inf`) et ±1 acquisition 98,8 % ou plus (contre 17 à 29 %),
+   sans perte de détection (97,7 à 100 %) ni fausse alerte (0/3 420). Le coût d'un `xb` court n'apparaît pas ici, car la simulation
    n'a ni saisonnalité ni événement passager (pluie, gel, neige) : le 1er centile du ratio
    minimal en forêt intacte baisse seulement de −1,66 dB (`Inf`) à −2,00 dB (`xb = 5`),
    encore à 3,2 dB de `ts`. Sur données réelles, cette marge peut fondre.
@@ -269,7 +271,7 @@ raisonnement et le profil, pas mesuré en temps quasi réel.
      exposé, comme le veut la règle du projet.
    - Variante, si Pascal tient à `xb = Inf` pour la détection (fidélité à B18) : détecter
      avec `xb = Inf`, puis **dater** avec un second calcul à `xb = 5`. Dans la simulation,
-     la détection est la même (98 à 100 % des pixels coupés pour les deux) : la date
+     la détection est presque la même (97,7 à 100 % des pixels coupés) : la date
      obtenue serait celle de `xb = 5`. Cela coûte un second passage de `rcr_compute()` et
      un choix de code que je ne fais pas.
 2. **Garder la règle `d_(i+1)`** et la règle « date du minimum » : la simulation ne les met
@@ -292,9 +294,9 @@ raisonnement et le profil, pas mesuré en temps quasi réel.
 - **Coupe en une seule fois, en bloc de 34 ha, sans repousse** : une coupe étalée sur
   plusieurs acquisitions n'a pas de « date exacte » ; un grand bloc rend la détection par
   segmentation triviale (100 %) ; une petite coupe dépendrait plus des graines (à −4,5 dB,
-  fenêtre 3, seuls 9 à 24 % des pixels coupés sont des graines).
+  fenêtre 3, seuls 8 à 36 % des pixels coupés sont des graines).
 - **Un seul tirage par cas** ; l'intervalle de Wilson sur n surestime la précision des
-  cas filtrés (voir « Incertitudes ») : les écarts entre `xb` (plan apparié, 15 à 80
+  cas filtrés (voir « Incertitudes ») : les écarts entre `xb` (plan apparié, de 6 à 85
   points) sont sûrs, les niveaux absolus le sont à quelques points près.
 - La vérité de la simulation est `d_(k+1)` : elle ne peut pas trancher entre `d_i` et
   `d_(i+1)`.
