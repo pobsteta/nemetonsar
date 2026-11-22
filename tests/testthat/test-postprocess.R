@@ -270,9 +270,32 @@ test_that("cha\u00eene compl\u00e8te : rcr_compute, rcr_segment, postprocess", {
   expect_equal(pp$table$nb_pixels, 25L)
   expect_true(pp$detection[4, 4])
   expect_equal(pp$table$date_mediane_date, dates[6])
-  # Le pixel comblé (ratio 0 dB) entre dans la moyenne linéaire
-  attendu <- lineaire_vers_db(mean(c(rep(db_vers_lineaire(-7), 24), 1)))
-  expect_equal(pp$table$ratio_moyen_db, attendu, tolerance = 1e-9)
+  # Le pixel comblé compte dans la surface, pas dans le ratio ni la date
+  expect_equal(pp$table$nb_pixels_dates, 24L)
+  expect_equal(pp$table$ratio_moyen_db, -7, tolerance = 1e-9)
+})
+
+test_that("pixels combl\u00e9s : dans la surface, hors date et ratio", {
+  det <- vide(10, 10)
+  det[3:7, 3:7] <- TRUE
+  det[5, 5] <- FALSE                    # trou comblé par la fermeture
+  ratio <- matrix(0, 10, 10)
+  ratio[det] <- -6                      # le trou garde 0 dB
+  date_min <- matrix(21200L, 10, 10)    # date du trou et du fond
+  date_min[det] <- 21100L
+  pp <- postprocess(det, rcr = list(ratio_min_db = ratio, date_min = date_min))
+  expect_true(pp$detection[5, 5])
+  expect_equal(pp$table$nb_pixels, 25L)
+  expect_equal(pp$table$surface_ha, 0.25)
+  expect_equal(pp$table$nb_pixels_dates, 24L)
+  expect_equal(pp$table$date_mediane, 21100L)
+  expect_equal(pp$table$date_mediane_date, as.Date("2021-04-10"))
+  expect_equal(pp$table$ratio_moyen_db, -6)
+  # Sans fermeture, même table pour la date et le ratio, surface 0,24 ha
+  pp0 <- postprocess(det, rcr = list(ratio_min_db = ratio, date_min = date_min),
+                     parametres = p_sans_fermeture)
+  expect_equal(pp0$table$nb_pixels, 24L)
+  expect_equal(pp0$table$ratio_moyen_db, -6)
 })
 
 test_that("sans rcr, les colonnes de date et de ratio valent NA", {

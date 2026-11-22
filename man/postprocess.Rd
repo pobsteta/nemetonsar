@@ -56,11 +56,12 @@ pixels détectés, avec le voisinage \code{parametres$connexite} (4 ou 8 ;
 \strong{provisoire}, voir \code{\link[=parametres_sufosat]{parametres_sufosat()}}). La surface d'un objet est
 son nombre de pixels fois \code{resolution_m^2} m². Un objet est retiré si
 sa surface est \strong{strictement inférieure} à \code{surface_min_ha} : M24 écrit
-« less than 0.1 ha » et parle de 0,1 ha comme unité minimale de
+« lower than 0.1 ha » et parle de 0,1 ha comme unité minimale de
 cartographie (p. 13747), donc un objet de 0,1 ha exactement est gardé.
 À 10 m, un objet de 9 pixels (0,09 ha) est retiré, un objet de 10
-pixels (0,1 ha) est gardé (B18, § 2.3.3, p. 12, garde de même les
-taches de 10 pixels et plus). La comparaison se fait en m², avec une
+pixels (0,1 ha) est gardé. (B18, § 2.3.3, p. 12, garde les segments de
+« plus de 10 pixels » : il écarterait donc un objet de 10 pixels ; on
+suit M24.) La comparaison se fait en m², avec une
 tolérance relative de \code{1e-9} pour l'arithmétique flottante.
 \item \strong{Fermeture} (si \code{parametres$fermeture}) : dilatation puis érosion par
 un \strong{carré} de côté \code{taille_fermeture} pixels, centré. M24 ne précise
@@ -93,13 +94,19 @@ les pixels sans ratio.
 }
 
 \section{Table des objets }{
- Une ligne par objet de la détection finale
-(pixels ajoutés par la fermeture compris) :
+ Une ligne par objet de la détection finale.
+\code{nb_pixels} et \code{surface_ha} comptent tous ses pixels, \strong{pixels comblés
+par la fermeture compris}. \code{nb_pixels_dates}, \code{date_mediane} et
+\code{ratio_moyen_db} se calculent sur les \strong{seuls pixels de l'objet qui
+étaient détectés avant la fermeture} (après le retrait des petits
+objets) : un pixel comblé n'a pas franchi les seuils, son ratio et sa
+date ne décrivent pas la coupe. \strong{Provisoire, non sourcé (décision de
+l'orchestrateur du 2026-11-22), gèle au jalon 2.}
 \itemize{
 \item \code{identifiant} : numéro de l'objet dans \code{objet} ;
 \item \code{nb_pixels}, \code{surface_ha} (\code{nb_pixels * resolution_m^2 / 10000}) ;
-\item \code{nb_pixels_dates} : nombre de pixels de l'objet qui ont une date
-(\code{date_min} non \code{NA}) ;
+\item \code{nb_pixels_dates} : nombre de pixels de l'objet, détectés avant la
+fermeture, qui ont une date (\code{date_min} non \code{NA}) ;
 \item \code{date_mediane} : médiane des dates \code{date_min} de ces pixels, en entier
 \code{YYDDD} (voir \code{\link[=date_vers_yyddd]{date_vers_yyddd()}}), et \code{date_mediane_date}, la même en
 \code{Date}. Pour un nombre pair de dates, c'est la \strong{médiane basse} (la
@@ -107,8 +114,8 @@ plus ancienne des deux dates du milieu), pour que la date rendue soit
 une date d'acquisition réelle et non un jour intermédiaire.
 \strong{Provisoire, non sourcé (choix du package), gèle au jalon 2.}
 \item \code{ratio_moyen_db} : ratio moyen de l'objet, en dB, calculé comme
-\code{10 * log10} de la moyenne des ratios \strong{linéaires} de ses pixels qui
-ont un ratio, comme le ratio lui-même est un rapport de moyennes
+\code{10 * log10} de la moyenne des ratios \strong{linéaires} de ses pixels,
+détectés avant la fermeture, qui ont un ratio, comme le ratio lui-même est un rapport de moyennes
 linéaires (voir \code{\link[=seuils_db]{seuils_db()}}). \strong{Provisoire, non sourcé, gèle au
 jalon 2.}
 }

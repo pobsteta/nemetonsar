@@ -11,11 +11,12 @@
 #'    **provisoire**, voir [parametres_sufosat()]). La surface d'un objet est
 #'    son nombre de pixels fois `resolution_m^2` m². Un objet est retiré si
 #'    sa surface est **strictement inférieure** à `surface_min_ha` : M24 écrit
-#'    « less than 0.1 ha » et parle de 0,1 ha comme unité minimale de
+#'    « lower than 0.1 ha » et parle de 0,1 ha comme unité minimale de
 #'    cartographie (p. 13747), donc un objet de 0,1 ha exactement est gardé.
 #'    À 10 m, un objet de 9 pixels (0,09 ha) est retiré, un objet de 10
-#'    pixels (0,1 ha) est gardé (B18, § 2.3.3, p. 12, garde de même les
-#'    taches de 10 pixels et plus). La comparaison se fait en m², avec une
+#'    pixels (0,1 ha) est gardé. (B18, § 2.3.3, p. 12, garde les segments de
+#'    « plus de 10 pixels » : il écarterait donc un objet de 10 pixels ; on
+#'    suit M24.) La comparaison se fait en m², avec une
 #'    tolérance relative de `1e-9` pour l'arithmétique flottante.
 #' 2. **Fermeture** (si `parametres$fermeture`) : dilatation puis érosion par
 #'    un **carré** de côté `taille_fermeture` pixels, centré. M24 ne précise
@@ -44,12 +45,18 @@
 #'   [rcr_segment()] ne contient pas de `NA` : fournir `rcr` pour protéger
 #'   les pixels sans ratio.
 #'
-#' @section Table des objets : Une ligne par objet de la détection finale
-#'   (pixels ajoutés par la fermeture compris) :
+#' @section Table des objets : Une ligne par objet de la détection finale.
+#'   `nb_pixels` et `surface_ha` comptent tous ses pixels, **pixels comblés
+#'   par la fermeture compris**. `nb_pixels_dates`, `date_mediane` et
+#'   `ratio_moyen_db` se calculent sur les **seuls pixels de l'objet qui
+#'   étaient détectés avant la fermeture** (après le retrait des petits
+#'   objets) : un pixel comblé n'a pas franchi les seuils, son ratio et sa
+#'   date ne décrivent pas la coupe. **Provisoire, non sourcé (décision de
+#'   l'orchestrateur du 2026-11-22), gèle au jalon 2.**
 #'   * `identifiant` : numéro de l'objet dans `objet` ;
 #'   * `nb_pixels`, `surface_ha` (`nb_pixels * resolution_m^2 / 10000`) ;
-#'   * `nb_pixels_dates` : nombre de pixels de l'objet qui ont une date
-#'     (`date_min` non `NA`) ;
+#'   * `nb_pixels_dates` : nombre de pixels de l'objet, détectés avant la
+#'     fermeture, qui ont une date (`date_min` non `NA`) ;
 #'   * `date_mediane` : médiane des dates `date_min` de ces pixels, en entier
 #'     `YYDDD` (voir [date_vers_yyddd()]), et `date_mediane_date`, la même en
 #'     `Date`. Pour un nombre pair de dates, c'est la **médiane basse** (la
@@ -57,8 +64,8 @@
 #'     une date d'acquisition réelle et non un jour intermédiaire.
 #'     **Provisoire, non sourcé (choix du package), gèle au jalon 2.**
 #'   * `ratio_moyen_db` : ratio moyen de l'objet, en dB, calculé comme
-#'     `10 * log10` de la moyenne des ratios **linéaires** de ses pixels qui
-#'     ont un ratio, comme le ratio lui-même est un rapport de moyennes
+#'     `10 * log10` de la moyenne des ratios **linéaires** de ses pixels,
+#'     détectés avant la fermeture, qui ont un ratio, comme le ratio lui-même est un rapport de moyennes
 #'     linéaires (voir [seuils_db()]). **Provisoire, non sourcé, gèle au
 #'     jalon 2.**
 #'
@@ -149,6 +156,8 @@ postprocess <- function(segmentation, rcr = NULL,
     detection <- detection & !petit[racine]
   }
 
+  avant_fermeture <- detection
+
   # 2. Fermeture morphologique (carré de côté taille_fermeture).
   if (p$fermeture && p$taille_fermeture > 1L) {
     detection <- fermeture_carre(detection, sans_donnee, p$taille_fermeture)
@@ -169,21 +178,23 @@ postprocess <- function(segmentation, rcr = NULL,
   list(
     detection = forme(detection),
     objet = forme(objet),
-    table = table_objets(objet, length(racines), surface_pixel_m2, ratio, date_min),
+    table = table_objets(objet, avant_fermeture, length(racines), surface_pixel_m2,
+                         ratio, date_min),
     parametres = p,
     resolution_m = resolution_m
   )
 }
 
 # Table des objets (voir la section « Table des objets » de postprocess()).
-table_objets <- function(objet, k, surface_pixel_m2, ratio, date_min) {
+table_objets <- function(objet, avant, k, surface_pixel_m2, ratio, date_min) {
   id <- seq_len(k)
   nb <- tabulate(objet[!is.na(objet)], nbins = k)
   nb_dates <- rep(NA_integer_, k)
   mediane <- rep(NA_integer_, k)
   ratio_moyen <- rep(NA_real_, k)
   if (!is.null(ratio) && k > 0L) {
-    dans <- !is.na(objet)
+    # Date et ratio : seuls les pixels détectés avant la fermeture.
+    dans <- !is.na(objet) & avant
     o <- objet[dans]
     d <- as.integer(date_min[dans])
     a_date <- !is.na(d)
