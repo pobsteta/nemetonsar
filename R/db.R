@@ -30,8 +30,8 @@ lineaire_vers_db <- function(x) {
   negatif <- !is.na(x) & x <= 0
   if (any(negatif)) {
     warning(
-      sum(negatif), " valeur(s) linéaire(s) nulle(s) ou négative(s) ",
-      "remplacée(s) par NA.",
+      sum(negatif), " valeur(s) lin\u00e9aire(s) nulle(s) ou n\u00e9gative(s) ",
+      "remplac\u00e9e(s) par NA.",
       call. = FALSE
     )
     x[negatif] <- NA_real_
@@ -48,7 +48,7 @@ db_vers_lineaire <- function(x) {
 
 valide_numerique <- function(x) {
   if (!is.numeric(x) && !(is.logical(x) && all(is.na(x)))) {
-    stop("`x` doit être numérique.", call. = FALSE)
+    stop("`x` doit \u00eatre num\u00e9rique.", call. = FALSE)
   }
   storage.mode(x) <- "double"
   x
