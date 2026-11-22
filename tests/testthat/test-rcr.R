@@ -40,8 +40,9 @@ test_that("une chute de 6 dB est retrouvée à la date injectée", {
   expect_identical(r$date_min[2, 3], date_vers_yyddd(dates[11]))
   expect_identical(r$date_avant[2, 3], date_vers_yyddd(dates[10]))
   # aller-retour date <-> YYDDD
-  expect_identical(yyddd_vers_date(r$date_min[2, 3]), dates[11])
-  expect_identical(yyddd_vers_date(r$date_avant[2, 3]), dates[10])
+  # expect_equal : selon la version de R, seq() rend des dates stockées en entiers ou en doubles
+  expect_equal(yyddd_vers_date(r$date_min[2, 3]), dates[11])
+  expect_equal(yyddd_vers_date(r$date_avant[2, 3]), dates[10])
   # le ratio de -6 dB passe sous les deux seuils effectifs
   s <- seuils_db(r$parametres)
   expect_true(r$ratio_min_db[2, 3] < s[["ts"]])
@@ -281,7 +282,7 @@ test_that("une coupe injectée en 2018 n'est pas retenue, une en 2019 l'est", {
   # 2019 : retrouvée exactement
   expect_equal(r$ratio_min_db[1, 2], -6)
   expect_identical(r$date_min[1, 2], date_vers_yyddd(dates[50]))
-  expect_identical(yyddd_vers_date(r$date_min[1, 2]), dates[50])
+  expect_equal(yyddd_vers_date(r$date_min[1, 2]), dates[50])
 })
 
 test_that("un faux minimum de speckle en début de série n'apparaît plus", {
