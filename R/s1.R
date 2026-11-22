@@ -157,7 +157,8 @@ s1_rechercher <- function(emprise, date_debut, date_fin,
 #' @section Téléchargements en parallèle et fichiers : Chaque date d'une
 #'   orbite (toutes ses tranches) est lue, reprojetée et écrite par un
 #'   processus parmi `flux` ([parallel::mclapply()], fork ; en série là où
-#'   le fork n'existe pas, sous Windows). Chaque date est écrite dans son
+#'   le fork n'existe pas, sous Windows ; au plus 2 processus sous
+#'   `R CMD check`, quand `_R_CHECK_LIMIT_CORES_` est posée). Chaque date est écrite dans son
 #'   fichier, `<dossier>/s1_<serie>/<AAAA-MM-JJ>.tif`, en réel 32 bits
 #'   (`FLT4S`), compression DEFLATE avec prédicteur flottant
 #'   (`PREDICTOR=3`), comme les fichiers RTC sources. La pile d'une orbite
@@ -303,11 +304,7 @@ s1_lire <- function(items, grille, signer = TRUE, methode = "bilinear",
     orbites[[s]] <- pile
     dates[[s]] <- jours
   }
-  if (sans_unite > 0L) {
-    warning(sans_unite, " fichier(s) sans m\u00e9tadonn\u00e9es d'unit\u00e9 ",
-            "(SARPixelContent, Scale) : lus comme gamma0 lin\u00e9aire en puissance ",
-            "(documentation de la collection sentinel-1-rtc).", call. = FALSE)
-  }
+  avertir_sans_unite(sans_unite)
 
   list(
     orbites = orbites,
@@ -537,15 +534,28 @@ s1_lire_un <- function(adresse, grille, methode) {
   list(raster = sortie, sans_unite = sans_unite)
 }
 
+# Avertissement des fichiers lus sans métadonnées d'unité (`n` fichiers).
+avertir_sans_unite <- function(n) {
+  if (n > 0L) {
+    warning(n, " fichier(s) sans m\u00e9tadonn\u00e9es d'unit\u00e9 ",
+            "(SARPixelContent, Scale) : lus comme gamma0 lin\u00e9aire en puissance ",
+            "(documentation de la collection sentinel-1-rtc).", call. = FALSE)
+  }
+  invisible(n)
+}
+
 # Applique `f` à chaque tâche, en `flux` processus (fork) si possible ; une
 # erreur d'un processus arrête la lecture avec son message. Rend un vecteur
 # d'entiers.
 s1_appliquer <- function(taches, f, flux) {
-  flux <- as.integer(flux)
-  if (flux > 1L && length(taches) > 1L && .Platform$OS.type == "unix") {
+  # Même règle que la passe 1 (nb_processus(), R/detecter.R) : au plus le
+  # nombre de tâches, 2 sous R CMD check (`_R_CHECK_LIMIT_CORES_`), 1 sans
+  # fork.
+  n <- nb_processus(flux, length(taches))
+  if (n > 1L) {
     res <- parallel::mclapply(taches, function(t) {
       tryCatch(f(t), error = function(e) structure(conditionMessage(e), class = "s1_erreur"))
-    }, mc.cores = min(flux, length(taches)), mc.preschedule = FALSE)
+    }, mc.cores = n, mc.preschedule = FALSE)
     for (r in res) {
       if (inherits(r, "s1_erreur")) stop(unclass(r), call. = FALSE)
       if (inherits(r, "try-error")) stop(as.character(r), call. = FALSE)

@@ -116,7 +116,8 @@ fil, contre 0,22 s pour GDAL en multi-fil : le parallélisme vient des
  Chaque date d'une
 orbite (toutes ses tranches) est lue, reprojetée et écrite par un
 processus parmi \code{flux} (\code{\link[parallel:mclapply]{parallel::mclapply()}}, fork ; en série là où
-le fork n'existe pas, sous Windows). Chaque date est écrite dans son
+le fork n'existe pas, sous Windows ; au plus 2 processus sous
+\verb{R CMD check}, quand \verb{_R_CHECK_LIMIT_CORES_} est posée). Chaque date est écrite dans son
 fichier, \verb{<dossier>/s1_<serie>/<AAAA-MM-JJ>.tif}, en réel 32 bits
 (\code{FLT4S}), compression DEFLATE avec prédicteur flottant
 (\code{PREDICTOR=3}), comme les fichiers RTC sources. La pile d'une orbite

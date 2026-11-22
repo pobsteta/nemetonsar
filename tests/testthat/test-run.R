@@ -246,7 +246,7 @@ test_that("coupe de 0,18 ha en deux parties de 0,09 ha : un seul objet", {
   expect_true(any(lon < 0) && any(lon > 0))
 })
 
-test_that("coupe dont la seule graine est d'un côté : sortie entière", {
+test_that("coupe dont la seule graine est d'un c\u00f4t\u00e9 : sortie enti\u00e8re", {
   ouest <- res_lim$tuiles$mgrs[substr(res_lim$tuiles$mgrs, 1, 2) == "30"]
   est <- res_lim$tuiles$mgrs[substr(res_lim$tuiles$mgrs, 1, 2) == "31"]
   # La tuile ouest n'a pas de graine : elle ne garde rien ; la tuile est garde sa partie.
@@ -264,7 +264,7 @@ test_that("coupe dont la seule graine est d'un côté : sortie entière", {
   expect_equal(nrow(res_lim$objets), 2L)
 })
 
-test_that("aucun pixel compté deux fois : AOI entièrement coupée, à cheval", {
+test_that("aucun pixel compt\u00e9 deux fois : AOI enti\u00e8rement coup\u00e9e, \u00e0 cheval", {
   aoi_p <- rect_ll(-0.0015, 0.0015, 44.5000, 44.5015)
   tout <- list(t = list(v = rect_ll(-0.01, 0.01, 44.49, 44.51), date = as.Date("2019-06-15")))
   r <- nemetonsar_run(aoi_p, "2019-01-01", "2020-06-30", tempfile("run-"),
@@ -387,7 +387,7 @@ test_that("identit\u00e9 avec nemetonsar_detecter() sur une seule tuile", {
   expect_equal(sort(r1$objets$surface_ha), sort(direct$objets$surface_ha), tolerance = 0.1)
 })
 
-test_that("détection brute puis segmenter_blocs() : identique à nemetonsar_detecter()", {
+test_that("d\u00e9tection brute puis segmenter_blocs() : identique \u00e0 nemetonsar_detecter()", {
   prep <- aoi_preparer(rect_ll(0.0005, 0.006, 44.500, 44.505))
   grille <- aoi_grille(prep)
   imgs <- lire_synthetique(grille, as.Date("2018-01-01"), as.Date("2020-06-30"),
@@ -630,7 +630,8 @@ lecteur_coord <- function(coupes, journal = new.env()) {
                                                  background = 0, touches = FALSE),
                                 mat = FALSE) == 1
         apres <- d >= cp$date
-        v[dedans, apres] <- v[dedans, apres] * 10^(-6 / 10)
+        db <- if (is.null(cp$db)) -6 else cp$db
+        v[dedans, apres] <- v[dedans, apres] * 10^(db / 10)
       }
       r <- terra::rast(grille, nlyrs = length(d))
       terra::values(r) <- v
@@ -668,7 +669,7 @@ test_that("par bandes ou d'un seul tenant : r\u00e9sultats identiques au bit pr\
     x <- executer(h)
     expect_identical(x$r$objets, ref$r$objets)
     expect_identical(x$r$feu, ref$r$feu)
-    garde <- setdiff(names(ref$r$tuiles), c("nb_bandes", "disque_max_mo"))
+    garde <- setdiff(names(ref$r$tuiles), c("nb_bandes", "disque_images_mo", "disque_max_mo"))
     expect_identical(x$r$tuiles[garde], ref$r$tuiles[garde])
     expect_equal(x$r$tuiles$nb_bandes, rep(ceiling(58 / min(h, 58)), 2))
     # Mêmes fichiers, mêmes valeurs (sorties finales et par tuile, brutes comprises).
@@ -701,8 +702,13 @@ test_that("bandes : grilles demand\u00e9es, disque par bande, images et fichiers
                        lire_images = lecteur_coord(coupes_run, j0), hauteur_bande = NULL)
   expect_equal(j0$lignes, c(58L, 58L))
   # Disque maximal des images : celui d'une bande, bien moindre que la tuile.
-  expect_true(all(r$tuiles$disque_max_mo > 0))
-  expect_true(all(r$tuiles$disque_max_mo < r0$tuiles$disque_max_mo / 3))
+  expect_true(all(r$tuiles$disque_images_mo > 0))
+  expect_true(all(r$tuiles$disque_images_mo < r0$tuiles$disque_images_mo / 3))
+  # Disque total : les images d'une bande plus le ratio et la date de la
+  # tuile entière recollés (deux passes, correction 2019) et les sorties
+  # d'une bande ; d'un seul tenant, les seules images.
+  expect_true(all(r$tuiles$disque_max_mo > r$tuiles$disque_images_mo))
+  expect_equal(r0$tuiles$disque_max_mo, r0$tuiles$disque_images_mo)
   # Rien ne reste des images ni des fichiers temporaires.
   for (x in c(d, d0)) {
     f <- fichiers_de(x)
@@ -716,6 +722,69 @@ test_that("bandes : grilles demand\u00e9es, disque par bande, images et fichiers
   expect_match(jt, "par bandes de 10 lignes de la tuile", fixed = TRUE, useBytes = TRUE)
   expect_match(paste(readLines(r0$journal), collapse = "\n"), "d'un seul tenant", fixed = TRUE,
                useBytes = TRUE)
+})
+
+test_that("bandes : une zone dont la seule graine est dans la bande voisine sort enti\u00e8re", {
+  aoi_1 <- rect_ll(0.001, 0.006, 44.500, 44.505)
+  # Graine (-6 dB, ratio < ts) sur 4 lignes ; au nord, collée, une baisse de
+  # -4,2 dB (tp < ratio < ts : zone sans graine) sur environ 11 lignes, qui
+  # couvre des bandes de 4 lignes entières sans aucune graine.
+  coupes <- list(
+    graine = list(v = rect_ll(0.0025, 0.0045, 44.5020, 44.5024), date = as.Date("2020-02-01")),
+    zone = list(v = rect_ll(0.0025, 0.0045, 44.5024, 44.5034), date = as.Date("2020-02-01"),
+                db = -4.2)
+  )
+  lec <- lecteur_coord(coupes)
+  d0 <- tempfile("run-graine-")
+  d1 <- tempfile("run-graine-")
+  r0 <- nemetonsar_run(aoi_1, "2019-01-01", "2020-06-30", d0, lire_images = lec,
+                       hauteur_bande = NULL)
+  r1 <- nemetonsar_run(aoi_1, "2019-01-01", "2020-06-30", d1, lire_images = lec,
+                       hauteur_bande = 4L)
+  expect_gt(r1$tuiles$nb_bandes, 10L)
+  expect_identical(r1$objets, r0$objets)
+  for (f in grep("\\.tif$", fichiers_de(d0), value = TRUE)) {
+    expect_identical(valeurs(file.path(d1, f)), valeurs(file.path(d0, f)), label = f)
+  }
+  # Un seul objet, qui couvre la graine et toute la zone sans graine.
+  o <- terra::rast(r1$fichiers[["objets_raster"]])
+  ids <- function(v) stats::na.omit(terra::extract(o, terra::project(v, "EPSG:2154"))[[2]])
+  expect_equal(nrow(r1$objets), 1L)
+  dans_zone <- ids(terra::buffer(coupes$zone$v, -15))
+  expect_gt(length(dans_zone), 40L)
+  expect_true(all(dans_zone == 1L))
+  expect_true(all(ids(terra::buffer(coupes$graine$v, -5)) == 1L))
+  expect_gt(r1$objets$nb_pixels, 150L)
+})
+
+test_that("lecteur par d\u00e9faut : un seul avertissement d'unit\u00e9 par tuile, pas par bande", {
+  aoi_1 <- rect_ll(0.001, 0.006, 44.500, 44.505)
+  g <- aoi_grille(aoi_preparer(aoi_1))
+  d <- tempfile("s1-local-")
+  dir.create(d)
+  img <- terra::rast(terra::ext(g) + 200, resolution = 10, crs = terra::crs(g))
+  terra::values(img) <- 0.05
+  f <- file.path(d, "sans_unite.tif")
+  terra::writeRaster(img, f)
+  dts <- seq(as.Date("2018-01-05"), as.Date("2020-06-30"), by = 60)
+  items <- data.frame(id = paste0("L", seq_along(dts)), date = dts,
+                      heure = as.POSIXct(paste(dts, "06:00:00"), tz = "UTC"), capteur = "S1A",
+                      orbite = 8L, direction = "descendante", serie = "D008", url = f,
+                      stringsAsFactors = FALSE)
+  vrai_s1_lire <- s1_lire
+  testthat::local_mocked_bindings(
+    s1_rechercher = function(...) structure(items, attribution = s1_attribution(items$date)),
+    s1_lire = function(items, grille, ..., dossier, flux) {
+      vrai_s1_lire(items, grille, signer = FALSE, dossier = dossier, flux = flux)
+    }
+  )
+  w <- testthat::capture_warnings(
+    r <- nemetonsar_run(aoi_1, "2019-01-01", "2020-06-30", tempfile("run-"), hauteur_bande = 10L)
+  )
+  expect_gt(r$tuiles$nb_bandes, 1L)
+  w <- w[grepl("SARPixelContent", w, fixed = TRUE)]
+  expect_length(w, 1L)
+  expect_match(w, paste0("^", nrow(items), " fichier"))
 })
 
 test_that("bandes : lecteur incoh\u00e9rent ou hors grille refus\u00e9, images effac\u00e9es sur erreur", {
@@ -774,9 +843,9 @@ test_that("essai r\u00e9el : 1 km x 1 km dans les Landes, premier trimestre 2025
   unlink(dossier, recursive = TRUE)
 })
 
-test_that("essai réel : bandes de 64 lignes et lecture d'un seul tenant identiques", {
+test_that("essai r\u00e9el : bandes de 64 lignes et lecture d'un seul tenant identiques", {
   skip_if(Sys.getenv("NEMETONSAR_TESTS_RESEAU") != "true",
-          "test réseau : définir NEMETONSAR_TESTS_RESEAU=true")
+          "test r\u00e9seau : d\u00e9finir NEMETONSAR_TESTS_RESEAU=true")
   skip_on_cran()
   skip_if_not_installed("rstac")
   skip_if_offline("planetarycomputer.microsoft.com")

@@ -70,7 +70,12 @@
 #'   (≈ 23 Go pour 512 lignes d'une tuile MGRS et 900 images, calcul de la
 #'   mission 019), au prix d'un téléchargement plus lourd : les bandes ne
 #'   tombent pas sur les tuiles internes des COG, qui sont relues par deux
-#'   bandes voisines.
+#'   bandes voisines. S'y ajoutent, pour toute la tuile, le ratio (réel
+#'   64 bits) et la date recollés, au plus 12 octets par cellule et par
+#'   passe avant compression (≤ 1,4 Go par passe pour une tuile MGRS, deux
+#'   passes avec la correction 2019 ; GeoTIFF compressé par `terra`, bien
+#'   moins hors forêt), effacés en fin de tuile : `res$tuiles` donne les deux
+#'   disques (`disque_images_mo`, `disque_max_mo`).
 #'
 #'   Les résultats sont **identiques au bit près** à ceux d'une lecture
 #'   d'un seul tenant (`hauteur_bande = NULL`) : la reprojection des images
@@ -200,7 +205,12 @@
 #'   `date_mediane_date`, `ratio_moyen_db`, et `part_brulee` si `effis` est
 #'   donné), `tuiles` (une ligne par tuile : images, orbites, objets par
 #'   étape, nombre de bandes `nb_bandes`, disque maximal des images d'une
-#'   bande `disque_max_mo` en Mo), `feu` (table de [masque_feu()], ou `NULL`), `journal` (chemin
+#'   bande `disque_images_mo` et disque maximal de tous les fichiers
+#'   temporaires de la tuile `disque_max_mo` (images, plus, par bandes, le
+#'   ratio en réel 64 bits et la date de la tuile entière recollés pour
+#'   chaque passe, au plus 12 octets par cellule et par passe, et les
+#'   sorties d'une bande), en Mo ; sans les fichiers internes de
+#'   [nemetonsar_detecter()]), `feu` (table de [masque_feu()], ou `NULL`), `journal` (chemin
 #'   du journal).
 #'
 #' @seealso [aoi_preparer()], [s1_rechercher()], [s1_lire()],
@@ -513,7 +523,8 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   resume <- data.frame(mgrs = mgrs, nb_orbites = 0L, nb_images = 0L,
                        orbites_ecartees = 0L, passe_2019 = FALSE,
                        objets_2019 = NA_integer_, objets_detection = NA_integer_,
-                       objets_gardes = 0L, nb_bandes = 0L, disque_max_mo = 0,
+                       objets_gardes = 0L, nb_bandes = 0L, disque_images_mo = 0,
+                       disque_max_mo = 0,
                        stringsAsFactors = FALSE)
   vide <- list(fichiers = NULL, resume = resume, attribution = NA_character_)
 
@@ -531,9 +542,14 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     debuts <- seq(1L, nl, by = h)
     bandes <- data.frame(debut = debuts, n = pmin(h, nl - debuts + 1L))
   }
-  disque_s1 <- function() {
-    f <- list.files(d_s1, recursive = TRUE, full.names = TRUE, all.files = TRUE)
+  taille_mo <- function(d) {
+    f <- list.files(d, recursive = TRUE, full.names = TRUE, all.files = TRUE)
     sum(file.size(f), na.rm = TRUE) / 1e6
+  }
+  # Disque des fichiers temporaires de la tuile : images lues et, par
+  # bandes, ratio et date recollés de la tuile et sorties d'une bande.
+  noter_disque <- function() {
+    resume$disque_max_mo <<- max(resume$disque_max_mo, taille_mo(d_s1) + taille_mo(d_bandes))
   }
   # Lit les images de la bande `b` (bordée de `rf` lignes) ou de la tuile.
   lire_images_bande <- function(b) {
@@ -559,7 +575,8 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
              "ou de la bande).", call. = FALSE)
       }
     }
-    resume$disque_max_mo <<- max(resume$disque_max_mo, disque_s1())
+    resume$disque_images_mo <<- max(resume$disque_images_mo, taille_mo(d_s1))
+    noter_disque()
     list(imgs = imgs, lu = lu, grille = g)
   }
 
@@ -600,6 +617,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   if (length(orbites) == 0L) {
     ecrire("Aucune image utilisable : tuile sans d\u00e9tection.")
     ecrire("")
+    vide$resume$disque_images_mo <- resume$disque_images_mo
     vide$resume$disque_max_mo <- resume$disque_max_mo
     return(vide)
   }
@@ -659,7 +677,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
                               lignes_par_bloc, foret0)
     resume$nb_bandes <- 1L
     ecrire("Lecture d'un seul tenant ; disque des images : ",
-           format(round(resume$disque_max_mo, 1), nsmall = 1), " Mo (effac\u00e9es ensuite)")
+           format(round(resume$disque_images_mo, 1), nsmall = 1), " Mo (effac\u00e9es ensuite)")
   } else {
     noms_1 <- names(imgs$orbites)
     dates_1 <- imgs$dates
@@ -695,6 +713,7 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
           terra::readStop(rr)
           terra::writeValues(brutes[[ps]][[champ]], v, bandes$debut[b], bandes$n[b])
         }
+        noter_disque()
         unlink(db, recursive = TRUE)
       }
       rm(x, orbs, foret_b)
@@ -709,6 +728,9 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     for (ps in passes) {
       terra::writeStop(brutes[[ps]]$ratio)
       terra::writeStop(brutes[[ps]]$dates)
+    }
+    noter_disque()
+    for (ps in passes) {
       d_ps <- if (ps == "a") dates_a else dates
       # Taille de bloc de detecter_blocs() sur la tuile entière (le résultat
       # n'en dépend pas).
@@ -728,9 +750,12 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
     resume$nb_bandes <- nrow(bandes)
     ecrire("Lecture par bandes : ", nrow(bandes), " bande(s) de ", bandes$n[1], " ligne(s) (bordure de ",
            rf, " ligne(s)) ; disque maximal des images d'une bande : ",
-           format(round(resume$disque_max_mo, 1), nsmall = 1), " Mo (effac\u00e9es apr\u00e8s chaque bande)")
+           format(round(resume$disque_images_mo, 1), nsmall = 1), " Mo (effac\u00e9es apr\u00e8s chaque bande) ; ",
+           "disque maximal des fichiers temporaires de la tuile (images, ratio et date recoll\u00e9s, ",
+           "sorties d'une bande) : ", format(round(resume$disque_max_mo, 1), nsmall = 1), " Mo")
   }
   unlink(d_s1, recursive = TRUE)
+  if (is.null(lire_images)) avertir_sans_unite(environment(lire)$sans_unite)
 
   res_a <- NULL
   if (passe_2019) {
@@ -846,8 +871,12 @@ parametres_bruts <- function(p) {
 # Lecteur par défaut d'une tuile : recherche STAC une seule fois, sur la
 # grille de la tuile, puis lecture sur la grille demandée (la tuile ou une
 # de ses bandes).
+# L'avertissement des fichiers sans métadonnées d'unité de s1_lire() est
+# retenu (les mêmes fichiers reviennent à chaque bande) : son nombre est
+# gardé dans `sans_unite`, et run_tuile() l'émet une fois par tuile.
 lecteur_s1 <- function(grille_tuile, flux) {
   items <- NULL
+  sans_unite <- 0L
   function(grille, date_debut, date_fin, parametres, dossier) {
     if (is.null(items)) {
       items <<- s1_rechercher(grille_tuile, date_debut, date_fin, parametres)
@@ -856,7 +885,16 @@ lecteur_s1 <- function(grille_tuile, flux) {
       return(list(orbites = list(), dates = list(),
                   attribution = attr(items, "attribution"), items = items))
     }
-    s1_lire(items, grille, dossier = dossier, flux = flux)
+    withCallingHandlers(
+      s1_lire(items, grille, dossier = dossier, flux = flux),
+      warning = function(w) {
+        m <- conditionMessage(w)
+        if (grepl("(SARPixelContent, Scale)", m, fixed = TRUE)) {
+          sans_unite <<- max(sans_unite, suppressWarnings(as.integer(sub(" .*", "", m))), na.rm = TRUE)
+          invokeRestart("muffleWarning")
+        }
+      }
+    )
   }
 }
 

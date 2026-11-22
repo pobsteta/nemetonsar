@@ -87,7 +87,12 @@ tuile d'un seul tenant (disque des images d'une tuile entière). Voir
 \code{date_mediane_date}, \code{ratio_moyen_db}, et \code{part_brulee} si \code{effis} est
 donné), \code{tuiles} (une ligne par tuile : images, orbites, objets par
 étape, nombre de bandes \code{nb_bandes}, disque maximal des images d'une
-bande \code{disque_max_mo} en Mo), \code{feu} (table de \code{\link[=masque_feu]{masque_feu()}}, ou \code{NULL}), \code{journal} (chemin
+bande \code{disque_images_mo} et disque maximal de tous les fichiers
+temporaires de la tuile \code{disque_max_mo} (images, plus, par bandes, le
+ratio en réel 64 bits et la date de la tuile entière recollés pour
+chaque passe, au plus 12 octets par cellule et par passe, et les
+sorties d'une bande), en Mo ; sans les fichiers internes de
+\code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}}), \code{feu} (table de \code{\link[=masque_feu]{masque_feu()}}, ou \code{NULL}), \code{journal} (chemin
 du journal).
 }
 \description{
@@ -166,7 +171,12 @@ recollée. Le disque des images ne dépasse donc pas celui d'une bande
 (≈ 23 Go pour 512 lignes d'une tuile MGRS et 900 images, calcul de la
 mission 019), au prix d'un téléchargement plus lourd : les bandes ne
 tombent pas sur les tuiles internes des COG, qui sont relues par deux
-bandes voisines.
+bandes voisines. S'y ajoutent, pour toute la tuile, le ratio (réel
+64 bits) et la date recollés, au plus 12 octets par cellule et par
+passe avant compression (≤ 1,4 Go par passe pour une tuile MGRS, deux
+passes avec la correction 2019 ; GeoTIFF compressé par \code{terra}, bien
+moins hors forêt), effacés en fin de tuile : \code{res$tuiles} donne les deux
+disques (\code{disque_images_mo}, \code{disque_max_mo}).
 
 Les résultats sont \strong{identiques au bit près} à ceux d'une lecture
 d'un seul tenant (\code{hauteur_bande = NULL}) : la reprojection des images
