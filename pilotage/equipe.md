@@ -4,27 +4,25 @@
 > tout démarrage. Règle de staffing : un agent par mission qui passe les trois
 > questions, jamais un agent « par principe ».
 
-- **Statut :** proposée (2026-11-22)
-- **Validée par :** _…_
+- **Statut :** validée par délégation le 2026-11-22
+- **Validée par :** Claude (orchestrateur, par délégation de Pascal)
 
 ## Plafond humain
 
 - **PR ouvertes en même temps, au plus :** 3
-- **Rythme de relecture de Pascal :** à dire par Pascal
+- **Rythme de relecture de Pascal :** à dire par Pascal ; en attendant, toutes les missions passent dans la PR #2, qui reste en brouillon
 
 ## Délégation
 
 > Ce que Pascal demande à l'orchestrateur de trancher à sa place (skill `methode`,
 > « La délégation »). Vide : aucune délégation, Pascal tranche tout.
 
-- **Portée :** les quatre questions du brief posées le 2026-11-22 après la critique du
-  `contradicteur` (pour qui ; « tout point, tout temps » en v1 ; fidélité ou
-  détections 2026 ; usage des résultats). Portée la plus étroite, faute de portée dite :
-  ni la validation du brief et de la spec (porte n° 1), ni les ADR, ni les portes n° 2 et 3.
-- **Jusqu'à :** ces quatre décisions prises et inscrites
-- **Réservé à Pascal :** _…_ (toujours, même si rien n'est écrit : sa réponse d'abord ;
-  rendre la main ; ce qui touche l'extérieur et ne se défait pas)
-- **Inscrite au journal le :** 2026-11-22 (« Je te laisse trancher », Pascal)
+- **Portée :** « tout » (Pascal, 2026-11-22 : « Peux-tu coder jusqu'à la fin sans que
+  j'aie à intervenir ? ») : portes n° 1 à 3 au sens de la méthode, temps de la main
+  (prendre ou donner), arbitrages du `contradicteur`, AOI pilote et lieu de calcul.
+  Remplace la délégation précédente (quatre questions du brief), close.
+- **Jusqu'à :** fin de la v1 (jalon 4), ou révocation.
+- **Inscrite au journal le :** 2026-11-22 (« Je te laisse trancher », puis « Peux-tu coder jusqu'à la fin sans que j'aie à intervenir ? »)
 
 ## Le vivier (catalogue, pas une équipe)
 
