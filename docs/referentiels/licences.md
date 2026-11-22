@@ -7,7 +7,7 @@
 
 | Source | Licence | Lien du texte consulté | Attribution à reproduire | Usage non commercial permis | Usage commercial permis | Remarque |
 |---|---|---|---|---|---|---|
-| Sentinel-1 (Copernicus) | Conditions d'accès et d'usage de l'UE (« Legal notice on the use of Copernicus Sentinel Data and Service Information ») : accès libre, complet et ouvert, reproduction, distribution, adaptation autorisées. Pas de nom de licence type. | https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice (PDF lu) | Diffusion : « Copernicus Sentinel data [année] ». Données adaptées ou modifiées : « Contains modified Copernicus Sentinel data [année] ». | Oui (l'avis ne limite pas la finalité) | Oui (l'avis ne limite pas la finalité ; non précisé en toutes lettres) | Aucune garantie ; renonciation de l'utilisateur à toute réclamation en dommages contre l'UE. Cet avis date d'un format ancien (directive 95/46/CE citée). |
+| Sentinel-1 (Copernicus) | Conditions d'accès et d'usage de l'UE (« Legal notice on the use of Copernicus Sentinel Data and Service Information ») : accès libre, complet et ouvert, reproduction, distribution, adaptation autorisées. Pas de nom de licence type. | https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice (PDF lu) | Diffusion : « Copernicus Sentinel data [année] ». Données adaptées ou modifiées : « Contains modified Copernicus Sentinel data [année] ». | Oui (l'avis ne limite pas la finalité) | Oui (l'avis ne limite pas la finalité ; non précisé en toutes lettres) | Aucune garantie ; renonciation de l'utilisateur à toute réclamation en dommages contre l'UE. L'avis cite la directive 95/46/CE (ancienne, abrogée) ; ses conditions d'usage sont reprises telles quelles par les conditions actuelles du Copernicus Data Space Ecosystem (voir la section « Conditions actuelles du CDSE »). |
 | Sentinel-1 RTC, Planetary Computer | `CC-BY-4.0` (champ licence de la collection STAC) | https://planetarycomputer.microsoft.com/api/stac/v1/collections/sentinel-1-rtc ; licence : https://creativecommons.org/licenses/by/4.0/ | La collection ne donne pas de texte de citation. Fournisseurs listés : Catalyst (traitement RTC), Microsoft (hébergeur, concédant). Source : produits GRD de l'ESA. | Oui (CC BY 4.0, texte de la licence non relu) | Oui (CC BY 4.0, texte de la licence non relu) | Compte Planetary Computer requis pour obtenir les jetons SAS (`msft:requires_account`). Les GRD d'origine restent sous l'avis Copernicus ci-dessus : à cumuler. |
 | Tree Cover Density 2018 (CLMS), 10 m | Pas de licence type nommée. « Accès complet, ouvert et gratuit », sous trois conditions (règlement délégué UE 1159/2013) | Fiche EEA : https://sdi.eea.europa.eu/catalogue/geoss/api/records/486f77da-d605-423e-93a9-680760ab6791 ; politique CLMS : https://land.copernicus.eu/en/data-policy | Informer le public de la source ; signaler toute adaptation ; ne pas laisser croire à un aval de l'UE. Phrase proposée par la politique CLMS : « Generated using European Union's Copernicus Land Monitoring Service information; <DOI> » (produit dérivé). DOI : 10.2909/486f77da-d605-423e-93a9-680760ab6791. Identifiant : copernicus_r_3035_10_m_tcd-2018_p_2018_v02_r00. | Oui (aucune restriction de finalité dans les textes lus) | Oui (aucune restriction de finalité dans les textes lus ; non dit en toutes lettres) | Fiche marquée « Superseded » (version 02.00, 18/09/2020) : à confirmer par Pascal quelle version on retient. La politique CLMS dit que l'utilisateur détient les droits de propriété intellectuelle des produits qu'il crée. Lien de téléchargement soumis à authentification. |
 | Dominant Leaf Type 2018 (CLMS), 10 m | Idem TCD : pas de licence type nommée ; mêmes trois conditions | Fiche EEA : https://sdi.eea.europa.eu/catalogue/srv/api/records/7b28d3c1-b363-4579-9141-bdd09d073fd8 ; politique CLMS : https://land.copernicus.eu/en/data-policy | Mêmes trois conditions et même formule CLMS. DOI : 10.2909/7b28d3c1-b363-4579-9141-bdd09d073fd8. Identifiant : copernicus_r_3035_10_m_dlt-2018_p_2018_v01_r00. | Oui (idem) | Oui (idem, non dit en toutes lettres) | Fiche « Superseded », version 01.00 (sept. 2020). Une série plus récente existe (« Dominant Leaf Type 2018 - Present », nov. 2024) : fiche trouvée par recherche, **non lue**, donc non conclue. La page produit land.copernicus.eu consultée redirige (301) vers une page 404. |
@@ -22,9 +22,71 @@
 | S1Tiling (logiciel) | Apache-2.0 (métadonnées PyPI, version 1.4.2) | https://pypi.org/project/S1Tiling/ ; texte : http://www.apache.org/licenses/LICENSE-2.0 | Pas de consigne explicite. Dépôt : https://gitlab.orfeo-toolbox.org/s1-tiling/s1tiling ; DOI affiché : 10.5281/zenodo.17237358. Conserver les mentions de copyright et de licence si redistribué. | Oui | Oui | Le fichier LICENSE du dépôt GitLab n'a pas pu être lu (page anti-robot). Compatibilité avec la GPL-3 du package : non évaluée (hors périmètre). |
 | IGN Admin Express (limites administratives) | Licence Ouverte / Open Licence 2.0 (Etalab) | Fiche : https://data.gouv.fr/en/datasets/admin-express ; texte : https://www.data.gouv.fr/pages/legal/licences/etalab-2.0 | Mentionner la source (au minimum le nom du concédant, IGN) et la date de dernière mise à jour ; un lien peut suffire ; ne pas suggérer un aval de l'IGN. | Oui | Oui (« à des fins commerciales ou non ») | Fiche mise à jour le 2026-11-19, hébergée sur cartes.gouv.fr. Aucune taille maximale d'AOI ne vient de la licence : ce chiffre n'a pas été cherché ici. Si on en veut un (limite de service, taille de requête), c'est un autre document : **non trouvé**. |
 
+## Conditions actuelles du Copernicus Data Space Ecosystem (CDSE), pour Sentinel-1
+
+Document consulté le 2026-11-22 : https://dataspace.copernicus.eu/terms-and-conditions (page HTML, rubrique 3 « Copyrights »).
+
+- Elle dit que l'accès et l'usage des données Sentinel sont « libres, complets et ouverts » et sont « régis par » l'avis légal Sentinel (le même PDF que celui lu plus haut, lien repris par la page). Les formules d'attribution restent donc celles de l'avis : « Copernicus Sentinel data [année] » ; « Contains modified Copernicus Sentinel data [année] » si modifiées.
+- Elle ajoute que **tout autre contenu du portail** est réservé à l'usage non commercial, sans revente ni redistribution ni œuvre dérivée. Cela vise le contenu du portail (textes, images, documents), pas les données Sentinel ; à ne pas confondre.
+- La page ne porte pas de date de version lisible. Elle ne reprend pas la directive 95/46/CE : l'avis légal lu, lui, la cite encore.
+- Une formule propre à Copernicus Browser (« processed in Copernicus Browser ») n'a été vue que dans un message de forum, non consulté : **non retenue**.
+
+## Sorties du package : ce que chacune cumule
+
+Règle de l'ADR 0002 : la clause non commerciale (NC) ne s'applique qu'aux sorties de `compare_reference()` et au rapport de comparaison, séparé du rapport principal. Les autres sorties n'héritent pas de la v3.0.1. Le tableau applique cette règle ; il ne la discute pas. « Cumulées » = à reproduire toutes ensemble. Les `<…>` sont à remplir par le package au moment de l'écriture (année des scènes, DOI, date de mise à jour) : je n'invente ni année ni date.
+
+Blocs de texte réutilisés (la source est dans la table des sources ci-dessus) :
+
+- **[S1]** « Contains modified Copernicus Sentinel data <année(s) des scènes>. » (Si Sentinel-1 RTC via Planetary Computer, ajouter : « Sentinel-1 RTC processed by Catalyst, hosted by Microsoft Planetary Computer, CC BY 4.0. »)
+- **[FOR]** « Generated using European Union's Copernicus Land Monitoring Service information; https://doi.org/10.2909/486f77da-d605-423e-93a9-680760ab6791 » (Tree Cover Density 2018). Ajouter « adapted » si seuillé.
+- **[NEI]** « Hall, D. K. & Riggs, G. A. (2021). MODIS/Terra Snow Cover Daily L3 Global 500m SIN Grid (MOD10A1, Version 61) [Data Set]. NASA NSIDC DAAC. https://doi.org/10.5067/MODIS/MOD10A1.061 <sous-ensemble utilisé> »
+- **[FEU]** « EFFIS, European Commission Joint Research Centre, licence CC BY 4.0 (https://forest-fire.emergency.copernicus.eu/about-effis/data-license). Données modifiées : seuil de 75 % de l'objet. » (formule rédigée par moi d'après la page de licence, qui n'impose pas de texte exact)
+- **[ADM]** « Source : IGN, Admin Express, mise à jour du <date>, Licence Ouverte 2.0. » (seulement si les limites Admin Express sont utilisées)
+- **[MET]** « Méthode : Mermoz et al. (2024), IEEE JSTARS 17, 13743-13764, doi:10.1109/JSTARS.2024.3429012 ; Bouvet et al. (2018), Remote Sensing 10(8), 1250, doi:10.3390/rs10081250. » (citations, pas reproduction)
+- **[SUF]** « CESBIO. (2026): Sufosat : Submonthly Assessment of Temperate Forest Clear-Cuts in Mainland France. Data Terra. (Collection) doi:10.71961/M18T-KB92. Version 3.0.1, licence CC BY-NC 4.0. »
+
+| Sortie | Entrées cumulées | Attributions à reproduire (cumulées) | Clause la plus restrictive héritée | Texte prêt à citer |
+|---|---|---|---|---|
+| Raster des dates de coupe (YYDDD) | Sentinel-1 (RTC ou GRD) ; masque forêt TCD 2018 ; masque neige MOD10A1 ; masque feu EFFIS ; S1Tiling (grille, traitement) | [S1], [FOR], [NEI], [FEU] ; S1Tiling : conserver les mentions Apache-2.0 si du code ou un fichier en est redistribué | Attribution et mention des modifications (CC BY 4.0, CLMS, Copernicus). Pas de NC. | [S1] [FOR] [NEI] [FEU] |
+| Raster de confiance | Mêmes entrées que le raster des dates | Mêmes | Mêmes : pas de NC | Identique |
+| GeoPackage des polygones | Mêmes entrées ; Admin Express si les polygones sont découpés ou étiquetés par limites administratives | Mêmes ; [ADM] en plus si utilisé | Attribution ; Licence Ouverte 2.0 (mention de la source et de la date) | [S1] [FOR] [NEI] [FEU] + [ADM] si utilisé |
+| Rapport principal | Les sorties ci-dessus ; méthode (Mermoz, Bouvet) | Celles des sorties intégrées + [MET] | Même que ci-dessus. Pas de NC, **à condition qu'il ne contienne aucune donnée v3.0.1** (ADR 0002). | [S1] [FOR] [NEI] [FEU] [MET] (+ [ADM] si utilisé) |
+| Rapport de comparaison à la v3.0.1 (`compare_reference()`) | Les sorties du package **et** SUFOSAT v3.0.1 | Toutes les précédentes + [SUF] | **CC BY-NC 4.0** (SUFOSAT) : le rapport entier est non commercial (ADR 0002) | [S1] [FOR] [NEI] [FEU] [MET] [SUF] + mention « usage non commercial » |
+| Journal d'exécution | Liste des entrées effectivement lues pendant l'exécution | Une ligne par entrée avec son bloc d'attribution (c'est le rôle fixé par l'ADR) | Aucune clause propre. Il hérite de NC **seulement s'il recopie des données ou des valeurs de la v3.0.1** (par exemple des écarts de comparaison). L'ADR 0002 ne le dit pas : c'est une question pour Pascal. | Les blocs des entrées lues ; [SUF] seulement si `compare_reference()` a tourné |
+
+Limites de ce tableau : on ne sait pas, dans le code, quelle forêt (TCD seul ou TCD et DLT), quel RTC ou GRD, ni quel successeur neige seront retenus ; le texte change avec ces choix. Si DLT est utilisé, ajouter son DOI (voir la ligne DLT) et la même formule CLMS.
+
 ## Ce qui n'a pas été conclu
 
 - Aucune licence n'a été relue dans son texte intégral : pour les CC, seul le nom et le lien sont retenus.
 - Pages non lues : IEEE Xplore (réponse vide), MDPI (403), dépôt GitLab de S1Tiling (anti-robot), page produit CLMS (404 après redirection), page NASA « Data Policies » de NSIDC.
 - Taille maximale d'AOI : non trouvée.
-- Les sources de l'ADR qui ne figurent pas dans la liste de Pascal (ex. fiches non demandées) ne sont pas traitées.
+- Ce fichier contient aussi des lignes que l'ADR 0002 ne listait pas (DLT 2018, MYD10A1, VNP10A1, statut de Terra, Bouvet 2018, S1Tiling, Admin Express). L'orchestrateur a décidé de les garder, et elles sont marquées comme ajouts. Inversement, toute source utilisée plus tard par le package et absente de ce fichier n'a pas de ligne : il faudra en ajouter une avant de l'utiliser.
+
+## Échantillon à vérifier par Pascal (deux liens)
+
+1. https://doi.theia.data-terra.org/Sufosat/ : vérifier la ligne SUFOSAT (licence CC BY-NC 4.0 et citation). C'est elle qui fonde la clause NC du rapport de comparaison.
+2. https://api.crossref.org/works/10.1109/JSTARS.2024.3429012 : vérifier la ligne Mermoz 2024 (licence CC BY-NC-ND 4.0, champ `license`). C'est la ligne la plus fragile, puisqu'elle repose sur Crossref seul.
+
+## Liste de contrôle (/tmp/claude-0/-home-user/b63c98e0-2e08-5ea7-ab25-6043906217f2/scratchpad/liste-de-controle.md), passée le 2026-11-22
+
+1. Chaque chiffre a sa source et son emplacement
+   - [x] Source, version, date de consultation par valeur : fait (versions V61, V2, 1.4.2, 3.0.1 ; date 2026-11-22). Emplacement ligne ou page exacte : non coché pour les licences CC, dont seul le nom et le lien sont retenus (texte intégral non relu).
+   - [x] URL réellement consultées inscrites : oui, dans la colonne « lien ». Les 5 pages non lues sont dites.
+   - [x] Références datées par version : oui (TCD v02.00, DLT v01.00, MOD10A1 V61, S1Tiling 1.4.2).
+   - [ ] Emplacement relu sur la version à jour : non coché pour IEEE, MDPI et le LICENSE GitLab, inaccessibles.
+2. Les décomptes sont complets
+   - [x] Décompte : 14 lignes de sources, relues une à une contre la liste de la mission. 6 sorties dans la table des sorties (raster des dates, raster de confiance, GeoPackage, rapport principal, rapport de comparaison, journal d'exécution).
+   - [x] Correction de décompte sur les deux termes : sans objet, aucune correction.
+   - [x] Aucune entrée de la série omise : oui.
+3. Les termes sont exacts
+   - [x] Citations et DOI recopiés de la page consultée, pas de mémoire. Les blocs [FEU] et [ADM] sont rédigés par moi et dits tels.
+   - [x] Valeur ajoutée partout où elle se retrouve : la mention de l'avis CDSE est reportée dans la ligne Sentinel-1.
+   - [x] Limites dites : section « Ce qui n'a pas été conclu » et limites du tableau des sorties.
+4. Le statut est dit tel qu'il est
+   - [x] États du jour : TCD et DLT « Superseded », MOD10A1 V6.1 avec V7 disponible, Terra le 2026-12-01, Suomi NPP le 2026-11-02.
+   - [x] Dépendances entre PR et branche à jour : sans objet (aucun git, un seul fichier).
+5. Pour le testeur
+   - Sans objet (ce travail n'est pas du code). Les questions pour Pascal sont posées, pas tranchées : ND de Mermoz, journal d'exécution et NC, version TCD/DLT, successeur neige.
+
+Liste de contrôle passée, avec trois points non cochés : emplacements exacts des clauses dans les licences CC (texte non relu), pages non relues faute d'accès (IEEE, MDPI, GitLab), taille maximale d'AOI non trouvée.
