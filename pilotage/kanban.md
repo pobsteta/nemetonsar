@@ -23,6 +23,14 @@ _Modèle de carte :_
 
 ## Validé
 
+- [025-jeton-sas](missions/025-jeton-sas.md) · depuis le cycle 10
+  - Homme : `dev` (opus)
+  - Mission : jeton du Planetary Computer renouvelé pendant les lectures longues
+  - Moyens : voir la fiche
+- [026-cause-dates-tardives](missions/026-cause-dates-tardives.md) · depuis le cycle 10
+  - Homme : `analyste` (opus)
+  - Mission : observer la cause non établie des dates tardives (52 %)
+  - Moyens : voir la fiche ; session locale (données sur le poste de Pascal)
 
 ## Planifié
 
