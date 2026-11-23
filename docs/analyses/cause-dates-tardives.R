@@ -34,11 +34,18 @@
 #               <dossier>/series (pas de nouvelle lecture des images),
 #               <dossier>/traces/*.png ; vignettes d'orthophoto par l'étape
 #               « orthos » du script de la mission 024.
-#   persister : (aller-retour 2/3) persistance aux 8 acquisitions de fin
-#               d'hiver avec une base qui ne sert pas à la sélection :
-#               VH moyen de ]X+60, X+240] moins VH moyen de [X-365, X-60[,
-#               et la même mesure un an avant (X-365) en témoin, depuis
-#               <dossier>/series (pas de nouvelle lecture des images) ;
+#   persister : (allers-retours 2/3 et 3/3) persistance aux 8 acquisitions
+#               de fin d'hiver avec une base qui ne sert pas à la sélection :
+#               VH moyen de ]X+60, X+240] moins VH moyen de [X-365, X-60[
+#               PRIVÉ, pixel par pixel et par position, des 5 images valides
+#               avant X (dénominateur du ratio de datation à X ; elles peuvent
+#               tomber avant X-60 s'il y a un trou d'acquisition), et la même
+#               mesure un an avant (Y = X-365, base privée des 5 images valides
+#               avant Y) en témoin, depuis <dossier>/series (pas de nouvelle
+#               lecture des images) ; la base de l'aller-retour 2/3 (sans
+#               exclusion) est gardée pour mesurer l'écart, avec la part des
+#               pixels dont la base a perdu au moins une image ; persistance
+#               des pixels tracés à la date de la carte, même définition ;
 #               l'ancienne base (5 images valides avant X) est recalculée
 #               pixel par pixel pour mesurer le biais. Question 3 : pixels
 #               FO0 et FF0 datés par l'une, l'autre ou les deux cartes.
@@ -592,7 +599,7 @@ if (ETAPE == "analyser") {
   str(out, max.level = 2)
 }
 
-# Étape 4 (aller-retour 2/3) : persistance sans biais de sélection ---------------
+# Étape 4 (allers-retours 2/3 et 3/3) : persistance sans biais de sélection ---------------
 
 if (ETAPE == "persister") {
   reference <- normalizePath(args[3]); base <- normalizePath(args[4])
@@ -628,6 +635,24 @@ if (ETAPE == "persister") {
   }
   apres <- function(lin, dates, X) moy_cols(lin, which(dates > X + 60 & dates <= X + 240), N_APRES_MIN)
   base365 <- function(lin, dates, X) moy_cols(lin, which(dates >= X - 365 & dates < X - 60), N_BASE_MIN)
+  # Aller-retour 3/3 : base [X-365, X-60[ privée, pixel par pixel et par
+  # position, des 5 images valides avant X (celles du dénominateur du ratio de
+  # datation à X). Rend la base (NA si moins de N_BASE_MIN images restent) et
+  # le nombre d'images retirées par pixel.
+  base365_hors5 <- function(lin, dates, X) {
+    cols <- which(dates >= X - 365 & dates < X - 60)
+    if (!length(cols)) return(list(v = rep(NA_real_, nrow(lin)), nexcl = integer(nrow(lin))))
+    excl <- matrix(FALSE, nrow(lin), length(cols)); k <- integer(nrow(lin))
+    for (t in rev(which(dates < X))) {
+      v <- !is.na(lin[, t]) & k < 5L
+      j <- match(t, cols); if (!is.na(j)) excl[v, j] <- TRUE
+      k[v] <- k[v] + 1L
+      if (all(k >= 5L)) break
+    }
+    m <- lin[, cols, drop = FALSE]; m[excl] <- NA
+    n <- rowSums(!is.na(m)); r <- 10 * log10(rowMeans(m, na.rm = TRUE)); r[n < N_BASE_MIN] <- NA
+    list(v = r, nexcl = rowSums(excl))
+  }
   est_t <- startsWith(tab$groupe, "tardif_")
   vals <- list()
   metas <- list.files(D_SERIES, pattern = "\\.rds$", full.names = TRUE)
@@ -642,8 +667,10 @@ if (ETAPE == "persister") {
     for (j in which(o8 == m$orbite)) {
       X <- d8[j]; Y <- X - 365
       ap <- apres(lin, m$dates, X)
-      p_new <- ap - base365(lin, m$dates, X)
-      p_an <- apres(lin, m$dates, Y) - base365(lin, m$dates, Y)
+      bx <- base365_hors5(lin, m$dates, X); by <- base365_hors5(lin, m$dates, Y)
+      p_new <- ap - bx$v
+      p_an <- apres(lin, m$dates, Y) - by$v
+      p_ar2 <- ap - base365(lin, m$dates, X)
       p_old <- ap - moy_5_valides(lin, m$dates, X)
       dc <- date_ref_t[cel_bloc]
       grp <- list(
@@ -655,18 +682,23 @@ if (ETAPE == "persister") {
       for (g in names(grp)) {
         key <- paste(format(X), g)
         w <- grp[[g]]
-        vals[[key]] <- rbind(vals[[key]], cbind(p_old = p_old[w], p_new = p_new[w], p_an = p_an[w]))
+        vals[[key]] <- rbind(vals[[key]], cbind(p_old = p_old[w], p_ar2 = p_ar2[w], p_new = p_new[w],
+                                                p_an = p_an[w], exclu_x = bx$nexcl[w], exclu_y = by$nexcl[w]))
       }
     }
     cat(basename(f), "\n")
   }
   q <- function(v) stats::quantile(v, c(0.25, 0.5, 0.75), na.rm = TRUE)
   pers <- do.call(rbind, lapply(names(vals), function(key) {
-    v <- vals[[key]]; ok <- stats::complete.cases(v); v <- v[ok, , drop = FALSE]
+    v <- vals[[key]]
+    exclu <- mean(v[, "exclu_x"] > 0); exclu_y <- mean(v[, "exclu_y"] > 0)
+    ok <- stats::complete.cases(v[, c("p_old", "p_new", "p_an")]); v <- v[ok, , drop = FALSE]
     d <- v[, "p_new"] - v[, "p_an"]
     data.frame(date = as.Date(sub(" .*", "", key)), groupe = sub(".* ", "", key),
                n_cellules = length(ok), n = nrow(v),
-               med_old5 = stats::median(v[, "p_old"]), med_new = stats::median(v[, "p_new"]),
+               part_base_amputee = exclu, part_base_amputee_an = exclu_y,
+               med_old5 = stats::median(v[, "p_old"]), med_ar2 = stats::median(v[, "p_ar2"], na.rm = TRUE),
+               med_new = stats::median(v[, "p_new"]),
                q25_new = q(v[, "p_new"])[1], q75_new = q(v[, "p_new"])[3],
                med_an = stats::median(v[, "p_an"]), med_diff = stats::median(d),
                part_new_tp = mean(v[, "p_new"] <= TP), part_an_tp = mean(v[, "p_an"] <= TP),
@@ -674,6 +706,23 @@ if (ETAPE == "persister") {
   }))
   rownames(pers) <- NULL
   out <- list(persistance = pers, n_base_min = N_BASE_MIN, n_apres_min = N_APRES_MIN)
+
+  # Pixels tracés : persistance à la date de la carte (orbite retenue) et un an
+  # avant, même définition, depuis les séries de pixels_traces.rds.
+  tr <- readRDS(file.path(DOSSIER, "pixels_traces.rds"))
+  pt <- tr$pixels
+  pers_trace <- function(i, X) {
+    s <- tr$series[[pt$orbite_ret[i]]]
+    lin <- matrix(10^(s$vh[i, ] / 10), 1L)
+    c(apres(lin, s$dates, X) - base365_hors5(lin, s$dates, X)$v,
+      apres(lin, s$dates, X) - base365(lin, s$dates, X),
+      apres(lin, s$dates, X) - moy_5_valides(lin, s$dates, X))
+  }
+  out$traces <- do.call(rbind, lapply(seq_len(nrow(pt)), function(i) {
+    a <- pers_trace(i, pt$date_carte[i]); b <- pers_trace(i, pt$date_carte[i] - 365)
+    data.frame(x = round(pt$x[i]), y = round(pt$y[i]), classe = pt$classe_026[i], orbite = pt$orbite_ret[i],
+               date_carte = pt$date_carte[i], pers = a[1], pers_ar2 = a[2], pers_old5 = a[3], pers_an = b[1])
+  }))
 
   # Question 3 : FO0 et FF0, datés par l'une, l'autre ou les deux cartes.
   b <- lire_couple(base, reference)
@@ -697,7 +746,7 @@ if (ETAPE == "persister") {
   out$q3_fo0_annee <- table(format(yyddd_vers_date(b$rec[fo0]), "%Y"))
   out$q3_fo0_objets <- length(unique(b$obj[fo0]))
   saveRDS(out, file.path(DOSSIER, "persistance_026.rds"))
-  print(pers, digits = 3); print(out$q3_postes); print(out$q3_fo0_annee); print(out$q3_fo0_objets)
+  print(pers, digits = 3); print(out$traces, digits = 3); print(out$q3_postes); print(out$q3_fo0_annee); print(out$q3_fo0_objets)
 }
 
 # Étape 3 : tracés -------------------------------------------------------------------
