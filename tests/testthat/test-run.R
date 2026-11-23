@@ -855,7 +855,83 @@ test_that("mission 023 : `processus` transmis \u00e0 la passe 1, r\u00e9sultats 
   }
 })
 
-# Essai réel (réseau) -----------------------------------------------------------
+# Jetons SAS renouvelés pendant la lecture (mission 025) -------------------------
+
+test_that("mission 025 : lecteur par d\u00e9faut, jetons qui expirent pendant les bandes : au bout, r\u00e9sultats identiques", {
+  aoi_1 <- rect_ll(0.001, 0.006, 44.500, 44.505)
+  g <- aoi_grille(aoi_preparer(aoi_1))
+  d <- tempfile("s1-jeton-")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  # Deux images sans métadonnées d'unité (lues de la même façon signées ou
+  # non) : 0,05 partout, puis une chute à 0,005 (-10 dB) sur un carré.
+  img <- terra::rast(terra::ext(g) + 200, resolution = 10, crs = terra::crs(g))
+  terra::values(img) <- 0.05
+  f1 <- file.path(d, "avant.tif")
+  terra::writeRaster(img, f1)
+  xy <- terra::crds(img, na.rm = FALSE)
+  centre <- c(mean(terra::ext(g)[1:2]), mean(terra::ext(g)[3:4]))
+  dedans <- abs(xy[, 1] - centre[1]) < 150 & abs(xy[, 2] - centre[2]) < 150
+  terra::values(img) <- ifelse(dedans, 0.005, 0.05)
+  f2 <- file.path(d, "apres.tif")
+  terra::writeRaster(img, f2)
+  dts <- seq(as.Date("2018-01-05"), as.Date("2020-06-30"), by = 24)
+  items <- data.frame(id = paste0("L", seq_along(dts)), date = dts,
+                      heure = as.POSIXct(paste(dts, "06:00:00"), tz = "UTC"), capteur = "S1A",
+                      orbite = 8L, direction = "descendante", serie = "D008",
+                      url = ifelse(dts < as.Date("2019-09-01"), f1, f2),
+                      stringsAsFactors = FALSE)
+  vrai_s1_lire <- s1_lire
+  executer <- function(sortie, signer) {
+    testthat::local_mocked_bindings(
+      s1_rechercher = function(...) structure(items, attribution = s1_attribution(items$date)),
+      s1_lire = function(items, grille, ..., dossier, flux) {
+        if (signer) vrai_s1_lire(items, grille, dossier = dossier, flux = flux)
+        else vrai_s1_lire(items, grille, signer = FALSE, dossier = dossier, flux = flux)
+      }
+    )
+    suppressWarnings(nemetonsar_run(aoi_1, "2019-01-01", "2020-06-30", sortie,
+                                    hauteur_bande = 10L, flux = 1L))
+  }
+  ref <- executer(file.path(d, "ref"), signer = FALSE)
+
+  # Planetary Computer simulé : horloge = nombre de lectures de tranche ; un
+  # jeton demandé à l'heure h reçoit un 403 après la lecture h + 5.
+  lectures <- 0L
+  emis <- integer(0)
+  vrai_un <- s1_lire_un
+  testthat::local_mocked_bindings(
+    rstac_disponible = function() TRUE,
+    s1_fichier_jeton = function() file.path(d, "jeton_sas"),
+    s1_demander_jeton = function(...) {
+      emis <<- c(emis, lectures)
+      list(jeton = paste0("sig=", length(emis)), expiration = Sys.time() + 45 * 60)
+    },
+    s1_lire_un = function(adresse, grille, methode) {
+      lectures <<- lectures + 1L
+      k <- as.integer(sub("^.*sig=", "", adresse))
+      if (lectures > emis[k] + 5L) {
+        warning("GDAL Message 1: Request for 1-2 failed with response_code=403", call. = FALSE)
+        stop("[crop] too few values for writing: 0 < 900", call. = FALSE)
+      }
+      vrai_un(sub("\\?.*$", "", adresse), grille, methode)
+    }
+  )
+  signe <- executer(file.path(d, "sas"), signer = TRUE)
+  expect_gt(signe$tuiles$nb_bandes, 1L)
+  # Des jetons ont expiré, en cours de bande comme entre deux bandes.
+  expect_gt(length(emis), signe$tuiles$nb_bandes)
+  expect_gt(lectures, signe$tuiles$nb_bandes * nrow(items))
+  expect_identical(signe$objets, ref$objets)
+  rasters <- grep("\\.tif$", fichiers_de(file.path(d, "ref")), value = TRUE)
+  expect_gt(length(rasters), 0L)
+  expect_identical(fichiers_de(file.path(d, "sas")), fichiers_de(file.path(d, "ref")))
+  for (f in rasters) {
+    expect_identical(valeurs(file.path(d, "sas", f)), valeurs(file.path(d, "ref", f)), label = f)
+  }
+})
+
+# Raster d'attribution des morceaux (mission 023) -----------------------------
 
 test_that("mission 023 : raster d'attribution en INT4S, sans avertissement, valeurs inchang\u00e9es", {
   # Deux morceaux d'AOI en Lambert-93 (EPSG:2154, x puis y, en m\u00e8tres),
@@ -883,6 +959,8 @@ test_that("mission 023 : raster d'attribution en INT4S, sans avertissement, vale
   xy <- matrix(c(400085, 6400045, 400095, 6400045), ncol = 2, byrow = TRUE)
   expect_identical(as.integer(terra::extract(qui, xy)[, 1]), c(1L, 2L))
 })
+
+# Essai réel (réseau) -----------------------------------------------------------
 
 test_that("essai r\u00e9el : 1 km x 1 km dans les Landes, premier trimestre 2025", {
   skip_if(Sys.getenv("NEMETONSAR_TESTS_RESEAU") != "true",
