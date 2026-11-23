@@ -23,6 +23,10 @@ _Modèle de carte :_
 
 ## Validé
 
+- [024-ecarts-date-v301](missions/024-ecarts-date-v301.md) · depuis le cycle 10
+  - Homme : `analyste` (opus)
+  - Mission : d'où viennent les dates tardives par rapport à la v3.0.1 (règle de date, début de série)
+  - Moyens : voir la fiche ; session locale (données sur le poste de Pascal)
 - [023-fork-gdal](missions/023-fork-gdal.md) · depuis le cycle 10
   - Homme : `dev` (opus)
   - Mission : parallélisme sans blocage sous GDAL ≥ 3.11 ; `processus` dans `nemetonsar_run()`
