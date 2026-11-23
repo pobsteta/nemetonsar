@@ -65,6 +65,10 @@
 #'   enfant à 300 dates et 9 lignes par bloc, soit un pic total de l'ordre de
 #'   4,2 à 4,6 Go pour trois orbites, contre 2,4 Go en série. Sous
 #'   `R CMD check` (variable `_R_CHECK_LIMIT_CORES_`), au plus 2 processus.
+#'   Chaque processus enfant calcule sans le groupe de fils d'exécution de
+#'   terra (`terra::terraOptions(parallel = FALSE)`, dans l'enfant
+#'   seulement) : avec terra 1.9, un enfant qui l'utilise après le fork
+#'   attend sans fin (mission 023).
 #'
 #' @section Masque forêt : Avec `foret`, le ratio et la date sont mis à `NA`
 #'   hors forêt (cellules du masque qui ne valent pas `TRUE`) **après la
@@ -433,6 +437,22 @@ fork_disponible <- function() {
   .Platform$OS.type == "unix"
 }
 
+# Prépare un processus enfant (fork) avant tout calcul de terra. terra >= 1.9
+# (terraOptions(parallel = TRUE), le défaut) garde un groupe de fils
+# d'exécution, créé dans le processus principal par son premier calcul
+# assez gros (par exemple writeRaster() d'au moins 10 000 cellules, terra
+# 1.9-60). Le fork copie la mémoire de ce groupe mais pas ses fils : dans
+# l'enfant, tout calcul de terra qui le sollicite attend sans fin des fils
+# qui n'existent pas (constat de la mission 023). L'enfant calcule donc
+# sans ce groupe : le parallélisme vient des processus. Sans effet avec un
+# terra qui n'a pas l'option `parallel`.
+enfant_sans_fils_terra <- function() {
+  if ("parallel" %in% names(terra::terraOptions(print = FALSE))) {
+    terra::terraOptions(parallel = FALSE)
+  }
+  invisible(NULL)
+}
+
 # Nombre de processus de la passe 1 pour `n_orbites` orbites : `processus`
 # validé (NULL : min(orbites, coeurs - 1)), borné au nombre d'orbites, à 2
 # sous R CMD check (`_R_CHECK_LIMIT_CORES_`, même règle que parallel), à 1
@@ -455,13 +475,16 @@ nb_processus <- function(processus, n_orbites) {
 }
 
 # `f(k, lu)` pour chaque orbite `k` de `indices`, un processus enfant par
-# orbite (fork), au plus `n_proc` à la fois ; résultats dans l'ordre de
-# `indices`. Une erreur dans un enfant, ou un enfant mort sans résultat
-# (mémoire), devient une erreur qui nomme l'orbite.
+# orbite (fork, sans le groupe de fils de terra : enfant_sans_fils_terra()),
+# au plus `n_proc` à la fois ; résultats dans l'ordre de `indices`. Une
+# erreur dans un enfant, ou un enfant mort sans résultat (mémoire), devient
+# une erreur qui nomme l'orbite.
 orbites_en_parallele <- function(indices, f, lu, n_proc, noms) {
   sorties <- suppressWarnings(
-    parallel::mclapply(indices, f, lu = lu, mc.cores = n_proc,
-                       mc.preschedule = FALSE, mc.set.seed = FALSE)
+    parallel::mclapply(indices, function(k, lu) {
+      enfant_sans_fils_terra()
+      f(k, lu)
+    }, lu = lu, mc.cores = n_proc, mc.preschedule = FALSE, mc.set.seed = FALSE)
   )
   if (is.null(noms)) noms <- rep("", length(indices))
   for (i in seq_along(indices)) {

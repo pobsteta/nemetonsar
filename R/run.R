@@ -198,6 +198,11 @@
 #' @param flux Nombre de processus qui lisent les images en même temps
 #'   (passé à [s1_lire()] par le lecteur par défaut). Défaut 4,
 #'   **provisoire**.
+#' @param processus Nombre de processus de la passe 1 de la détection
+#'   (passé à [nemetonsar_detecter()] ; voir sa section « Parallélisme »).
+#'   `NULL` (défaut) : un processus par orbite, au plus le nombre de cœurs
+#'   moins 1 ; `1` : calcul en série. Le résultat ne dépend pas de ce
+#'   réglage.
 #'
 #' @return (invisible) Une liste : `fichiers` (chemins écrits, nommés),
 #'   `objets` (table des objets gardés : `identifiant`, `nb_pixels`,
@@ -241,7 +246,8 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
                            lire_images = NULL,
                            bdforet = NULL,
                            hauteur_bande = 512L,
-                           flux = 4L) {
+                           flux = 4L,
+                           processus = NULL) {
   debut_calcul <- Sys.time()
   p <- valide_parametres(parametres)
   periode <- valide_periode(date_debut, date_fin)
@@ -311,6 +317,9 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
   if (!est_scalaire_num(flux) || !is.finite(flux) || flux < 1 || flux != round(flux)) {
     stop("`flux` doit \u00eatre un entier au moins \u00e9gal \u00e0 1.", call. = FALSE)
   }
+  # Même règle que nemetonsar_detecter() (nb_processus()), vérifiée avant
+  # tout calcul.
+  nb_processus(processus, 1L)
   if (is.null(lire_images)) {
     source_images <- paste0("s1_rechercher() + s1_lire() (STAC sentinel-1-rtc, Microsoft Planetary Computer), ",
                             flux, " flux ; reprojection exacte (terra::project(use_gdal = FALSE), ",
@@ -368,6 +377,10 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
          if (is.null(hauteur_bande)) "d'un seul tenant par tuile" else
            paste0("par bandes de ", hauteur_bande, " lignes de la tuile (plus la bordure du filtre)"),
          " ; images effac\u00e9es apr\u00e8s usage (non gard\u00e9es d'une ex\u00e9cution \u00e0 l'autre)")
+  ecrire("Passe 1 de la d\u00e9tection : ",
+         if (is.null(processus)) "processus = NULL (un par orbite, au plus le nombre de c\u0153urs moins 1)"
+         else paste0("processus = ", processus),
+         " ; m\u00eame r\u00e9sultat qu'en s\u00e9rie")
   ecrire("Dossier : ", normalizePath(dossier))
   ecrire("")
   ecrire("## AOI")
@@ -413,7 +426,7 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
     resultats[[tuile$mgrs]] <- run_tuile(
       tuile, prep$aoi[[tuile$mgrs]], periode, debut_images, dossier, p,
       tcd, correction_2019, lignes_par_bloc, lire_images, ecrire, bdforet,
-      hauteur_bande, flux
+      hauteur_bande, flux, processus
     )
   }
 
@@ -514,7 +527,8 @@ nemetonsar_run <- function(aoi, date_debut, date_fin, dossier,
 # list(fichiers, resume, attribution, brut, foret, passe_2019).
 run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
                       correction_2019, lignes_par_bloc, lire_images, ecrire,
-                      bdforet = NULL, hauteur_bande = NULL, flux = 4L) {
+                      bdforet = NULL, hauteur_bande = NULL, flux = 4L,
+                      processus = NULL) {
   mgrs <- tuile$mgrs
   dt <- file.path(dossier, "tuiles", mgrs)
   dir.create(dt, showWarnings = FALSE, recursive = TRUE)
@@ -671,10 +685,10 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
   if (is.null(bandes)) {
     if (passe_2019) {
       brut_a <- detection_brute(sous_a(orbites), dates_a, file.path(dt, "passe_2019", "brut"), pb,
-                                lignes_par_bloc, foret0)
+                                lignes_par_bloc, foret0, processus)
     }
     brut_b <- detection_brute(orbites, dates, file.path(dt, "detection", "brut"), pb,
-                              lignes_par_bloc, foret0)
+                              lignes_par_bloc, foret0, processus)
     resume$nb_bandes <- 1L
     ecrire("Lecture d'un seul tenant ; disque des images : ",
            format(round(resume$disque_images_mo, 1), nsmall = 1), " Mo (effac\u00e9es ensuite)")
@@ -704,7 +718,8 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
         r <- detecter_blocs(if (ps == "a") sous_a(orbs) else orbs,
                             if (ps == "a") dates_a else dates,
                             db, q, lignes_par_bloc, NULL, foret_b,
-                            ecrire_objets = FALSE, type_ratio = "FLT8S")
+                            ecrire_objets = FALSE, type_ratio = "FLT8S",
+                            processus = processus)
         for (champ in c("ratio", "dates")) {
           rr <- terra::rast(r$fichiers[[champ]])
           terra::readStart(rr)
@@ -844,10 +859,12 @@ run_tuile <- function(tuile, morceau, periode, debut_images, dossier, p, tcd,
 # avec les paramètres de parametres_bruts() et le masque forêt de toute la
 # grille (sans le morceau d'AOI), sans GeoPackage (pas de polygonisation),
 # ratio écrit en réel 64 bits (`FLT8S`) : segmenter_blocs() le relit tel que
-# la passe 1 l'a calculé. Rend les chemins de `dates.tif` et `ratio.tif`.
-detection_brute <- function(orbites, dates, dossier, pb, lignes_par_bloc, foret) {
+# la passe 1 l'a calculé. `processus` : voir nemetonsar_detecter(). Rend
+# les chemins de `dates.tif` et `ratio.tif`.
+detection_brute <- function(orbites, dates, dossier, pb, lignes_par_bloc, foret,
+                            processus = NULL) {
   res <- detecter_blocs(orbites, dates, dossier, pb, lignes_par_bloc, NULL, foret,
-                        ecrire_objets = FALSE, type_ratio = "FLT8S")
+                        ecrire_objets = FALSE, type_ratio = "FLT8S", processus = processus)
   res$fichiers[c("dates", "ratio")]
 }
 
@@ -925,6 +942,17 @@ parametres_tout_garder <- function(pb) {
 
 # Assemblage -------------------------------------------------------------------
 
+# Raster d'attribution `qui` : pour chaque pixel de `modele`, le rang (champ
+# `tuile`) du morceau d'AOI qui contient son centre, NA ailleurs ; écrit en
+# entier 32 bits (`INT4S`) dans `fichier`. Le type passe par `wopt` : terra
+# (1.7 comme 1.9) n'applique pas un `datatype` passé à rasterize() hors de
+# `wopt` (terra 1.9 l'ignore avec un avertissement).
+run_rasteriser_qui <- function(morceaux, modele, fichier) {
+  terra::rasterize(morceaux, modele, field = "tuile", touches = FALSE, filename = fichier,
+                   overwrite = TRUE, wopt = list(datatype = "INT4S"))
+  terra::rast(fichier)
+}
+
 # Assemble les sorties brutes des tuiles sur une grille Lambert-93, chaque
 # pixel pris à une seule tuile (celle dont le morceau d'AOI contient son
 # centre), puis y fait la segmentation, la surface minimale et la fermeture
@@ -958,9 +986,7 @@ run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc, periode,
     terra::values(m) <- data.frame(tuile = k)
     m
   }))
-  terra::rasterize(morceaux, modele, field = "tuile", touches = FALSE, filename = tmp[["qui"]],
-                   overwrite = TRUE, datatype = "INT4S")
-  qui <- terra::rast(tmp[["qui"]])
+  qui <- run_rasteriser_qui(morceaux, modele, tmp[["qui"]])
 
   # Une couche de chaque tuile, au plus proche voisin, sur ses seuls pixels.
   # Le ratio (`FLT8S`) reste en réel 64 bits, y compris dans les fichiers

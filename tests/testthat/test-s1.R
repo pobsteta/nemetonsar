@@ -333,6 +333,115 @@ test_that("s1_lire() : m\u00eames piles avec 1 ou plusieurs flux ; erreur d'un p
   expect_error(s1_lire(items, grille, signer = FALSE, flux = 1.5), "flux")
 })
 
+# Mission 023 : parallélisme sans blocage sous terra >= 1.9 -------------------
+
+# Lance `code` (texte R) dans un nouveau processus R où nemetonsar est
+# chargé comme dans cette session (sources par pkgload, ou paquet installé),
+# évalué dans l'espace de noms du paquet, avec un délai maximal de `delai`
+# secondes. Rend list(statut, sortie) ; statut 124 : délai dépassé (le
+# processus est arrêté). Depuis les sources, le nouveau processus charge le
+# paquet par pkgload (Suggests), comme testthat::test_local() ; sans pkgload,
+# le test est sauté.
+r_avec_delai <- function(code, delai) {
+  chemin <- getNamespaceInfo("nemetonsar", "path")
+  sources <- file.exists(file.path(chemin, "R", "s1.R"))
+  if (sources) skip_if_not_installed("pkgload")
+  charger <- if (sources) {
+    sprintf("suppressMessages(pkgload::load_all(%s, quiet = TRUE))", deparse(chemin))
+  } else {
+    sprintf("suppressMessages(library(nemetonsar, lib.loc = %s))", deparse(dirname(chemin)))
+  }
+  script <- tempfile("m023-", fileext = ".R")
+  sortie <- tempfile("m023-", fileext = ".txt")
+  on.exit(unlink(c(script, sortie)), add = TRUE)
+  writeLines(c(sprintf(".libPaths(%s)", paste(deparse(.libPaths()), collapse = "")),
+               charger,
+               "local({", code, "}, envir = new.env(parent = asNamespace(\"nemetonsar\")))"),
+             script)
+  statut <- suppressWarnings(system2(file.path(R.home("bin"), "Rscript"),
+                                     c("--vanilla", shQuote(script)),
+                                     stdout = sortie, stderr = sortie, timeout = delai))
+  list(statut = statut, sortie = if (file.exists(sortie)) readLines(sortie, warn = FALSE) else "")
+}
+
+test_that("mission 023 : lecture parall\u00e8le apr\u00e8s un calcul de terra dans le processus principal, sans blocage", {
+  skip_on_os("windows")
+  skip_on_cran()
+  resultat <- tempfile("m023-", fileext = ".rds")
+  on.exit(unlink(resultat), add = TRUE)
+  # Le processus principal écrit des images d'au moins 10 000 cellules
+  # (writeRaster) avant le fork : avec terra 1.9-60, cela crée le groupe de
+  # fils d'exécution de terra. Les processus enfants de s1_lire() écrivent
+  # chacun une date de 14 400 cellules. Sans le correctif, ils attendent sans
+  # fin (constat du 2026-11-23, GDAL 3.11.4, terra 1.9-60).
+  code <- sprintf('
+    d <- tempfile("m023-")
+    dir.create(d)
+    grille <- terra::rast(nrows = 120, ncols = 120, xmin = 600000, xmax = 601200,
+                          ymin = 5000000, ymax = 5001200, crs = "EPSG:32631")
+    image <- function(i) {
+      r <- terra::rast(terra::ext(grille) + 105, resolution = 10, crs = "EPSG:32631")
+      set.seed(i)
+      terra::values(r) <- 0.05 * stats::rgamma(terra::ncell(r), 200, 200)
+      f <- file.path(d, paste0("i", i, ".tif"))
+      terra::writeRaster(r, f)
+      f
+    }
+    urls <- vapply(1:6, image, character(1))
+    items <- data.frame(date = as.Date("2025-06-01") + 12 * (0:5),
+                        heure = as.POSIXct("2025-06-01 06:00:00", tz = "UTC") + 12 * 86400 * (0:5),
+                        serie = rep(c("A030", "D008"), 3), url = urls, stringsAsFactors = FALSE)
+    s2 <- suppressWarnings(s1_lire(items, grille, signer = FALSE, flux = 2L,
+                                   dossier = file.path(d, "f2")))
+    s1 <- suppressWarnings(s1_lire(items, grille, signer = FALSE, flux = 1L,
+                                   dossier = file.path(d, "f1")))
+    saveRDS(list(dates = identical(s1$dates, s2$dates),
+                 valeurs = lapply(names(s1$orbites), function(o)
+                   identical(terra::values(s1$orbites[[o]]), terra::values(s2$orbites[[o]])))),
+            %s)
+  ', deparse(resultat))
+  delai <- 120
+  x <- r_avec_delai(code, delai)
+  if (x$statut == 124L) {
+    fail(paste0("blocage : la lecture parall\u00e8le n'a pas fini en ", delai, " s"))
+  } else {
+    expect_identical(x$statut, 0L, label = paste(x$sortie, collapse = "\n"))
+    r <- readRDS(resultat)
+    expect_true(r$dates)
+    expect_identical(r$valeurs, list(TRUE, TRUE))
+  }
+})
+
+test_that("mission 023 : la lecture passe bien par des processus enfants, sans les fils de terra", {
+  skip_on_os("windows")
+  d <- tempfile("s1-")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  grille <- terra::rast(xmin = 55, xmax = 355, ymin = 55, ymax = 355,
+                        resolution = 10, crs = "EPSG:32630")
+  urls <- vapply(1:6, function(i) image_locale(0.01 * i, 0, d, paste0("i", i, ".tif"), "linear"),
+                 character(1))
+  items <- data.frame(date = as.Date("2025-06-01") + 12 * (0:5),
+                      heure = as.POSIXct("2025-06-01 06:00:00", tz = "UTC") + 12 * 86400 * (0:5),
+                      serie = rep(c("A030", "D008"), 3), url = urls, stringsAsFactors = FALSE)
+  trace <- file.path(d, "trace.txt")
+  vrai <- s1_lire_un
+  local_mocked_bindings(s1_lire_un = function(...) {
+    opt <- terra::terraOptions(print = FALSE)$parallel
+    cat(Sys.getpid(), if (is.null(opt)) "absent" else opt, "\n", file = trace, append = TRUE)
+    vrai(...)
+  })
+  avant <- terra::terraOptions(print = FALSE)$parallel
+  s1_lire(items, grille, signer = FALSE, flux = 2L, dossier = file.path(d, "f"))
+  t <- utils::read.table(trace, col.names = c("pid", "parallel"), colClasses = "character")
+  expect_equal(nrow(t), 6L)
+  expect_false(any(t$pid == as.character(Sys.getpid())))
+  expect_gte(length(unique(t$pid)), 2L)
+  expect_true(all(t$parallel %in% c("FALSE", "absent")))
+  # Le réglage de terra du processus principal n'est pas touché.
+  expect_identical(terra::terraOptions(print = FALSE)$parallel, avant)
+})
+
 test_that("reprojection exacte : valeur bilin\u00e9aire au centre exact, identique par bandes", {
   d <- tempfile("s1-")
   dir.create(d)
