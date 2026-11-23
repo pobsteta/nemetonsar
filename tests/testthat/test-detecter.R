@@ -533,3 +533,28 @@ test_that("mission 021 : un processus enfant mort sans r\u00e9sultat remonte cla
     "Orbite asc \\(lignes 1 .+ 8\\) : le processus enfant .*sans r"
   )
 })
+
+test_that("mission 023 : la passe 1 passe bien par des processus enfants, sans les fils de terra", {
+  skip_on_os("windows")
+  trace <- tempfile("trace-")
+  on.exit(unlink(trace), add = TRUE)
+  vrai <- rcr_compute
+  local_mocked_bindings(rcr_compute = function(...) {
+    opt <- terra::terraOptions(print = FALSE)$parallel
+    cat(Sys.getpid(), if (is.null(opt)) "absent" else opt, "\n", file = trace, append = TRUE)
+    vrai(...)
+  })
+  avant <- terra::terraOptions(print = FALSE)$parallel
+  para <- nemetonsar_detecter(orbites3, dates3, tempfile("det-"), lignes_par_bloc = 7L,
+                              processus = 3L)
+  t <- utils::read.table(trace, col.names = c("pid", "parallel"), colClasses = "character")
+  # Une ligne par orbite et par bloc, aucune dans le processus principal.
+  expect_equal(nrow(t), 3L * ceiling(nl / 7))
+  expect_false(any(t$pid == as.character(Sys.getpid())))
+  expect_gte(length(unique(t$pid)), 2L)
+  expect_true(all(t$parallel %in% c("FALSE", "absent")))
+  expect_identical(terra::terraOptions(print = FALSE)$parallel, avant)
+  serie <- nemetonsar_detecter(orbites3, dates3, tempfile("det-"), lignes_par_bloc = 7L,
+                               processus = 1L)
+  expect_identical(sorties_detecter(para), sorties_detecter(serie))
+})

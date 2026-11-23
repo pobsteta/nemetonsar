@@ -158,7 +158,11 @@ s1_rechercher <- function(emprise, date_debut, date_fin,
 #'   orbite (toutes ses tranches) est lue, reprojetée et écrite par un
 #'   processus parmi `flux` ([parallel::mclapply()], fork ; en série là où
 #'   le fork n'existe pas, sous Windows ; au plus 2 processus sous
-#'   `R CMD check`, quand `_R_CHECK_LIMIT_CORES_` est posée). Chaque date est écrite dans son
+#'   `R CMD check`, quand `_R_CHECK_LIMIT_CORES_` est posée). Chaque
+#'   processus calcule sans le groupe de fils d'exécution de terra
+#'   (`terra::terraOptions(parallel = FALSE)`, dans le processus enfant
+#'   seulement) : avec terra 1.9, un enfant qui l'utilise après le fork
+#'   attend sans fin (mission 023). Chaque date est écrite dans son
 #'   fichier, `<dossier>/s1_<serie>/<AAAA-MM-JJ>.tif`, en réel 32 bits
 #'   (`FLT4S`), compression DEFLATE avec prédicteur flottant
 #'   (`PREDICTOR=3`), comme les fichiers RTC sources. La pile d'une orbite
@@ -544,7 +548,8 @@ avertir_sans_unite <- function(n) {
   invisible(n)
 }
 
-# Applique `f` à chaque tâche, en `flux` processus (fork) si possible ; une
+# Applique `f` à chaque tâche, en `flux` processus (fork, sans le groupe de
+# fils de terra : enfant_sans_fils_terra(), R/detecter.R) si possible ; une
 # erreur d'un processus arrête la lecture avec son message. Rend un vecteur
 # d'entiers.
 s1_appliquer <- function(taches, f, flux) {
@@ -554,6 +559,7 @@ s1_appliquer <- function(taches, f, flux) {
   n <- nb_processus(flux, length(taches))
   if (n > 1L) {
     res <- parallel::mclapply(taches, function(t) {
+      enfant_sans_fils_terra()
       tryCatch(f(t), error = function(e) structure(conditionMessage(e), class = "s1_erreur"))
     }, mc.cores = n, mc.preschedule = FALSE)
     for (r in res) {

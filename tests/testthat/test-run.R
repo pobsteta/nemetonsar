@@ -818,6 +818,43 @@ test_that("bandes : lecteur incoh\u00e9rent ou hors grille refus\u00e9, images e
                               lire_images = lec, flux = 0), "flux")
 })
 
+test_that("mission 023 : `processus` transmis \u00e0 la passe 1, r\u00e9sultats identiques", {
+  skip_on_os("windows")
+  lec <- lecteur_coord(coupes_run)
+  vus <- list()
+  vrai <- detecter_blocs
+  local_mocked_bindings(detecter_blocs = function(..., processus = NULL) {
+    vus[[length(vus) + 1L]] <<- processus
+    vrai(..., processus = processus)
+  })
+  executer <- function(np, h) {
+    d <- tempfile("run-proc-")
+    r <- nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", d, tcd = tcd_run,
+                        lire_images = lec, hauteur_bande = h, processus = np)
+    list(r = r, d = d)
+  }
+  for (h in list(NULL, 23L)) {
+    vus <- list()
+    serie <- executer(1L, h)
+    expect_gt(length(vus), 0L)
+    expect_true(all(vapply(vus, identical, logical(1), 1L)))
+    vus <- list()
+    para <- executer(2L, h)
+    expect_true(all(vapply(vus, identical, logical(1), 2L)))
+    expect_identical(para$r$objets, serie$r$objets)
+    rasters <- grep("\\.tif$", fichiers_de(serie$d), value = TRUE)
+    expect_identical(fichiers_de(para$d), fichiers_de(serie$d))
+    for (f in rasters) {
+      expect_identical(valeurs(file.path(para$d, f)), valeurs(file.path(serie$d, f)), label = f)
+    }
+    expect_true(any(grepl("processus = 2", readLines(para$r$journal), fixed = TRUE)))
+  }
+  for (np in list(0, 1.5, "2", NA)) {
+    expect_error(nemetonsar_run(aoi_2z, "2019-01-01", "2020-06-30", tempfile("run-"),
+                                lire_images = lec, processus = np), "processus")
+  }
+})
+
 # Essai réel (réseau) -----------------------------------------------------------
 
 test_that("essai r\u00e9el : 1 km x 1 km dans les Landes, premier trimestre 2025", {
