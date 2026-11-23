@@ -25,6 +25,14 @@ _Modèle de carte :_
 
 ## Validé
 
+- [027-regles-de-date](missions/027-regles-de-date.md) · depuis le cycle 11
+  - Homme : `analyste` (opus)
+  - Mission : essayer seuil de datation distinct et date multi-orbites sur les séries relevées
+  - Moyens : voir la fiche ; session locale (données sur le poste de Pascal)
+- [028-observer-loin-du-seuil](missions/028-observer-loin-du-seuil.md) · depuis le cycle 11
+  - Homme : `analyste` (opus)
+  - Mission : observer ce que datent les pixels « loin du seuil » et l'objet FO0 (Sentinel-2, dates de vol des orthos)
+  - Moyens : voir la fiche ; session locale (données sur le poste de Pascal)
 
 ## Planifié
 
