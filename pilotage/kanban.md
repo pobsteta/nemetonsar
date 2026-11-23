@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 9 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 10 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -26,15 +26,13 @@ _Modèle de carte :_
 
 ## Planifié
 
-- [024-ecarts-date-v301](missions/024-ecarts-date-v301.md) · depuis le cycle 10 · lancée au cycle 10
-  - Homme : `analyste` (opus)
-  - Mission : d'où viennent les dates tardives par rapport à la v3.0.1 (règle de date, début de série)
-  - Moyens : voir la fiche ; session locale (données sur le poste de Pascal)
 - [017-tuile-pilote-landes](missions/017-tuile-pilote-landes.md) · depuis le cycle 5 · lancée au cycle 10
 
 
 ## Terminé
 
+- [024-ecarts-date-v301](missions/024-ecarts-date-v301.md) · depuis le cycle 10
+  - Mission : d'où viennent les dates tardives par rapport à la v3.0.1 (analyste)
 - [023-fork-gdal](missions/023-fork-gdal.md) · depuis le cycle 10
   - Mission : parallélisme sans blocage sous terra 1.9 ; `processus` dans `nemetonsar_run()`
 - [019-mesure-lecture-parallele](missions/019-mesure-lecture-parallele.md) · depuis le cycle 9
