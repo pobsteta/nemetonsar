@@ -16,6 +16,8 @@ git tag v0.1.0
 verifie "rien changé" "pas de release:" "$("$S")"
 ecrit docs/brief.md x; ecrit docs/a.pdf x; ecrit README.md x; commit docs
 verifie "seulement docs/md" "pas de release:" "$("$S")"
+ecrit pilotage/kanban.md x; ecrit pilotage/missions/suivi.csv x; commit pilotage
+verifie "seulement pilotage" "pas de release:" "$("$S")"
 ecrit R/a.R 2; commit code
 verifie "docs + code" "release:" "$("$S")"
 git tag -f v0.1.0 HEAD >/dev/null
@@ -32,6 +34,8 @@ verifie "page d'aide modifiée" "release:" "$("$S")"
 # code non publié, puis fusion de docs : on compare au tag, pas au commit précédent
 git tag v0.2.0; ecrit R/b.R 1; commit code2; ecrit docs/j.md x; commit docs2
 verifie "code puis docs (CI annulée)" "release:" "$("$S")"
+git tag v0.2.1; ecrit R/b.R 1b; commit code2b; ecrit pilotage/suivi.csv x; commit pilotage2
+verifie "code puis pilotage (CI annulée)" "release:" "$("$S")"
 verifie "commit inconnu" "release:" "$("$S" deadbeef)"
 
 # tête de main et fichiers de test
