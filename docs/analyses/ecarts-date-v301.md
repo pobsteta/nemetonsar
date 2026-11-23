@@ -2,8 +2,10 @@
 
 > **Usage non commercial.** Ce rapport contient des chiffres tirés d'une comparaison à la
 > carte SUFOSAT v3.0.1 (CC BY-NC 4.0). Il hérite de la clause non commerciale (ADR 0002,
-> `docs/referentiels/licences.md`). Il ne contient que des chiffres agrégés, aucune
-> valeur de pixel de la v3.0.1.
+> `docs/referentiels/licences.md`). Il contient des chiffres agrégés et, pour les deux
+> pixels tracés (section « Deux pixels tracés », coordonnées L93 données pour le contrôle
+> sur orthophoto), la position de la date publiée par la v3.0.1 par rapport à la série du
+> ratio. Aucune autre valeur de pixel de la v3.0.1.
 
 Analyste, 2026-11-23, sur le poste de Pascal. Script : [`ecarts-date-v301.R`](ecarts-date-v301.R)
 (étapes `recalculer`, `comparer`, `tracer`, `orthos`). Point de départ :
@@ -71,8 +73,16 @@ Les surfaces et les objets ne bougent presque pas : la règle change la date, pa
 ### Deux pixels tracés
 
 Étape `tracer` : série du ratio des trois orbites, relue sur une AOI de 210 m autour du pixel
-(vignettes et séries hors dépôt, `<dossier>/trace_*.png` et `.rds`). Sur cette petite AOI le pixel
-n'est pas retenu comme objet (objet tronqué, sans graine), la trace sert pour la série seule.
+(vignettes et séries hors dépôt, `<dossier>/trace_*.png` et `.rds`). Sur cette petite AOI, le
+pixel n° 1 n'est pas retenu comme objet (objet tronqué, sans graine : date de la trace vide) et sa
+trace sert pour la série seule ; le pixel n° 2 est retenu, à la même date que la carte de la
+mission 017 (21063, `trace2.log`).
+
+*Journal du pixel n° 1.* `trace1.log` se termine sur une erreur de syntaxe d'une version antérieure
+du script (boucle du graphique, corrigée depuis), écrite après l'enregistrement de la série :
+`trace_398355_6352105.rds` et `.png` sont complets. Les dates par orbite relues dans ce `.rds`
+(`trace1_relu.log`, hors dépôt) sont identiques à celles du journal. La trace n'a pas été
+relancée : cela relit les images Sentinel-1.
 
 - **Pixel tardif retrouvé par la règle (L93 398355 ; 6352105).** Orbite retenue (ratio de
   détection minimal −4,15 dB) : le ratio de détection passe sous tp une première fois au
@@ -117,10 +127,17 @@ Causes exclusives, attribuées dans cet ordre : début de série, puis règle de
 | Cause | Pixels | % | % cumulé |
 |---|---:|---:|---:|
 | **Cause non établie** : sur l'orbite retenue, premier passage du ratio de détection sous tp à plus de 60 j de la date publiée | 13 104 | 52,0 | 52,0 |
-| **Règle de date** (minimum du ratio de datation au lieu du premier passage sous tp) : ≤ 15 j : 4 896 ; 16 à 60 j : 4 163 | 9 059 | 36,0 | **88,0** |
+| **Règle de date**, date retrouvée (≤ 15 j avec `premiere_detection`) | 4 896 | 19,4 | 71,5 |
+| **Règle de date**, rapprochée sans être retrouvée (16 à 60 j avec `premiere_detection`) | 4 163 | 16,5 | **88,0** |
 | *— trait —* | | | |
 | Début de série (date publiée en 2018, aucun ratio avant 2019) | 2 822 | 11,2 | 99,2 |
 | Plus datés avec la règle `premiere_detection` | 196 | 0,8 | 100,0 |
+
+**Ce que compte la règle de date.** Le chiffre principal est **19,4 % des pixels tardifs ramenés à
+15 j ou moins** (4 896). La tranche de 16 à 60 j (16,5 %) est comptée sous « règle de date » parce
+que la règle en rapproche fortement la date (de plus de 180 j à moins de 60 j), mais ces pixels
+**ne redeviennent pas « date retrouvée »** au seuil de 15 j ; si l'on ne garde que la date retrouvée,
+le cumul au trait tombe à 71,5 % et le reste (non établi plus 16-60 j) pèse 68,5 %.
 
 La ligne « cause non établie » est **en tête** : avant d'agir sur elle, il faut mieux observer.
 Ce qu'on en sait (faits, non des causes) :
