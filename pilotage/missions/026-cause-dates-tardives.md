@@ -59,3 +59,13 @@ Les pixels tracés et les dates de fin d'hiver, sur orthophoto IGN et, si possib
 ## Qui veille, qui tranche
 
 - **Relecteur :** `relecteur`, puis Pascal. **Arrêt :** 3 allers-retours. **Qui tranche :** Pascal (règle de date, masques).
+
+## Aller-retour 2/3 (2026-11-23, remarques du relecteur, décision de l'orchestrateur)
+
+Rapport seulement (et le script si une mesure est refaite à partir de `m026/series/`), sans nouvelle lecture Sentinel-1.
+
+1. **Fond, Q2** : la persistance « baisse durable, changement réel » prend pour base les 5 images avant la date, qui forment aussi le dénominateur du ratio qui a fait retenir ces pixels : biais de sélection. Refaire la mesure avec une base qui ne sert pas à la sélection (par exemple [X−365, X−60[, et la même fenêtre un an avant comme témoin), sur les tardifs et sur le témoin, depuis `m026/series/` ; retirer ou requalifier l'affirmation, y compris dans la rubrique Causes.
+2. Q2 : plages de la lecture contredites par le tableau (parcelles coupées : 4,1 à 21 % et 110 à 1 270 fois ; forêt sans coupe : 0,14 à 2,7 % et 8 à 330 fois, d'après le relecteur) ; rangs à donner dans l'ordre du tableau.
+3. Q3 : « FO0 … aucun daté » est faux ; donner la part des pixels FO0 datés par la carte recalculée seule, et le dire clairement (cela touche la décision de Pascal du 2026-11-22 sur FF0/FO0).
+4. « 36 appels » : 30 blocs relevés ; corriger ou dire d'où vient 36.
+5. Mineurs : persistance agrégée (`par_date`, l. 380 du script) prend les 5 colonnes précédentes et non les « 5 images valides » de la définition ; 3 262 (et non 3 264) dans la classe « proche » ; en-tête du tableau des quantiles : meilleure orbite (ratio) contre orbite retenue (VH, premier passage) ; « à observer d'abord » porte sur la classe « loin du seuil ».
