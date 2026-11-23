@@ -103,15 +103,25 @@ s1_rechercher <- function(emprise, date_debut, date_fin,
 #' [nemetonsar_detecter()].
 #'
 #' @section Signature des adresses : Les fichiers du Planetary Computer ne
-#'   se lisent qu'avec un jeton SAS ajouté à l'adresse. Avec `signer = TRUE`,
-#'   les adresses sont signées par [rstac::sign_planetary_computer()] (un
-#'   jeton par compte de stockage, gardé en cache et renouvelé à
-#'   l'expiration). Repli sans `rstac` : demander un jeton à
+#'   se lisent qu'avec un jeton SAS ajouté à l'adresse. Avec `signer = TRUE`
+#'   (il faut `rstac`, comme pour [s1_rechercher()]), le jeton est demandé à
+#'   l'API publique des jetons,
 #'   `https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-1-rtc`
-#'   (champ `token` de la réponse JSON), l'ajouter à l'adresse après un `?`,
-#'   puis lire `"/vsicurl/<adresse signée>"` avec [terra::rast()] et passer
-#'   ces adresses avec `signer = FALSE`. Avec `signer = FALSE`, une adresse
-#'   qui désigne un fichier local est lue telle quelle.
+#'   (champ `token` de la réponse JSON), et chaque tranche est signée **juste
+#'   avant d'être ouverte**, pas une fois pour toute la lecture : une adresse
+#'   signée garde le jeton du moment de la signature, et un jeton ne vaut que
+#'   45 min (relevé le 2026-11-23), moins qu'une lecture longue. Le jeton en
+#'   cours est gardé et partagé entre les processus de la session (fichier
+#'   du dossier temporaire de la session) ; il est remplacé par un neuf quand
+#'   il lui reste moins de 15 min. Si le stockage répond 403 pendant la
+#'   lecture d'une tranche, elle est relue **une fois** avec un jeton neuf ;
+#'   un second refus arrête la lecture sur une erreur (jeton refusé de façon
+#'   durable). **Provisoire (mission 025)** : la marge de 15 min et la
+#'   relecture unique. Repli sans `rstac` : signer soi-même les adresses
+#'   (ajouter le jeton après un `?`), lire `"/vsicurl/<adresse signée>"` avec
+#'   [terra::rast()] et passer ces adresses avec `signer = FALSE` (le jeton
+#'   n'est alors pas renouvelé). Avec `signer = FALSE`, une adresse qui
+#'   désigne un fichier local est lue telle quelle.
 #'
 #' @section Tranches d'une même acquisition : Quand l'emprise touche
 #'   plusieurs tranches d'une même acquisition (même `serie`, même `date`),
@@ -174,8 +184,8 @@ s1_rechercher <- function(emprise, date_debut, date_fin,
 #' @param grille Un `SpatRaster` modèle dans un système projeté en mètres
 #'   (par exemple la tuile MGRS en UTM, 10 m) : étendue, résolution et
 #'   système des piles rendues.
-#' @param signer Signer les adresses par le Planetary Computer (`TRUE`, il
-#'   faut `rstac`) ou les lire telles quelles (`FALSE`).
+#' @param signer Signer les adresses par un jeton SAS du Planetary Computer
+#'   (`TRUE`, il faut `rstac`) ou les lire telles quelles (`FALSE`).
 #' @param methode Méthode de rééchantillonnage passée à [terra::project()].
 #' @param dossier `NULL` (fichiers écrits dans un dossier temporaire de la
 #'   session R) ou un dossier où écrire un fichier par date et par orbite,
@@ -251,18 +261,20 @@ s1_lire <- function(items, grille, signer = TRUE, methode = "bilinear",
   items <- items[order(items$serie, items$date, items$heure), , drop = FALSE]
   rownames(items) <- NULL
   adresses <- as.character(items$url)
+  jeton <- NULL
   if (signer) {
     exiger_rstac("s1_lire(signer = TRUE)")
-    signe <- rstac::sign_planetary_computer()
-    adresses <- vapply(adresses, function(u) {
-      signe(list(assets = list(a = list(href = u))))$assets$a$href
-    }, character(1), USE.NAMES = FALSE)
+    # Un jeton SAS par lecture de tranche, juste avant de l'ouvrir (voir
+    # « Signature des adresses ») ; le premier est demandé ici, dans le
+    # processus principal, avant les processus enfants.
+    jeton <- s1_jetons(s1_fichier_jeton())
+    jeton()
   }
 
   # Lecture distante : ne pas lister le dossier du fichier (inutile et lent
   # sur un stockage objet). Pas pour les fichiers locaux, dont GDAL doit
   # pouvoir lire les fichiers annexes (.aux.xml).
-  if (!all(file.exists(adresses))) {
+  if (signer || !all(file.exists(adresses))) {
     ancien <- terra::getGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN")
     terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
     on.exit(terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", ancien), add = TRUE)
@@ -287,7 +299,7 @@ s1_lire <- function(items, grille, signer = TRUE, methode = "bilinear",
     couche <- NULL
     sans <- 0L
     for (k in t$tranches) {
-      lu <- s1_lire_un(adresses[k], grille, methode)
+      lu <- s1_lire_tranche(adresses[k], grille, methode, jeton)
       sans <- sans + lu$sans_unite
       couche <- if (is.null(couche)) lu$raster else terra::cover(couche, lu$raster)
     }
@@ -536,6 +548,158 @@ s1_lire_un <- function(adresse, grille, methode) {
   # Reprojection exacte, cellule par cellule (voir s1_lire(), « Rééchantillonnage »).
   sortie <- terra::project(morceau, grille, method = methode, use_gdal = FALSE)
   list(raster = sortie, sans_unite = sans_unite)
+}
+
+# Jetons SAS (mission 025) ------------------------------------------------------
+
+# Un jeton SAS du Planetary Computer vaut 45 min (relevé le 2026-11-23 :
+# `se` = heure de la demande + 45 min). Une adresse signée garde le jeton du
+# moment de la signature : chaque tranche est donc signée juste avant d'être
+# ouverte, avec un jeton à qui il reste au moins `s1_marge_jeton` secondes,
+# et relue `s1_relectures_403` fois avec un jeton neuf si le stockage répond
+# 403. Valeurs provisoires (mission 025).
+s1_url_jeton <- "https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-1-rtc"
+s1_marge_jeton <- 15 * 60
+s1_relectures_403 <- 1L
+
+# Demande un jeton à l'API publique des jetons ; rend list(jeton, expiration).
+s1_demander_jeton <- function(adresse = s1_url_jeton) {
+  texte <- tryCatch({
+    con <- url(adresse, open = "rb")
+    on.exit(close(con))
+    paste(readLines(con, warn = FALSE), collapse = "")
+  }, error = function(e) {
+    stop("Impossible d'obtenir un jeton SAS du Planetary Computer (", adresse, ") : ",
+         conditionMessage(e), call. = FALSE)
+  })
+  s1_lire_reponse_jeton(texte)
+}
+
+# Réponse JSON de l'API des jetons -> list(jeton, expiration). Lecture par
+# expressions régulières (pas de dépendance JSON) : les deux champs sont des
+# chaînes sans guillemet ; le jeton peut porter des `&` échappés en &.
+s1_lire_reponse_jeton <- function(texte) {
+  champ <- function(nom) {
+    m <- regmatches(texte, regexpr(paste0("\"", nom, "\"\\s*:\\s*\"[^\"]*\""), texte))
+    if (length(m) == 0L) return(NA_character_)
+    sub("\"$", "", sub(paste0("^\"", nom, "\"\\s*:\\s*\""), "", m))
+  }
+  jeton <- champ("token")
+  jeton <- gsub("\\u0026", "&", jeton, fixed = TRUE)
+  jeton <- gsub("\\/", "/", jeton, fixed = TRUE)
+  expiration <- s1_instant_utc(champ("msft:expiry"))
+  if (is.na(jeton) || !nzchar(jeton) || !grepl("sig=", jeton, fixed = TRUE) || is.na(expiration)) {
+    stop("R\u00e9ponse inattendue de l'API des jetons SAS du Planetary Computer ",
+         "(champs `token` et `msft:expiry` attendus).", call. = FALSE)
+  }
+  list(jeton = jeton, expiration = expiration)
+}
+
+s1_instant_utc <- function(x) {
+  as.POSIXct(substr(as.character(x), 1L, 19L), format = "%Y-%m-%dT%H:%M:%S", tz = "UTC")
+}
+
+# Fichier où les processus d'une session partagent le jeton en cours : un
+# processus enfant qui en demande un neuf le laisse aux suivants.
+s1_fichier_jeton <- function() {
+  file.path(tempdir(), "nemetonsar_jeton_sas")
+}
+
+# Fournisseur de jetons : rend une fonction `jeton(refuse = NULL)`.
+# Sans `refuse`, elle rend le plus récent des jetons connus (le sien, celui
+# du `fichier`, que les autres processus ont pu renouveler) s'il lui reste
+# au moins `marge` secondes, sinon un jeton demandé par `demander()`. Avec
+# `refuse` (un jeton qui vient d'être refusé, 403), elle demande toujours un
+# jeton neuf. Tout jeton demandé est écrit dans `fichier`.
+s1_jetons <- function(fichier, demander = s1_demander_jeton, marge = s1_marge_jeton,
+                      maintenant = Sys.time) {
+  courant <- NULL
+  reste <- function(j) as.numeric(difftime(j$expiration, maintenant(), units = "secs"))
+  lire <- function() {
+    l <- tryCatch(suppressWarnings(readLines(fichier, warn = FALSE)),
+                  error = function(e) character(0))
+    if (length(l) != 2L || !nzchar(l[2])) return(NULL)
+    e <- s1_instant_utc(l[1])
+    if (is.na(e)) NULL else list(jeton = l[2], expiration = e)
+  }
+  ecrire <- function(j) {
+    # Écriture puis renommage : un autre processus ne lit jamais un fichier
+    # à moitié écrit.
+    tmp <- paste0(fichier, ".", Sys.getpid())
+    ok <- tryCatch({
+      writeLines(c(format(j$expiration, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"), j$jeton), tmp)
+      Sys.chmod(tmp, "0600")
+      file.rename(tmp, fichier)
+    }, error = function(e) FALSE, warning = function(w) FALSE)
+    if (!isTRUE(ok)) unlink(tmp)
+    invisible(ok)
+  }
+  function(refuse = NULL) {
+    if (is.null(refuse)) {
+      f <- lire()
+      if (!is.null(f) && (is.null(courant) || f$expiration > courant$expiration)) {
+        courant <<- f
+      }
+      if (!is.null(courant) && reste(courant) >= marge) return(courant$jeton)
+    }
+    j <- demander()
+    ecrire(j)
+    courant <<- j
+    j$jeton
+  }
+}
+
+s1_signer_adresse <- function(adresse, jeton) {
+  paste0(adresse, if (grepl("?", adresse, fixed = TRUE)) "&" else "?", jeton)
+}
+
+# Le stockage a-t-il répondu 403 ? (messages de GDAL : « failed with
+# response_code=403 » en cours de lecture, « HTTP response code: 403 » à
+# l'ouverture).
+s1_est_403 <- function(message) {
+  grepl("response_code=403|HTTP response code: 403", message)
+}
+
+# Lit une tranche (s1_lire_un()). Avec un fournisseur de jetons `jeton`
+# (s1_jetons()), signe l'adresse juste avant de l'ouvrir ; si le stockage
+# répond 403 (erreur, ou avertissement de GDAL même sans erreur : les
+# valeurs lues ne sont alors pas sûres), relit la tranche avec un jeton neuf,
+# au plus `relectures` fois, puis s'arrête sur une erreur claire. Les
+# avertissements d'un essai refusé sont écartés ; ceux de l'essai gardé
+# sont rendus.
+s1_lire_tranche <- function(adresse, grille, methode, jeton = NULL,
+                            relectures = s1_relectures_403) {
+  if (is.null(jeton)) {
+    return(s1_lire_un(adresse, grille, methode))
+  }
+  refuse <- NULL
+  for (essai in 0:relectures) {
+    j <- jeton(refuse)
+    avertissements <- list()
+    vu_403 <- FALSE
+    res <- withCallingHandlers(
+      tryCatch(s1_lire_un(s1_signer_adresse(adresse, j), grille, methode),
+               error = function(e) e),
+      warning = function(w) {
+        if (s1_est_403(conditionMessage(w))) vu_403 <<- TRUE
+        avertissements[[length(avertissements) + 1L]] <<- w
+        invokeRestart("muffleWarning")
+      }
+    )
+    erreur <- inherits(res, "error")
+    if (erreur && s1_est_403(conditionMessage(res))) vu_403 <- TRUE
+    if (!vu_403) {
+      for (w in avertissements) warning(w)
+      if (erreur) stop(res)
+      return(res)
+    }
+    refuse <- j
+  }
+  stop("Lecture refus\u00e9e par le Planetary Computer (HTTP 403) malgr\u00e9 ",
+       relectures, " jeton(s) SAS neuf(s) : ", basename(sub("\\?.*$", "", adresse)),
+       ". Le jeton est refus\u00e9 de fa\u00e7on durable (acc\u00e8s retir\u00e9, ",
+       "compte exig\u00e9 ?) : voir s1_lire(), \u00ab Signature des adresses \u00bb.",
+       call. = FALSE)
 }
 
 # Avertissement des fichiers lus sans métadonnées d'unité (`n` fichiers).

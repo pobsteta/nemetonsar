@@ -496,6 +496,212 @@ test_that("s1_lire() refuse les entr\u00e9es mal form\u00e9es", {
   expect_error(s1_lire(items, g, signer = FALSE, methode = 1), "methode")
 })
 
+# Mission 025 : jetons SAS renouvelés pendant la lecture ----------------------
+
+test_that("la r\u00e9ponse de l'API des jetons est lue (jeton, expiration en UTC)", {
+  # Forme de la réponse relevée le 2026-11-23 (signature remplacée).
+  texte <- paste0('{"msft:expiry":"2026-11-23T18:47:12Z","token":"st=2026-11-22T18%3A02%3A12Z',
+                  '\\u0026se=2026-11-23T18%3A47%3A12Z\\u0026sp=rl\\u0026sr=c\\u0026sig=ABC%2Fd%3D"}')
+  j <- s1_lire_reponse_jeton(texte)
+  expect_identical(j$jeton, "st=2026-11-22T18%3A02%3A12Z&se=2026-11-23T18%3A47%3A12Z&sp=rl&sr=c&sig=ABC%2Fd%3D")
+  expect_identical(j$expiration, as.POSIXct("2026-11-23 18:47:12", tz = "UTC"))
+  expect_error(s1_lire_reponse_jeton('{"message":"Too Many Requests"}'), "API des jetons")
+  expect_error(s1_lire_reponse_jeton('{"msft:expiry":"x","token":"st=1&sig=2"}'), "API des jetons")
+  expect_identical(s1_signer_adresse("https://h/f.tif", "a=1&sig=2"), "https://h/f.tif?a=1&sig=2")
+  expect_identical(s1_signer_adresse("https://h/f.tif?x=0", "sig=2"), "https://h/f.tif?x=0&sig=2")
+})
+
+test_that("un jeton est renouvel\u00e9 avant d'expirer, neuf apr\u00e8s un refus, partag\u00e9 par fichier", {
+  fichier <- tempfile("jeton-")
+  on.exit(unlink(fichier), add = TRUE)
+  t0 <- as.POSIXct("2026-11-23 12:00:00", tz = "UTC")
+  horloge <- t0
+  n <- 0L
+  demander <- function() {
+    n <<- n + 1L
+    list(jeton = paste0("sig=", n), expiration = horloge + 45 * 60)
+  }
+  a <- s1_jetons(fichier, demander, marge = 15 * 60, maintenant = function() horloge)
+  expect_identical(a(), "sig=1")
+  horloge <- t0 + 29 * 60
+  expect_identical(a(), "sig=1")
+  expect_identical(n, 1L)
+  # Il reste moins de 15 min : jeton neuf.
+  horloge <- t0 + 31 * 60
+  expect_identical(a(), "sig=2")
+  # Après un refus : toujours un jeton neuf, même si le refusé semble valable.
+  expect_identical(a(refuse = "sig=2"), "sig=3")
+  expect_identical(n, 3L)
+  # Un autre processus (même fichier) reprend le jeton en cours sans en demander.
+  b <- s1_jetons(fichier, demander, marge = 15 * 60, maintenant = function() horloge)
+  expect_identical(b(), "sig=3")
+  expect_identical(n, 3L)
+  # Le jeton plus récent demandé par b est pris par a, sans nouvelle demande.
+  horloge <- t0 + 40 * 60
+  expect_identical(b(refuse = "sig=3"), "sig=4")
+  expect_identical(a(), "sig=4")
+  expect_identical(n, 4L)
+  expect_identical(readLines(fichier), c("2026-11-23T13:25:00Z", "sig=4"))
+  # Un fichier abîmé est ignoré.
+  writeLines("n'importe quoi", fichier)
+  c2 <- s1_jetons(fichier, demander, marge = 15 * 60, maintenant = function() horloge)
+  expect_identical(c2(), "sig=5")
+  # Fichier impossible à écrire : le jeton est gardé en mémoire.
+  d <- s1_jetons(file.path(fichier, "absent", "jeton"), demander, marge = 15 * 60,
+                 maintenant = function() horloge)
+  expect_identical(d(), "sig=6")
+  expect_identical(d(), "sig=6")
+})
+
+# Images locales et lecteur simulé du Planetary Computer. Horloge : le nombre
+# de lectures de tranche faites (tous processus). Un jeton demandé quand
+# l'horloge vaut h « expire » après la lecture h + `n_lectures` : les
+# lectures suivantes avec ce jeton reçoivent un 403, comme le 2026-11-23
+# (m024) ; un jeton neuf a toujours `n_lectures` lectures devant lui. `mode` :
+# "erreur" (403 puis erreur, comme les journaux de m024), "silence" (403 sans
+# erreur, valeurs vides), "toujours" (tout jeton refusé). Lectures et
+# demandes sont comptées dans des fichiers (processus enfants). Les images
+# sont lues en local, avec leur .aux.xml (que la lecture distante n'ouvre
+# pas : GDAL_DISABLE_READDIR_ON_OPEN).
+jetons_simules <- function(d, n_lectures, mode = "erreur", env = parent.frame()) {
+  compteur <- file.path(d, "lectures.txt")
+  demandes <- file.path(d, "demandes.txt")
+  lignes <- function(f) if (file.exists(f)) readLines(f) else character(0)
+  vrai <- s1_lire_un
+  vrai_local <- function(adresse, grille, methode) {
+    ancien <- terra::getGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN")
+    terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", "FALSE")
+    on.exit(terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", ancien))
+    vrai(sub("\\?.*$", "", adresse), grille, methode)
+  }
+  local_mocked_bindings(
+    rstac_disponible = function() TRUE,
+    s1_fichier_jeton = function() file.path(d, "jeton_sas"),
+    s1_demander_jeton = function(...) {
+      cat(length(lignes(compteur)), "\n", file = demandes, append = TRUE, sep = "")
+      list(jeton = paste0("sig=", length(lignes(demandes))),
+           expiration = Sys.time() + 45 * 60)
+    },
+    s1_lire_un = function(adresse, grille, methode) {
+      cat("x\n", file = compteur, append = TRUE)
+      horloge <- length(lignes(compteur))
+      k <- as.integer(sub("^.*sig=", "", adresse))
+      emis <- as.integer(lignes(demandes)[k])
+      if (mode == "toujours" || horloge > emis + n_lectures) {
+        warning("GDAL Message 1: Request for 1573011831-1575562032 failed with response_code=403",
+                call. = FALSE)
+        if (mode != "silence") stop("[crop] too few values for writing: 0 < 900", call. = FALSE)
+        lu <- vrai_local(adresse, grille, methode)
+        terra::values(lu$raster) <- NA_real_
+        return(lu)
+      }
+      vrai_local(adresse, grille, methode)
+    },
+    .env = env
+  )
+  list(
+    lectures = function() length(lignes(compteur)),
+    demandes = function() length(lignes(demandes))
+  )
+}
+
+images_025 <- function(d) {
+  urls <- vapply(1:8, function(i) image_locale(0.01 * i, 0, d, paste0("i", i, ".tif"), "linear"),
+                 character(1))
+  data.frame(date = as.Date("2025-06-01") + 12 * (0:7),
+             heure = as.POSIXct("2025-06-01 06:00:00", tz = "UTC") + 12 * 86400 * (0:7),
+             serie = rep(c("A030", "D008"), 4), url = urls, stringsAsFactors = FALSE)
+}
+
+# Lecture avec des jetons qui expirent après 3 lectures, comparée à la
+# lecture sans signature (sans expiration) des mêmes fichiers.
+essai_025 <- function(flux) {
+  d <- tempfile("s1-")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  items <- images_025(d)
+  grille <- terra::rast(xmin = 55, xmax = 355, ymin = 55, ymax = 355,
+                        resolution = 10, crs = "EPSG:32630")
+  ref <- s1_lire(items, grille, signer = FALSE, flux = 1L, dossier = file.path(d, "ref"))
+  sim <- jetons_simules(d, n_lectures = 3L)
+  expect_no_warning(
+    s <- s1_lire(items, grille, signer = TRUE, flux = flux, dossier = file.path(d, "sas"))
+  )
+  expect_equal(s$dates, ref$dates)
+  for (o in names(ref$orbites)) {
+    expect_identical(terra::values(s$orbites[[o]]), terra::values(ref$orbites[[o]]))
+  }
+  # Des jetons ont bien expiré (403) et des tranches ont été relues.
+  expect_gt(sim$demandes(), 1L)
+  expect_gt(sim$lectures(), nrow(items))
+}
+
+test_that("mission 025 : un jeton qui expire en cours de lecture ne fait plus tomber s1_lire(), r\u00e9sultat identique au bit pr\u00e8s", {
+  essai_025(flux = 1L)
+})
+
+test_that("mission 025 : idem avec des processus enfants qui se passent le jeton neuf", {
+  skip_on_os("windows")
+  essai_025(flux = 2L)
+})
+
+test_that("mission 025 : sans relecture, le m\u00eame lecteur simul\u00e9 tombe en 403 (le test mord)", {
+  d <- tempfile("s1-")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  items <- images_025(d)
+  grille <- terra::rast(xmin = 55, xmax = 355, ymin = 55, ymax = 355,
+                        resolution = 10, crs = "EPSG:32630")
+  jetons_simules(d, n_lectures = 3L)
+  local_mocked_bindings(s1_relectures_403 = 0L)
+  expect_error(suppressWarnings(s1_lire(items, grille, signer = TRUE, flux = 1L)), "HTTP 403")
+})
+
+test_that("mission 025 : un 403 sans erreur (valeurs douteuses) est aussi relu", {
+  d <- tempfile("s1-")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  items <- images_025(d)
+  grille <- terra::rast(xmin = 55, xmax = 355, ymin = 55, ymax = 355,
+                        resolution = 10, crs = "EPSG:32630")
+  ref <- s1_lire(items, grille, signer = FALSE, flux = 1L)
+  sim <- jetons_simules(d, n_lectures = 2L, mode = "silence")
+  s <- s1_lire(items, grille, signer = TRUE, flux = 1L)
+  for (o in names(ref$orbites)) {
+    expect_identical(terra::values(s$orbites[[o]]), terra::values(ref$orbites[[o]]))
+  }
+  expect_gt(sim$demandes(), 1L)
+})
+
+test_that("mission 025 : un jeton refus\u00e9 de fa\u00e7on durable donne une erreur claire, apr\u00e8s une seule relecture", {
+  d <- tempfile("s1-")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  items <- images_025(d)
+  grille <- terra::rast(xmin = 55, xmax = 355, ymin = 55, ymax = 355,
+                        resolution = 10, crs = "EPSG:32630")
+  sim <- jetons_simules(d, n_lectures = Inf, mode = "toujours")
+  expect_error(s1_lire(items, grille, signer = TRUE, flux = 1L),
+               "HTTP 403.*1 jeton\\(s\\) SAS neuf\\(s\\) : i1\\.tif.*refus\u00e9 de fa\u00e7on durable")
+  # Le premier jeton, puis un seul neuf ; deux lectures de la première tranche.
+  expect_identical(sim$demandes(), 2L)
+  expect_identical(sim$lectures(), 2L)
+})
+
+test_that("mission 025 : une erreur qui n'est pas un 403 n'est pas relue", {
+  d <- tempfile("s1-")
+  dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  items <- images_025(d)
+  items$url[1] <- image_locale(0.2, 0, d, "biz.tif", "log")
+  grille <- terra::rast(xmin = 55, xmax = 355, ymin = 55, ymax = 355,
+                        resolution = 10, crs = "EPSG:32630")
+  sim <- jetons_simules(d, n_lectures = Inf)
+  expect_error(s1_lire(items, grille, signer = TRUE, flux = 1L), "Scale=log")
+  expect_identical(sim$demandes(), 1L)
+  expect_identical(sim$lectures(), 1L)
+})
+
 # Essai réel (réseau) -----------------------------------------------------------
 
 test_that("essai r\u00e9el : images de 2025 sur un point des Landes, une petite fen\u00eatre lue", {
