@@ -136,8 +136,9 @@ Causes exclusives, attribuées dans cet ordre : début de série, puis règle de
 **Ce que compte la règle de date.** Le chiffre principal est **19,4 % des pixels tardifs ramenés à
 15 j ou moins** (4 896). La tranche de 16 à 60 j (16,5 %) est comptée sous « règle de date » parce
 que la règle en rapproche fortement la date (de plus de 180 j à moins de 60 j), mais ces pixels
-**ne redeviennent pas « date retrouvée »** au seuil de 15 j ; si l'on ne garde que la date retrouvée,
-le cumul au trait tombe à 71,5 % et le reste (non établi plus 16-60 j) pèse 68,5 %.
+**ne redeviennent pas « date retrouvée »** au seuil de 15 j. La cause non établie et la date
+retrouvée cumulent 71,5 % ; la cause non établie et la tranche de 16 à 60 j, qui restent sans date
+retrouvée, pèsent ensemble 68,6 % (17 267 pixels).
 
 La ligne « cause non établie » est **en tête** : avant d'agir sur elle, il faut mieux observer.
 Ce qu'on en sait (faits, non des causes) :
