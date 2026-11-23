@@ -28,14 +28,12 @@ _Modèle de carte :_
 
 ## Planifié
 
-- [026-cause-dates-tardives](missions/026-cause-dates-tardives.md) · depuis le cycle 11 · lancée au cycle 11
-  - Homme : `analyste` (opus)
-  - Mission : observer la cause non établie des dates tardives (52 %)
-  - Moyens : voir la fiche ; session locale (données sur le poste de Pascal)
 
 
 ## Terminé
 
+- [026-cause-dates-tardives](missions/026-cause-dates-tardives.md) · depuis le cycle 11
+  - Mission : observer la cause non établie des dates tardives (analyste, 3 allers-retours)
 - [025-jeton-sas](missions/025-jeton-sas.md) · depuis le cycle 11
   - Mission : jeton du Planetary Computer renouvelé pendant les lectures longues
 - [017-tuile-pilote-landes](missions/017-tuile-pilote-landes.md) · depuis le cycle 10
