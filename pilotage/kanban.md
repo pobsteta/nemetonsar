@@ -20,16 +20,14 @@ _Modèle de carte :_
 
 ## Bac à sable
 
+- Masquer les adresses signées (sig=…) dans les messages de GDAL et de terra à la console · depuis le cycle 11 (relecture de 025)
+- Retirer l'usage devenu inutile de rstac des scripts docs/analyses/ecarts-date-v301.R (ms_token) et lecture-parallele.R (sign_planetary_computer) · depuis le cycle 11 (relecture de 025)
 
 ## Validé
 
 
 ## Planifié
 
-- [025-jeton-sas](missions/025-jeton-sas.md) · depuis le cycle 11 · lancée au cycle 11
-  - Homme : `dev` (opus)
-  - Mission : jeton du Planetary Computer renouvelé pendant les lectures longues
-  - Moyens : voir la fiche
 - [026-cause-dates-tardives](missions/026-cause-dates-tardives.md) · depuis le cycle 11 · lancée au cycle 11
   - Homme : `analyste` (opus)
   - Mission : observer la cause non établie des dates tardives (52 %)
@@ -38,6 +36,8 @@ _Modèle de carte :_
 
 ## Terminé
 
+- [025-jeton-sas](missions/025-jeton-sas.md) · depuis le cycle 11
+  - Mission : jeton du Planetary Computer renouvelé pendant les lectures longues
 - [017-tuile-pilote-landes](missions/017-tuile-pilote-landes.md) · depuis le cycle 10
   - Mission : tuile pilote des Landes et comparaison à la v3.0.1 ; cibles du brief non atteintes, décision reportée au jalon 2 (après 026)
 - [024-ecarts-date-v301](missions/024-ecarts-date-v301.md) · depuis le cycle 10
