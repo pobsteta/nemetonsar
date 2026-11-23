@@ -12,10 +12,9 @@ Rscript docs/analyses/pilote-landes.R <dossier> comparer <dates_v301.tif>
 `<dossier>` est hors du dépôt (le script le refuse dans le dépôt). Graine fixée,
 chemins relatifs. Fonction de comparaison : `compare_reference()` (`R/comparer.R`).
 
-**Ce rapport ne contient aucune donnée SUFOSAT v3.0.1** : la carte publiée n'a pas pu être
-téléchargée (voir « Comparaison à la v3.0.1 : en attente de l'accès »). Il n'hérite donc
-pas de la clause non commerciale (ADR 0002). Le rapport de comparaison, lui, sera un
-fichier séparé, sous CC BY-NC 4.0.
+**Ce rapport ne contient aucune donnée SUFOSAT v3.0.1.** Il n'hérite donc pas de la clause
+non commerciale (ADR 0002). La comparaison, faite le 2026-11-23, est dans un fichier séparé,
+sous CC BY-NC 4.0 : [`pilote-landes-comparaison.md`](pilote-landes-comparaison.md).
 
 ## Ce qui a tourné
 
@@ -98,7 +97,15 @@ médiane. Une fois l'extrait de la v3.0.1 obtenu, on le superpose, puis on relan
 `comparer`, qui donne les trois coupes en désaccord (les deux plus grands objets publiés
 non retrouvés, le plus grand objet recalculé absent de la référence).
 
-## Comparaison à la v3.0.1 : en attente de l'accès
+## Comparaison à la v3.0.1 : accès
+
+**Accès obtenu le 2026-11-23.** Le S3 de THEIA refuse l'accès anonyme, aussi depuis le poste
+de Pascal. Il sert les fichiers par des URL signées : le service de signature de THEIA
+(`https://signing.stac.teledetection.fr/sign_urls`, requête POST `{"urls": [...]}` avec les
+en-têtes `access-key` et `secret-key`) rend une URL valable quelques heures, comme le fait
+la bibliothèque `teledetection` de THEIA. Les clés de Pascal sont dans le `.Renviron` du
+projet (`TLD_ACCESS_KEY`, `TLD_SECRET_KEY`), hors du dépôt. La commande d'extraction
+ci-dessous s'applique à l'URL signée. Résultats : [`pilote-landes-comparaison.md`](pilote-landes-comparaison.md).
 
 **Ce qui a été tenté (2026-11-22).**
 
@@ -221,5 +228,6 @@ Ce rapport et les sorties de l'exécution (rasters, GeoPackage, journal) cumulen
   Mainland France. Data Terra. (Collection) doi:10.71961/M18T-KB92. Version 3.0.1,
   licence CC BY-NC 4.0.
 
-Le rapport de comparaison, une fois la v3.0.1 obtenue, portera [S1] [FOR] [MET] [SUF] et la
-mention « usage non commercial » (ADR 0002, `docs/referentiels/licences.md`).
+Le rapport de comparaison, [`pilote-landes-comparaison.md`](pilote-landes-comparaison.md),
+porte [S1] [FOR] [MET] [SUF] et la mention « usage non commercial » (ADR 0002,
+`docs/referentiels/licences.md`).
