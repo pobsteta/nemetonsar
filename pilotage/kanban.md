@@ -25,6 +25,10 @@ _Modèle de carte :_
 
 ## Validé
 
+- [029-continuite-s1c](missions/029-continuite-s1c.md) · depuis le cycle 11
+  - Homme : `analyste` (opus)
+  - Mission : détections 2026 et continuité Sentinel-1A → 1C/1D sur le pilote Landes ; rapport en Markdown et PDF
+  - Moyens : voir la fiche ; session locale
 - [027-regles-de-date](missions/027-regles-de-date.md) · depuis le cycle 11
   - Homme : `analyste` (opus)
   - Mission : essayer seuil de datation distinct et date multi-orbites sur les séries relevées
