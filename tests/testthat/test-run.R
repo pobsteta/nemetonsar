@@ -857,6 +857,33 @@ test_that("mission 023 : `processus` transmis \u00e0 la passe 1, r\u00e9sultats 
 
 # Essai réel (réseau) -----------------------------------------------------------
 
+test_that("mission 023 : raster d'attribution en INT4S, sans avertissement, valeurs inchang\u00e9es", {
+  # Deux morceaux d'AOI en Lambert-93 (EPSG:2154, x puis y, en m\u00e8tres),
+  # c\u00f4te \u00e0 c\u00f4te, sur une grille de 10 m.
+  modele <- terra::rast(xmin = 400000, xmax = 400200, ymin = 6400000, ymax = 6400100,
+                        resolution = 10, crs = "EPSG:2154")
+  rect <- function(x1, x2) {
+    terra::vect(sprintf("POLYGON ((%d 6400000, %d 6400000, %d 6400100, %d 6400100, %d 6400000))",
+                        x1, x2, x2, x1, x1), crs = "EPSG:2154")
+  }
+  morceaux <- rbind(rect(400000, 400093), rect(400093, 400200))
+  terra::values(morceaux) <- data.frame(tuile = 1:2)
+  f <- tempfile(fileext = ".tif")
+  on.exit(unlink(f), add = TRUE)
+  expect_no_warning(qui <- run_rasteriser_qui(morceaux, modele, f))
+  expect_identical(terra::datatype(qui), "INT4S")
+  expect_identical(terra::sources(qui), normalizePath(f))
+  # M\u00eames valeurs que le raster \u00e9crit avant la mission 023 (type par d\u00e9faut).
+  avant <- terra::rasterize(morceaux, modele, field = "tuile", touches = FALSE)
+  expect_identical(as.integer(terra::values(qui, mat = FALSE)),
+                   as.integer(terra::values(avant, mat = FALSE)))
+  # Points (x, y) en EPSG:2154 : le pixel de centre (400085, 6400045) est
+  # dans le morceau 1 ; celui de centre (400095, 6400045), \u00e0 cheval sur la
+  # limite x = 400093 mais de centre dans le morceau 2, va au morceau 2.
+  xy <- matrix(c(400085, 6400045, 400095, 6400045), ncol = 2, byrow = TRUE)
+  expect_identical(as.integer(terra::extract(qui, xy)[, 1]), c(1L, 2L))
+})
+
 test_that("essai r\u00e9el : 1 km x 1 km dans les Landes, premier trimestre 2025", {
   skip_if(Sys.getenv("NEMETONSAR_TESTS_RESEAU") != "true",
           "test r\u00e9seau : d\u00e9finir NEMETONSAR_TESTS_RESEAU=true")

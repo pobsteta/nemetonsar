@@ -942,6 +942,17 @@ parametres_tout_garder <- function(pb) {
 
 # Assemblage -------------------------------------------------------------------
 
+# Raster d'attribution `qui` : pour chaque pixel de `modele`, le rang (champ
+# `tuile`) du morceau d'AOI qui contient son centre, NA ailleurs ; écrit en
+# entier 32 bits (`INT4S`) dans `fichier`. Le type passe par `wopt` : terra
+# (1.7 comme 1.9) n'applique pas un `datatype` passé à rasterize() hors de
+# `wopt` (terra 1.9 l'ignore avec un avertissement).
+run_rasteriser_qui <- function(morceaux, modele, fichier) {
+  terra::rasterize(morceaux, modele, field = "tuile", touches = FALSE, filename = fichier,
+                   overwrite = TRUE, wopt = list(datatype = "INT4S"))
+  terra::rast(fichier)
+}
+
 # Assemble les sorties brutes des tuiles sur une grille Lambert-93, chaque
 # pixel pris à une seule tuile (celle dont le morceau d'AOI contient son
 # centre), puis y fait la segmentation, la surface minimale et la fermeture
@@ -975,9 +986,7 @@ run_assembler <- function(resultats, prep, dossier, p, lignes_par_bloc, periode,
     terra::values(m) <- data.frame(tuile = k)
     m
   }))
-  terra::rasterize(morceaux, modele, field = "tuile", touches = FALSE, filename = tmp[["qui"]],
-                   overwrite = TRUE, datatype = "INT4S")
-  qui <- terra::rast(tmp[["qui"]])
+  qui <- run_rasteriser_qui(morceaux, modele, tmp[["qui"]])
 
   # Une couche de chaque tuile, au plus proche voisin, sur ses seuls pixels.
   # Le ratio (`FLT8S`) reste en réel 64 bits, y compris dans les fichiers

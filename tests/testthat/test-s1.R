@@ -339,10 +339,14 @@ test_that("s1_lire() : m\u00eames piles avec 1 ou plusieurs flux ; erreur d'un p
 # chargé comme dans cette session (sources par pkgload, ou paquet installé),
 # évalué dans l'espace de noms du paquet, avec un délai maximal de `delai`
 # secondes. Rend list(statut, sortie) ; statut 124 : délai dépassé (le
-# processus est arrêté).
+# processus est arrêté). Depuis les sources, le nouveau processus charge le
+# paquet par pkgload (Suggests), comme testthat::test_local() ; sans pkgload,
+# le test est sauté.
 r_avec_delai <- function(code, delai) {
   chemin <- getNamespaceInfo("nemetonsar", "path")
-  charger <- if (file.exists(file.path(chemin, "R", "s1.R"))) {
+  sources <- file.exists(file.path(chemin, "R", "s1.R"))
+  if (sources) skip_if_not_installed("pkgload")
+  charger <- if (sources) {
     sprintf("suppressMessages(pkgload::load_all(%s, quiet = TRUE))", deparse(chemin))
   } else {
     sprintf("suppressMessages(library(nemetonsar, lib.loc = %s))", deparse(dirname(chemin)))
@@ -387,13 +391,11 @@ test_that("mission 023 : lecture parall\u00e8le apr\u00e8s un calcul de terra da
     items <- data.frame(date = as.Date("2025-06-01") + 12 * (0:5),
                         heure = as.POSIXct("2025-06-01 06:00:00", tz = "UTC") + 12 * 86400 * (0:5),
                         serie = rep(c("A030", "D008"), 3), url = urls, stringsAsFactors = FALSE)
-    fils <- length(list.files("/proc/self/task"))
     s2 <- suppressWarnings(s1_lire(items, grille, signer = FALSE, flux = 2L,
                                    dossier = file.path(d, "f2")))
     s1 <- suppressWarnings(s1_lire(items, grille, signer = FALSE, flux = 1L,
                                    dossier = file.path(d, "f1")))
-    saveRDS(list(fils = fils,
-                 dates = identical(s1$dates, s2$dates),
+    saveRDS(list(dates = identical(s1$dates, s2$dates),
                  valeurs = lapply(names(s1$orbites), function(o)
                    identical(terra::values(s1$orbites[[o]]), terra::values(s2$orbites[[o]])))),
             %s)
