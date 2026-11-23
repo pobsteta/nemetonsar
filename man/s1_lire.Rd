@@ -21,8 +21,8 @@ colonnes \code{date}, \code{heure}, \code{serie}, \code{url}).}
 (par exemple la tuile MGRS en UTM, 10 m) : étendue, résolution et
 système des piles rendues.}
 
-\item{signer}{Signer les adresses par le Planetary Computer (\code{TRUE}, il
-faut \code{rstac}) ou les lire telles quelles (\code{FALSE}).}
+\item{signer}{Signer les adresses par un jeton SAS du Planetary Computer
+(\code{TRUE}, il faut \code{rstac}) ou les lire telles quelles (\code{FALSE}).}
 
 \item{methode}{Méthode de rééchantillonnage passée à \code{\link[terra:project]{terra::project()}}.}
 
@@ -54,15 +54,25 @@ range les couches en une pile par orbite relative : l'entrée attendue par
 }
 \section{Signature des adresses }{
  Les fichiers du Planetary Computer ne
-se lisent qu'avec un jeton SAS ajouté à l'adresse. Avec \code{signer = TRUE},
-les adresses sont signées par \code{\link[rstac:sign_planetary_computer]{rstac::sign_planetary_computer()}} (un
-jeton par compte de stockage, gardé en cache et renouvelé à
-l'expiration). Repli sans \code{rstac} : demander un jeton à
+se lisent qu'avec un jeton SAS ajouté à l'adresse. Avec \code{signer = TRUE}
+(il faut \code{rstac}, comme pour \code{\link[=s1_rechercher]{s1_rechercher()}}), le jeton est demandé à
+l'API publique des jetons,
 \verb{https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-1-rtc}
-(champ \code{token} de la réponse JSON), l'ajouter à l'adresse après un \verb{?},
-puis lire \code{"/vsicurl/<adresse signée>"} avec \code{\link[terra:rast]{terra::rast()}} et passer
-ces adresses avec \code{signer = FALSE}. Avec \code{signer = FALSE}, une adresse
-qui désigne un fichier local est lue telle quelle.
+(champ \code{token} de la réponse JSON), et chaque tranche est signée \strong{juste
+avant d'être ouverte}, pas une fois pour toute la lecture : une adresse
+signée garde le jeton du moment de la signature, et un jeton ne vaut que
+45 min (relevé le 2026-11-23), moins qu'une lecture longue. Le jeton en
+cours est gardé et partagé entre les processus de la session (fichier
+du dossier temporaire de la session) ; il est remplacé par un neuf quand
+il lui reste moins de 15 min. Si le stockage répond 403 pendant la
+lecture d'une tranche, elle est relue \strong{une fois} avec un jeton neuf ;
+un second refus arrête la lecture sur une erreur (jeton refusé de façon
+durable). \strong{Provisoire (mission 025)} : la marge de 15 min et la
+relecture unique. Repli sans \code{rstac} : signer soi-même les adresses
+(ajouter le jeton après un \verb{?}), lire \code{"/vsicurl/<adresse signée>"} avec
+\code{\link[terra:rast]{terra::rast()}} et passer ces adresses avec \code{signer = FALSE} (le jeton
+n'est alors pas renouvelé). Avec \code{signer = FALSE}, une adresse qui
+désigne un fichier local est lue telle quelle.
 }
 
 \section{Tranches d'une même acquisition }{
