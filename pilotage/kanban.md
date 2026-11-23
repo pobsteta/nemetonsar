@@ -30,15 +30,13 @@ _Modèle de carte :_
   - Homme : `analyste` (opus)
   - Mission : d'où viennent les dates tardives par rapport à la v3.0.1 (règle de date, début de série)
   - Moyens : voir la fiche ; session locale (données sur le poste de Pascal)
-- [023-fork-gdal](missions/023-fork-gdal.md) · depuis le cycle 10 · lancée au cycle 10
-  - Homme : `dev` (opus)
-  - Mission : parallélisme sans blocage sous GDAL ≥ 3.11 ; `processus` dans `nemetonsar_run()`
-  - Moyens : voir la fiche
 - [017-tuile-pilote-landes](missions/017-tuile-pilote-landes.md) · depuis le cycle 5 · lancée au cycle 10
 
 
 ## Terminé
 
+- [023-fork-gdal](missions/023-fork-gdal.md) · depuis le cycle 10
+  - Mission : parallélisme sans blocage sous terra 1.9 ; `processus` dans `nemetonsar_run()`
 - [019-mesure-lecture-parallele](missions/019-mesure-lecture-parallele.md) · depuis le cycle 9
   - Mission : mesure de la lecture réelle et du parallélisme (analyste)
 - [020-masque-bdforet](missions/020-masque-bdforet.md) · depuis le cycle 9
