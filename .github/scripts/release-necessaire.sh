@@ -3,9 +3,9 @@
 # Usage : release-necessaire.sh [COMMIT [TAG_DE_BASE [TETE_DE_MAIN]]]
 #   défauts : HEAD, dernier tag v* atteignable, tête de origin/main lue par « git ls-remote origin refs/heads/main ».
 # Sortie standard : une ligne « release: <raison> » ou « pas de release: <raison> ». Code 0 dans les deux cas.
-# Ne comptent pas : docs/**, *.md, .github/badges/** et les fichiers de test :
+# Ne comptent pas : pilotage/**, docs/**, *.md, .github/badges/** et les fichiers de test :
 # tests/**, .github/scripts/test-*.sh. Tout le reste compte ; en cas de doute, release.
-# Pas de release si la tête de main a dépassé le commit par du code (hors badge [skip ci], docs, tests) : une CI
+# Pas de release si la tête de main a dépassé le commit par du code (hors badge [skip ci], pilotage, docs, tests) : une CI
 # relancée sur un ancien commit ne doit pas publier une version plus haute contenant moins de code.
 # Tête illisible : on publie.
 HEAD_REF="${1:-HEAD}"
@@ -19,8 +19,8 @@ COMMIT=$(git rev-parse "$HEAD_REF^{commit}")
 if [ -z "$TETE" ]; then
   TETE=$(git ls-remote origin refs/heads/main 2>/dev/null | cut -f1 | head -n 1)
 fi
-# fichiers qui comptent : tout sauf docs, *.md, badge, tests
-filtre() { grep -v -e '^$' -e '^docs/' -e '\.md$' -e '^\.github/badges/' \
+# fichiers qui comptent : tout sauf pilotage, docs, *.md, badge, tests
+filtre() { grep -v -e '^$' -e '^pilotage/' -e '^docs/' -e '\.md$' -e '^\.github/badges/' \
   -e '^tests/' -e '^\.github/scripts/test-.*\.sh$'; }
 if [ -n "$TETE" ]; then
   # tête inconnue localement (poussée après le checkout) : on garde le SHA brut, il diffère du commit

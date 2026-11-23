@@ -2,6 +2,37 @@
 
 21 novembre 2026 · Pascal Obstetar
 
+## Ma réponse d'abord (fiche n° 15)
+
+> « De pouvoir calculer en tout point AOI et en tout temps la donnée »
+>
+> — Pascal, le 22 novembre 2026, à la question « Qu'attends-tu de ce projet, et pourquoi ? »,
+> dit avant toute proposition de Claude, recopié mot pour mot.
+
+## Pour qui
+
+Pascal, en v1 : il calcule lui-même la donnée sur les AOI qu'il choisit. D'autres
+utilisateurs (gestionnaires forestiers, services de l'État, chercheurs) restent à
+trancher par Pascal.
+
+## Arbitrages du 22 novembre 2026
+
+Rendus par Claude (orchestrateur), par délégation de Pascal (« Je te laisse trancher »,
+journal du 2026-11-22), après la critique du `contradicteur`. Pascal peut les défaire.
+
+1. **Pour qui** : Pascal (rubrique ci-dessus).
+2. **« Tout point, tout temps » en v1** : toute AOI en France métropolitaine jusqu'à la
+   taille d'un département ; toute période depuis 2018 jusqu'au dernier mois disponible,
+   avec Sentinel-1A puis Sentinel-1C et 1D. France entière et hors Europe : hors v1. Le
+   délai entre une coupe et sa détection (Xa = 3 images, retard neige) est une valeur
+   provisoire, mesurée au prototype.
+3. **Fidélité ou détections 2026** : les détections postérieures à septembre 2025 d'abord.
+   L'accord avec la v3.0.1 sur 2018–2025 contrôle la méthode, il n'est pas le but. La
+   continuité Sentinel-1A → 1C/1D se vérifie dès le jalon 1 ; une référence locale de
+   validation se constitue dès le jalon 0.
+4. **Usage** : interne et non commercial en v1. Une licence est notée par entrée et par
+   sortie ; les sorties produites sans la v3.0.1 restent hors de sa clause NC.
+
 ## Objectif
 
 Construire nemetonsar, un package R de la famille nemeton qui, à partir d'une zone d'intérêt (AOI) et d'une période, recalcule une carte des coupes rases selon la méthode SUFOSAT (Mermoz et al., 2024).
@@ -11,6 +42,7 @@ Le besoin vient d'un constat : la dernière version publiée (v3.0.1) s'arrête 
 Critères de réussite :
 
 - Une commande unique, `nemetonsar_run(aoi, date_debut, date_fin)`, produit les rasters de date et de confiance sur l'AOI.
+- Les détections postérieures à septembre 2025 sont exploitables sur l'AOI : contrôlées sur la référence locale (voir Validation). *(Arbitrage n° 3.)*
 - Sur la période commune 2018–2025, les détections recoupent celles de la v3.0.1 publiée à un niveau fixé à l'avance (voir Validation).
 - Le pipeline est relançable en incrémental : un nouveau mois de données ne retraite pas tout l'historique.
 
@@ -30,7 +62,7 @@ La v1 reproduit la méthode telle que décrite dans l'article, sur une AOI de la
 
 La détection repose sur une chute durable de la rétrodiffusion radar, mesurée par un ratio avant/après, puis sur une segmentation en deux seuils. Les paramètres ci-dessous viennent de la section II de l'article.
 
-1. **Prétraitement Sentinel-1.** Images GRD en mode IW, polarisation VH, orbites ascendantes et descendantes, Sentinel-1A uniquement. Calibration et orthorectification avec S1Tiling, grille MGRS à 10 m.
+1. **Prétraitement Sentinel-1.** Images GRD en mode IW, polarisation VH, orbites ascendantes et descendantes, Sentinel-1A uniquement dans l'article ; Sentinel-1A puis 1C et 1D pour nemetonsar *(arbitrage n° 2 : Sentinel-1A a cessé ses opérations le 29 juin 2026, ESA)*. Calibration et orthorectification avec S1Tiling, grille MGRS à 10 m.
 2. **Filtrage du speckle.** Filtre multitemporel de Quegan et Yu, fenêtre 3×3. Le noyau est calculé sur les images de 2018, puis appliqué à chaque image postérieure au 1er janvier 2019. Aucun autre filtre spatial.
 3. **Masque forêt.** Tree Cover Density 2018 de Copernicus, seuil à 10 % de couvert. Le masque est ensuite corrigé avec les détections de l'année 2019 pour retirer les sols nus et cultures à forte variabilité.
 4. **Radar change ratio.** Pour chaque date, rapport entre la moyenne des 3 images suivantes (Xa = 3) et la moyenne de toutes les images antérieures (Xb = tout l'historique), calculé séparément en orbite ascendante et descendante. La date retenue pour une coupe est celle du ratio minimal.
@@ -120,7 +152,8 @@ Le recalcul est jugé fidèle s'il retrouve la carte publiée sur la période co
 1. **Accord avec la v3.0.1** sur l'AOI, 2018 à septembre 2025 : part de la surface publiée retrouvée, part de la surface recalculée absente de la référence, écart médian sur la date. Cibles à fixer avant le premier essai ; proposition de départ : 85 % de surface commune et un écart de date médian inférieur à un mois.
 2. **Validation par objets**, selon le protocole de l'article : un polygone de coupe est retrouvé si plus de 75 % de sa surface est détectée ; un polygone intact est correct si plus de 75 % de sa surface reste non détectée. Métriques : rappel, précision, F1, exactitude globale.
 3. **Sensibilité au facteur de seuil**, de 0,8 à 1,2 par pas de 0,05, pour reproduire la figure 3 de l'article sur l'AOI.
-4. **Contrôle visuel** d'un échantillon de détections postérieures à septembre 2025 sur orthophotos ou images Sentinel-2.
+4. **Référence locale** *(arbitrage n° 3)* : constituée dès le jalon 0 selon un protocole écrit (échantillon stratifié, photo-interprétation Sentinel-2 ou orthophotos, règle des 75 % de l'article), seule référence pour la période postérieure à septembre 2025.
+5. **Contrôle visuel** d'un échantillon de détections postérieures à septembre 2025 sur orthophotos ou images Sentinel-2.
 
 Un accord parfait avec la v3 n'est pas attendu, puisque ses évolutions ne sont pas documentées. La méthode décrite dans l'article est la cible ; la v3 est le point de comparaison disponible.
 
@@ -130,14 +163,14 @@ Le risque principal pour une mise à jour 2026 est le changement de satellite, p
 
 | Risque | Conséquence | Parade |
 | --- | --- | --- |
-| Fin de mission de Sentinel-1A, annoncée pour mi-2026 (à confirmer) | La série de l'article est mono-satellite ; passer à Sentinel-1C ou 1D change les orbites et peut créer de faux changements | Traiter chaque orbite relative séparément, vérifier la continuité radiométrique sur forêt stable, recaler le noyau de filtrage |
+| Fin de mission de Sentinel-1A : fait acquis, opérations arrêtées le 29 juin 2026 ; 1C et 1D assurent le cycle de 6 jours depuis le 24 juin 2026 (ESA, CDSE ; critique du contradicteur, 2026-11-22) | La série de l'article est mono-satellite ; passer à Sentinel-1C ou 1D change les orbites et peut créer de faux changements | Traiter chaque orbite relative séparément, vérifier la continuité radiométrique sur forêt stable, recaler le noyau de filtrage |
 | Évolutions v2 et v3 non publiées | Accord incomplet avec la carte de référence | Contacter GlobEO et le CESBIO ; garder les seuils paramétrables |
 | Écarts entre Bouvet et al. (2018) et SUFOSAT : polarisation, filtrage, contour | Choix d'implémentation à trancher sans certitude sur ce que fait la chaîne nationale | Rendre ces choix paramétrables dès `rcr_compute()` |
 | Prétraitement différent de S1Tiling (option B ou C) | Seuils en dB décalés | Étude de sensibilité sur l'AOI |
 | Saisonnalité des feuillus | Plus d'omissions qu'en résineux (F1 de 93,1 % contre 96,5 % dans l'article) | Rapporter les métriques par type de forêt |
 | Neige et relief | Fausses alertes en montagne | Masque neige ; signaler les AOI de montagne comme moins fiables |
 | Petites AOI | Peu de polygones de référence, métriques instables | Compléter par un contrôle visuel |
-| Licences | L'article est sous CC BY-NC-ND et les données SUFOSAT sont affichées en non commercial | Réécrire le code à partir de la description ; clarifier l'usage prévu des résultats |
+| Licences | Données SUFOSAT sous CC BY-NC 4.0 ; licence de l'article à vérifier (la clause ND n'est pas confirmée) ; Sentinel-1 RTC du Planetary Computer sous CC BY 4.0 (critique du contradicteur, 2026-11-22) | Réécrire le code à partir de la description ; clarifier l'usage prévu des résultats |
 
 La méthode détecte les coupes qui enlèvent tout ou une grande partie du peuplement. Les éclaircies et les coupes de moins de 0,1 ha restent hors de portée, quel que soit le soin apporté au recalcul.
 
@@ -147,19 +180,19 @@ Cinq étapes, chacune livrant quelque chose de vérifiable. Les durées sont des
 
 | Étape | Livrable | Durée estimée |
 | --- | --- | --- |
-| 0. Cadrage | Choix de l'option de prétraitement, AOI pilote d'une tuile, prise de contact avec GlobEO | 1 semaine |
-| 1. Prototype | Série Sentinel-1 filtrée sur l'AOI pilote, ratio et seuillage, première carte 2020–2023 | 3 à 4 semaines |
+| 0. Cadrage | Choix de l'option de prétraitement (après mesure A contre B sur forêt stable), AOI pilote d'une tuile, protocole et premiers polygones de la référence locale *(arbitrage n° 3)*, prise de contact avec GlobEO | 1 semaine |
+| 1. Prototype | Série Sentinel-1 filtrée sur l'AOI pilote, ratio et seuillage, première carte 2020–2023, continuité radiométrique Sentinel-1A → 1C/1D sur forêt stable *(arbitrage n° 3)* | 3 à 4 semaines |
 | 2. Fidélité | Masques neige et feu, post-traitement, comparaison chiffrée avec la v3.0.1, réglage des seuils | 2 à 3 semaines |
 | 3. Mise à jour | Extension à 2026 avec gestion du changement de satellite, mode incrémental | 2 à 3 semaines |
 | 4. Packaging | Package documenté, tests, rapport automatique, AOI quelconque | 2 semaines |
 
 ## Questions ouvertes
 
-- [ ] Quelle AOI pilote, et quelle taille maximale d'AOI vise-t-on à terme ?
-- [ ] L'objectif est-il de reproduire fidèlement la carte publiée, ou surtout d'obtenir des détections 2026 exploitables ?
+- [ ] Quelle AOI pilote ? *(Taille maximale v1 : un département, arbitrage n° 2.)* Quelle taille maximale d'AOI vise-t-on à terme ?
+- [x] L'objectif est-il de reproduire fidèlement la carte publiée, ou surtout d'obtenir des détections 2026 exploitables ? *Détections 2026 d'abord (arbitrage n° 3).*
 - [ ] R strict, ou R avec une étape en conteneur Python pour le prétraitement ?
 - [ ] Où tourne le calcul : poste de travail, serveur, cloud ?
-- [ ] Usage prévu des résultats : interne, publication, commercial ? La réponse conditionne la question des licences.
+- [x] Usage prévu des résultats : interne, publication, commercial ? La réponse conditionne la question des licences. *Interne, non commercial en v1 (arbitrage n° 4).*
 - [ ] Dispose-t-on de données terrain ou d'orthophotos récentes sur l'AOI pour la validation ?
 - [ ] GlobEO ou le CESBIO peuvent-ils partager les paramètres v3 et les polygones de référence ?
 
