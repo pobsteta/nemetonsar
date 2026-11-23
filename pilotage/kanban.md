@@ -23,6 +23,11 @@ _Modèle de carte :_
 
 ## Validé
 
+- [023-fork-gdal](missions/023-fork-gdal.md) · depuis le cycle 10
+  - Homme : `dev` (opus)
+  - Mission : parallélisme sans blocage sous GDAL ≥ 3.11 ; `processus` dans `nemetonsar_run()`
+  - Moyens : voir la fiche
+
 ## Planifié
 
 - [017-tuile-pilote-landes](missions/017-tuile-pilote-landes.md) · depuis le cycle 5 · lancée au cycle 10
