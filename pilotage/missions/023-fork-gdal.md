@@ -55,3 +55,10 @@ Dépend de : 021 et 022 (terminées). CI rouge attendue : aucune.
 ## Qui veille, qui tranche
 
 - **Relecteur :** `relecteur`, puis Pascal. **Arrêt :** 3 allers-retours. **Qui tranche :** l'orchestrateur par délégation.
+
+## Aller-retour 2/3 (2026-11-23, remarques du relecteur, décision de l'orchestrateur)
+
+1. Avertissement de terra 1.9 « [rasterize] unexpected additional argument(s): datatype » (`R/run.R:978`, `run_assembler`, 24 fois dans la suite) : le supprimer sans changer un résultat (type de sortie vérifié par un test), compatible avec terra 1.7 et 1.9.
+2. `test-s1.R` : retirer la variable `fils`, calculée et jamais utilisée.
+3. `r_avec_delai()` appelle `pkgload::load_all` : déclarer `pkgload` dans Suggests (DESCRIPTION, par l'orchestrateur si hors périmètre) ou s'en passer.
+4. Titre de la fiche : la cause est terra 1.9, pas GDAL (journal) ; le titre reste pour la traçabilité.
