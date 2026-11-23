@@ -59,3 +59,10 @@ Les 3 coupes en désaccord du rapport de comparaison, et quelques pixels tardifs
 ## Qui veille, qui tranche
 
 - **Relecteur :** `relecteur`, puis Pascal. **Arrêt :** 3 allers-retours. **Qui tranche :** Pascal (changement de règle de date).
+
+## Aller-retour 2/3 (2026-11-23, remarques du relecteur, décision de l'orchestrateur par délégation de Pascal)
+
+1. En-tête du rapport : il dit « aucune valeur de pixel de la v3.0.1 », alors que la section des pixels tracés situe la date publiée de deux pixels nommés par leurs coordonnées. Décision : **garder les coordonnées** (licence NC, utiles au contrôle de Pascal sur orthophoto) et **corriger l'en-tête** pour dire exactement ce que le rapport contient (chiffres agrégés, plus la date publiée de deux pixels tracés).
+2. Corriger la phrase sur le pixel n° 2 : il est retenu comme objet (21063, trace2.log) ; seul le n° 1 ne l'est pas.
+3. Pareto : dire clairement que la tranche 16-60 j comptée sous « règle de date » ne redevient pas « date retrouvée » ; le chiffre principal est 19,4 % des tardifs ramenés à 15 j ou moins.
+4. Nit : trace1.log se termine sur une erreur d'une version antérieure du script ; régénérer ou le signaler dans le rapport.
