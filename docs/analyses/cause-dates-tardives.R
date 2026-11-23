@@ -6,6 +6,7 @@
 #   Rscript docs/analyses/cause-dates-tardives.R <dossier> relever [cote_m]
 #   Rscript docs/analyses/cause-dates-tardives.R <dossier> analyser <dates_v301.tif> <sorties_017> <sorties_024_premiere_detection>
 #   Rscript docs/analyses/cause-dates-tardives.R <dossier> tracer
+#   Rscript docs/analyses/cause-dates-tardives.R <dossier> persister <dates_v301.tif> <sorties_017>
 #
 #   <dossier> : dossier de travail HORS du dépôt.
 #   relever   : relance nemetonsar_run() sur l'AOI pilote (mêmes AOI,
@@ -33,6 +34,15 @@
 #               <dossier>/series (pas de nouvelle lecture des images),
 #               <dossier>/traces/*.png ; vignettes d'orthophoto par l'étape
 #               « orthos » du script de la mission 024.
+#   persister : (aller-retour 2/3) persistance aux 8 acquisitions de fin
+#               d'hiver avec une base qui ne sert pas à la sélection :
+#               VH moyen de ]X+60, X+240] moins VH moyen de [X-365, X-60[,
+#               et la même mesure un an avant (X-365) en témoin, depuis
+#               <dossier>/series (pas de nouvelle lecture des images) ;
+#               l'ancienne base (5 images valides avant X) est recalculée
+#               pixel par pixel pour mesurer le biais. Question 3 : pixels
+#               FO0 et FF0 datés par l'une, l'autre ou les deux cartes.
+#               Sortie : <dossier>/persistance_026.rds.
 #
 # La v3.0.1 est CC BY-NC 4.0 : l'extrait reste hors du dépôt ; les sorties
 # qui en contiennent des valeurs de pixel restent dans <dossier>.
@@ -580,6 +590,114 @@ if (ETAPE == "analyser") {
   saveRDS(tab, file.path(DOSSIER, "pixels_026.rds"))  # valeurs de pixel : hors dépôt
   saveRDS(out, file.path(DOSSIER, "analyse_026.rds"))
   str(out, max.level = 2)
+}
+
+# Étape 4 (aller-retour 2/3) : persistance sans biais de sélection ---------------
+
+if (ETAPE == "persister") {
+  reference <- normalizePath(args[3]); base <- normalizePath(args[4])
+  if (startsWith(reference, normalizePath(".", mustWork = TRUE))) {
+    stop("L'extrait de la v3.0.1 (CC BY-NC 4.0) ne doit pas être dans le dépôt.", call. = FALSE)
+  }
+  a26 <- readRDS(file.path(DOSSIER, "analyse_026.rds"))
+  tab <- readRDS(file.path(DOSSIER, "pixels_026.rds"))
+  d8 <- a26$q2_8_dates$date; o8 <- a26$q2_8_dates$orbite
+  G <- grille_tuile()
+  masque <- terra::values(terra::rast(file.path(DOSSIER, "sorties", "tuiles", "30TXP", "masque.tif")), mat = FALSE) %in% 1
+  obj_t <- terra::values(terra::rast(file.path(DOSSIER, "sorties", "tuiles", "30TXP", "objets.tif")), mat = FALSE)
+  ref_t <- terra::values(terra::project(terra::rast(reference), G, method = "near"), mat = FALSE)
+  sans_coupe <- masque & is.na(obj_t) & (is.na(ref_t) | ref_t == 0)
+  ref_t[!is.na(ref_t) & ref_t == 0] <- NA
+  date_ref_t <- yyddd_vers_date(ref_t)
+  N_BASE_MIN <- 5L; N_APRES_MIN <- 3L
+  # Moyenne linéaire (dB) des colonnes `cols` ; NA si moins de `nmin` images valides.
+  moy_cols <- function(lin, cols, nmin) {
+    if (!length(cols)) return(rep(NA_real_, nrow(lin)))
+    m <- lin[, cols, drop = FALSE]
+    k <- rowSums(!is.na(m)); r <- 10 * log10(rowMeans(m, na.rm = TRUE)); r[k < nmin] <- NA; r
+  }
+  # Moyenne des 5 dernières images VALIDES avant X (ancienne base, définition du rapport).
+  moy_5_valides <- function(lin, dates, X) {
+    s <- numeric(nrow(lin)); k <- integer(nrow(lin))
+    for (t in rev(which(dates < X))) {
+      v <- !is.na(lin[, t]) & k < 5L
+      s[v] <- s[v] + lin[v, t]; k[v] <- k[v] + 1L
+      if (all(k >= 5L)) break
+    }
+    r <- 10 * log10(s / k); r[k < 3L] <- NA; r
+  }
+  apres <- function(lin, dates, X) moy_cols(lin, which(dates > X + 60 & dates <= X + 240), N_APRES_MIN)
+  base365 <- function(lin, dates, X) moy_cols(lin, which(dates >= X - 365 & dates < X - 60), N_BASE_MIN)
+  est_t <- startsWith(tab$groupe, "tardif_")
+  vals <- list()
+  metas <- list.files(D_SERIES, pattern = "\\.rds$", full.names = TRUE)
+  for (f in metas) {
+    m <- readRDS(f)
+    if (!m$orbite %in% o8) next
+    con <- file(sub("\\.rds$", ".bin", f), "rb")
+    vh <- matrix(readBin(con, "integer", m$npix * m$nt, size = 2L), m$npix, m$nt)
+    close(con)
+    lin <- ifelse(vh == NA16, NA_real_, 10^(vh / 1000)); rm(vh)
+    cel_bloc <- (rep(m$lignes_tuile, each = m$nc) - 1L) * m$nc + rep(seq_len(m$nc), length(m$lignes_tuile))
+    for (j in which(o8 == m$orbite)) {
+      X <- d8[j]; Y <- X - 365
+      ap <- apres(lin, m$dates, X)
+      p_new <- ap - base365(lin, m$dates, X)
+      p_an <- apres(lin, m$dates, Y) - base365(lin, m$dates, Y)
+      p_old <- ap - moy_5_valides(lin, m$dates, X)
+      dc <- date_ref_t[cel_bloc]
+      grp <- list(
+        tardifs_a_D = cel_bloc %in% tab$cel[est_t & tab$date_carte == X],
+        reste_a_D = cel_bloc %in% tab$cel[tab$groupe == "tardif_reste" & tab$date_carte == X],
+        retrouves_a_D = cel_bloc %in% tab$cel[tab$groupe == "temoin_retrouve" & tab$date_carte == X],
+        deja_coupee = masque[cel_bloc] & !is.na(dc) & dc < X - 60,
+        sans_coupe = sans_coupe[cel_bloc])
+      for (g in names(grp)) {
+        key <- paste(format(X), g)
+        w <- grp[[g]]
+        vals[[key]] <- rbind(vals[[key]], cbind(p_old = p_old[w], p_new = p_new[w], p_an = p_an[w]))
+      }
+    }
+    cat(basename(f), "\n")
+  }
+  q <- function(v) stats::quantile(v, c(0.25, 0.5, 0.75), na.rm = TRUE)
+  pers <- do.call(rbind, lapply(names(vals), function(key) {
+    v <- vals[[key]]; ok <- stats::complete.cases(v); v <- v[ok, , drop = FALSE]
+    d <- v[, "p_new"] - v[, "p_an"]
+    data.frame(date = as.Date(sub(" .*", "", key)), groupe = sub(".* ", "", key),
+               n_cellules = length(ok), n = nrow(v),
+               med_old5 = stats::median(v[, "p_old"]), med_new = stats::median(v[, "p_new"]),
+               q25_new = q(v[, "p_new"])[1], q75_new = q(v[, "p_new"])[3],
+               med_an = stats::median(v[, "p_an"]), med_diff = stats::median(d),
+               part_new_tp = mean(v[, "p_new"] <= TP), part_an_tp = mean(v[, "p_an"] <= TP),
+               part_diff_tp = mean(d <= TP))
+  }))
+  rownames(pers) <- NULL
+  out <- list(persistance = pers, n_base_min = N_BASE_MIN, n_apres_min = N_APRES_MIN)
+
+  # Question 3 : FO0 et FF0, datés par l'une, l'autre ou les deux cartes.
+  b <- lire_couple(base, reference)
+  lu_bdf <- ns$bdforet_lire("wfs", b$grille)
+  v <- lu_bdf$v
+  champ <- names(v)[tolower(names(v)) == "code_tfv"]
+  v$code <- trimws(as.character(v[[champ]][[1]]))
+  codes <- sort(unique(v$code)); v$k <- match(v$code, codes)
+  code_px <- codes[terra::values(terra::rasterize(v, b$grille, field = "k", touches = FALSE), mat = FALSE)]
+  rec <- b$dans & !is.na(b$rec); refd <- b$dans & !is.na(b$ref)
+  par_code <- function(cd) {
+    w <- b$dans & code_px %in% cd
+    c(aoi = sum(w), recalcul = sum(w & rec), v301 = sum(w & refd), communs = sum(w & rec & refd),
+      recalcul_seul = sum(w & rec & !refd), v301_seule = sum(w & refd & !rec))
+  }
+  out$q3_postes <- rbind(FF0 = par_code("FF0"), FO0 = par_code("FO0"),
+                         tous = c(aoi = sum(b$dans), recalcul = sum(rec), v301 = sum(refd),
+                                  communs = sum(rec & refd), recalcul_seul = sum(rec & !refd),
+                                  v301_seule = sum(refd & !rec)))
+  fo0 <- which(b$dans & code_px %in% "FO0" & rec)
+  out$q3_fo0_annee <- table(format(yyddd_vers_date(b$rec[fo0]), "%Y"))
+  out$q3_fo0_objets <- length(unique(b$obj[fo0]))
+  saveRDS(out, file.path(DOSSIER, "persistance_026.rds"))
+  print(pers, digits = 3); print(out$q3_postes); print(out$q3_fo0_annee); print(out$q3_fo0_objets)
 }
 
 # Étape 3 : tracés -------------------------------------------------------------------

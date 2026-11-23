@@ -8,7 +8,7 @@
 > valeur de pixel de la v3.0.1.
 
 Analyste, 2026-11-23, sur le poste de Pascal. Script : [`cause-dates-tardives.R`](cause-dates-tardives.R)
-(étapes `relever`, `analyser`, `tracer` ; vignettes par l'étape `orthos` de
+(étapes `relever`, `analyser`, `tracer`, et `persister` ajoutée à l'aller-retour 2/3 ; vignettes par l'étape `orthos` de
 [`ecarts-date-v301.R`](ecarts-date-v301.R)). Point de départ :
 [`ecarts-date-v301.md`](ecarts-date-v301.md) (mission 024).
 
@@ -22,18 +22,25 @@ détection à la date publiée par la v3.0.1, et quand passe-t-il sous le seuil 
 |---|---|
 | Relevé | `nemetonsar_run()` sur l'AOI, la période, les réglages et le masque BD Forêt (WFS) de la mission 017. Passe 1 en parallèle (un processus par orbite, mission 023), 4 flux, jeton SAS neuf à chaque bande (contournement de 024, mission 025 non faite). Durée : **45,6 min** |
 | Branchement | `utils::assignInNamespace()` autour de `rcr_compute()`, `detecter_blocs()` et `bande_bordee()`. Le package n'est pas modifié et le résultat de `rcr_compute()` est rendu tel quel. Pour chaque bloc de la passe principale et chaque orbite, la série filtrée (VH) et les deux ratios (détection `xb = Inf`, datation `xb_date = 5`) sont gardés à **toutes les dates**, à la date `d_(i+1)`, en centièmes de dB (4,4 Go hors dépôt) |
-| Contrôle du relevé | Les 36 appels portent sur 3 457 206 ratios d'orbite. Le minimum du ratio de détection et la date de la règle actuelle, recalculés, sont **identiques à `rcr_compute()`** : 0 date différente, écart de ratio nul. Chaque cellule de la tuile n'est relevée qu'une fois (vérifié sur une AOI d'essai de 800 m) |
+| Contrôle du relevé | Les 30 blocs relevés (3 orbites × 10 blocs de la passe principale ; les appels de la passe 2019 ne sont pas relevés) portent sur 3 457 206 ratios d'orbite. Le minimum du ratio de détection et la date de la règle actuelle, recalculés, sont **identiques à `rcr_compute()`** : 0 date différente, écart de ratio nul. Chaque cellule de la tuile n'est relevée qu'une fois (vérifié sur une AOI d'essai de 800 m) |
 | Contrôle de la carte | `dates.tif` du relevé (en parallèle) et celui de la mission 017 (en série) : **0 cellule différente** sur 1 006 009 |
 | Appariement | Les 39 474 pixels étudiés sont lus sur la grille UTM de la tuile. Pixels du reste : le ratio minimal de l'orbite retenue est égal au `ratio.tif` de 017 pour 13 091 sur 13 104 ; la date de la règle actuelle est retrouvée pour 12 978 sur 13 104. Les écarts restants viennent des objets de la passe 2019, dont la série est plus courte et n'est pas relevée ici |
 | Classes de 024 | Reproduites à l'unité : début de série 2 822, règle à 15 j 4 896, règle à 16–60 j 4 163, plus datés 196, **reste 13 104** |
 | Analyse | 3 min. Témoin : les 14 293 pixels « date retrouvée » (\|écart\| ≤ 15 j) de la carte actuelle |
+| Persistance (aller-retour 2/3) | Étape `persister`, 1,3 min, depuis les séries relevées (aucune nouvelle lecture Sentinel-1) ; question 3 relue par le WFS de la BD Forêt |
 
 **Définitions** (provisoires, choisies ici) :
 - **P** : la date publiée par la v3.0.1.
 - **Ratio à P** : le minimum du ratio de détection sur les dates `d_(i+1)` situées à ±15 j de P.
 - **Proche du seuil** : la meilleure orbite est à P entre tp (−3,45 dB) et tp + 1 dB.
-- **Persistance** à une date X : le VH moyen (linéaire) de ]X+60 j, X+240 j], comparé à celui des
-  5 images valides avant X, en dB.
+- **Persistance** à une date X (aller-retour 2/3) : le VH moyen (linéaire) de ]X+60 j, X+240 j],
+  moins celui de **[X−365 j, X−60 j[**, en dB (au moins 3 images valides après, 5 avant). Cette
+  base ne contient aucune des images qui forment le dénominateur du ratio de datation à X.
+- **Persistance un an avant** : la même mesure à X−365 j, sur les mêmes pixels (témoin de ce que
+  ces pixels font sans l'événement daté à X).
+- **Ancienne persistance** (rapport du 2026-11-23, retirée) : base des 5 images valides avant X.
+  Ces images forment aussi le dénominateur du ratio qui a fait retenir les pixels à X : la mesure
+  était biaisée par la sélection. Elle n'est plus donnée que pour mesurer ce biais.
 
 Les seuils de 15 j et de 180 j sont ceux de 024.
 
@@ -56,9 +63,11 @@ seuil ; le reste, loin du seuil.
 Comment lire ces classes : ce sont des **situations du signal à la date publiée**, pas encore des
 causes. La section « Causes » plus bas les rattache aux branches.
 
-**Ratio de détection à P, meilleure des trois orbites (quantiles 10/25/50/75/90 %, dB) :**
+**Quantiles 10/25/50/75/90 %.** Les deux colonnes de ratio portent sur la **meilleure des trois
+orbites** à P. Les deux dernières portent sur l'**orbite retenue** (VH des 5 images avant P ; premier
+passage sous tp du ratio de détection).
 
-| Groupe | Ratio à P | Ratio de datation à P | VH avant P (médiane) | Premier passage sous tp − P (médiane) |
+| Groupe | Ratio de détection à P, meilleure orbite (dB) | Ratio de datation à P, meilleure orbite | VH avant P, orbite retenue (médiane) | Premier passage sous tp − P, orbite retenue (médiane) |
 |---|---|---|---:|---:|
 | Témoin (date retrouvée) | −6,34 / −5,44 / **−4,45** / −3,83 / −3,40 | médiane −4,68 | −14,5 dB | 0 j |
 | Reste | −3,86 / −3,35 / **−2,91** / −2,43 / −1,95 | médiane −2,86 | −14,9 dB | +253 j |
@@ -66,8 +75,8 @@ causes. La section « Causes » plus bas les rattache aux branches.
 **Lecture.**
 - Pour plus de la moitié du reste, le signal **existe** à la date publiée, mais il est faible : la
   médiane est à 0,5 dB au-dessus de tp, alors que celle du témoin est 1 dB en dessous.
-  **3 264 pixels** (24,9 % du reste) ont à P un ratio entre −3,45 et −3,0 dB : ils seraient sous
-  le seuil sans le facteur 1,15 de `parametres_sufosat()`. Ceci est une indication, pas un essai :
+  **3 262 pixels** de la classe « proche » (46,1 % de la classe, 24,9 % du reste) ont à P un ratio
+  entre −3,45 et −3,0 dB : ils seraient sous le seuil sans le facteur 1,15 de `parametres_sufosat()`. Ceci est une indication, pas un essai :
   ce même seuil sert aussi à la détection.
 - Un pixel sur cinq est **à l'heure sur une autre orbite**. L'orbite retenue (celle du ratio minimal
   sur toute la série) passe sous tp plus tard, souvent sur un creux de fin d'hiver. Les trois
@@ -86,47 +95,81 @@ mais pas parfaitement.
 ## Question 2 : les 8 acquisitions de fin d'hiver
 
 Ces 8 acquisitions sont celles où la carte actuelle place le plus de pixels tardifs : **52,6 % des
-tardifs**, et 45,2 % des pixels du reste. Pour chacune, sur la forêt de l'AOI (masque de la tuile)
-:
+tardifs**, et 45,2 % des pixels du reste. Pour chacune, sur la forêt de l'AOI (masque de la tuile) :
 - part des pixels dont le ratio de **datation** est ≤ tp à cette date, comparée à la médiane de
   toutes les dates de la même orbite depuis février 2019 ;
-- persistance médiane, par groupe.
+- persistance médiane par groupe, mesurée avec la base [X−365, X−60[ (aller-retour 2/3).
 
 Les groupes sont les suivants :
 - « déjà coupée » : coupe publiée par la v3.0.1 plus de 60 j avant la date ;
 - « sans coupe » : ni dans la carte recalculée, ni dans la v3.0.1 (720 906 pixels) ;
-- « tardifs » : pixels tardifs datés à cette acquisition.
+- « tardifs » : pixels tardifs datés à cette acquisition par la carte actuelle (cellules de la
+  tuile distinctes, d'où 4 230 et non 4 254 le 2022-03-23) ;
+- « retrouvés » (ajouté à l'aller-retour 2/3) : pixels à date retrouvée datés à cette acquisition,
+  c'est-à-dire des événements que la v3.0.1 date aussi à ±15 j. C'est le témoin positif de la mesure.
 
-| Acquisition | Orbite | Tardifs (% des tardifs) | Déjà coupée ≤ tp (médiane de l'orbite) | Sans coupe ≤ tp (médiane) | Persistance médiane : tardifs / déjà coupée / sans coupe |
-|---|---|---:|---:|---:|---|
-| 2022-03-23 | A030 | 4 254 (16,9 %) | 20,9 % (0,04 %) | 0,78 % (0,02 %) | **−2,65** / −0,85 / −0,15 dB |
-| 2023-02-09 | D008 | 2 195 (8,7 %) | 19,8 % (0,02 %) | 2,72 % (0,01 %) | **−0,45** / +0,15 / +0,05 dB |
-| 2021-03-28 | A030 | 1 553 (6,2 %) | 20,5 % | 1,64 % | **−2,25** / −1,05 / −0,75 dB |
-| 2021-03-04 | A030 | 1 143 (4,5 %) | 20,5 % | 1,17 % | **−2,35** / −1,25 / −0,65 dB |
-| 2022-02-26 | D008 | 1 113 (4,4 %) | 15,9 % | 0,77 % | **−2,45** / −1,05 / −0,45 dB |
-| 2021-02-20 | A030 | 1 095 (4,3 %) | 17,0 % | 0,83 % | **−2,55** / −1,25 / −0,65 dB |
-| 2025-03-06 | D008 | 988 (3,9 %) | 6,1 % | 0,38 % | **−2,15** / −0,45 / −0,25 dB |
-| 2024-03-24 | A030 | 902 (3,6 %) | 4,1 % | 0,14 % | **−2,15** / −0,15 / −0,05 dB |
+**Chute du ratio à ces dates** (ordre du tableau : nombre de tardifs décroissant) :
 
-Médianes de l'orbite (part ≤ tp, toutes dates) : A030 0,04 % / 0,02 % ; D008 0,02 % / 0,01 %.
-Rang de la part « sans coupe » parmi les dates de l'orbite : 1er, 1er, 2e, 2e, 5e, 5e, 6e, 22e.
+| Acquisition | Orbite | Tardifs (% des tardifs) | Déjà coupée ≤ tp (médiane de l'orbite ; facteur) | Sans coupe ≤ tp (médiane ; facteur) | Rang « sans coupe » dans l'orbite |
+|---|---|---:|---:|---:|---:|
+| 2022-03-23 | A030 | 4 254 (16,9 %) | 20,9 % (0,04 % ; ×558) | 0,78 % (0,02 % ; ×44) | 6e |
+| 2023-02-09 | D008 | 2 195 (8,7 %) | 19,8 % (0,02 % ; ×1 268) | 2,72 % (0,01 % ; ×333) | 1er |
+| 2021-03-28 | A030 | 1 553 (6,2 %) | 20,5 % (×548) | 1,64 % (×92) | 1er |
+| 2021-03-04 | A030 | 1 143 (4,5 %) | 20,5 % (×548) | 1,17 % (×66) | 2e |
+| 2022-02-26 | D008 | 1 113 (4,4 %) | 15,9 % (×1 015) | 0,77 % (×94) | 2e |
+| 2021-02-20 | A030 | 1 095 (4,3 %) | 17,0 % (×453) | 0,83 % (×46) | 5e |
+| 2025-03-06 | D008 | 988 (3,9 %) | 6,1 % (×393) | 0,38 % (×46) | 5e |
+| 2024-03-24 | A030 | 902 (3,6 %) | 4,1 % (×110) | 0,14 % (×8) | 22e |
+
+Médianes de l'orbite (part ≤ tp, toutes dates) : A030 0,04 % (déjà coupée) / 0,02 % (sans coupe) ;
+D008 0,02 % / 0,01 %. Le rang est celui de la part « sans coupe » parmi les dates de la même orbite.
+
+**Persistance médiane (dB), base [X−365, X−60[ ; entre parenthèses, la même mesure un an avant
+(X−365)** :
+
+| Acquisition | Tardifs | — dont reste | Retrouvés (témoin positif) | Déjà coupée | Sans coupe | Tardifs, ancienne base (biaisée) |
+|---|---:|---:|---:|---:|---:|---:|
+| 2022-03-23 | −0,55 (−2,04) | −0,71 (−2,08) | −2,06 (−0,23), n = 56 | −0,07 (−0,39) | +0,04 (−0,15) | −2,67 |
+| 2023-02-09 | +0,75 (−0,75) | +0,61 (−0,80) | −0,79 (0,00) | +0,66 (−0,11) | +0,30 (+0,10) | −0,49 |
+| 2021-03-28 | −1,40 (−1,06) | −1,68 (−0,75) | −2,03 (−0,08) | −0,31 (−0,23) | −0,22 (+0,03) | −2,23 |
+| 2021-03-04 | −0,21 (−2,27) | −0,64 (−1,40) | −1,87 (−0,04) | −0,11 (−0,06) | −0,03 (+0,21) | −2,38 |
+| 2022-02-26 | −0,44 (−0,50) | −0,62 (−0,69) | −1,96 (+0,08), n = 69 | −0,04 (−0,01) | +0,12 (+0,04) | −2,49 |
+| 2021-02-20 | −0,39 (−2,83) | −0,51 (−2,14) | −2,01 (−0,16) | −0,14 (−0,09) | +0,01 (+0,21) | −2,52 |
+| 2025-03-06 | −0,75 (−0,78) | −0,83 (−0,96) | −1,21 (−0,18) | −0,05 (+0,10) | +0,08 (+0,02) | −2,11 |
+| 2024-03-24 | −1,00 (−1,47) | −0,88 (−1,48) | −3,04 (+0,07) | +0,19 (+0,48) | +0,07 (+0,24) | −2,14 |
+
+Effectifs (pixels avec les deux mesures) : tardifs 898 à 4 230, reste 245 à 1 621, retrouvés 56 à
+2 372, déjà coupée 40 659 à 80 796, sans coupe 720 906. Les quartiles et les parts sous tp sont
+dans `persistance_026.rds` (hors dépôt). L'ancienne base est recalculée ici pixel par pixel sur les
+5 images **valides** (le rapport du 2026-11-23 prenait, pour cette médiane, les 5 colonnes
+précédentes, valides ou non : écart d'au plus 0,05 dB sur les tardifs).
 
 **Lecture.**
-- **Ce sont des chutes larges, et pas seulement des événements.** À ces dates, 16 à 21 % des
-  parcelles déjà coupées passent sous tp, contre 0,02 à 0,04 % un jour ordinaire, soit environ
-  500 fois plus. La forêt sans coupe est touchée aussi (0,8 à 2,7 %, 40 à 300 fois la médiane), mais
-  bien moins : la chute frappe surtout le **sol découvert**. C'est la branche Milieu (humidité ou
-  gel du sol). Le masque neige n'est pas appliqué, et la météo n'a pas été lue.
-- **Sur les pixels tardifs, la chute est suivie d'une baisse durable**, à une exception près. Le VH
-  des 2 à 8 mois suivants reste plus bas d'environ 2,2 à 2,7 dB. C'est plus que la saison seule
-  (−0,15 à −0,75 dB en forêt sans coupe) et que les parcelles déjà coupées en général (−0,15 à
-  −1,25 dB). La chute de fin d'hiver coïncide donc, sur ces pixels, avec un changement réel qui
-  dure : sur orthophoto, souvent un sol travaillé (voir les pixels tracés).
-- **L'exception est le 9 février 2023 (D008)** : persistance médiane −0,45 dB pour les tardifs. C'est
-  une chute passagère (2 195 pixels, 8,7 % des tardifs), et la plus large des huit en forêt sans
-  coupe (2,72 %, au 1er rang de l'orbite).
-- La persistance compare un hiver à un printemps-été : elle porte une part saisonnière. C'est
-  pourquoi elle est donnée à côté de celle des deux groupes de comparaison, mesurés aux mêmes dates.
+- **Ce sont des chutes larges, et pas seulement des événements.** À ces dates, 4,1 à 20,9 % des
+  parcelles déjà coupées passent sous tp, contre 0,02 à 0,04 % un jour ordinaire, soit 110 à
+  1 268 fois plus. La forêt sans coupe est touchée aussi (0,14 à 2,7 %, 8 à 333 fois la médiane),
+  mais bien moins : la chute frappe surtout le **sol découvert**. C'est la branche Milieu (humidité
+  ou gel du sol). Le masque neige n'est pas appliqué et la météo n'a pas été lue.
+- **L'affirmation du rapport du 2026-11-23 (« la chute est suivie d'une baisse durable, un
+  changement réel ») est retirée.** Elle reposait sur une base biaisée par la sélection. Avec une
+  base qui ne sert pas à la sélection, la persistance médiane des tardifs n'est plus que de −1,40 à
+  +0,75 dB (−2,1 à −2,7 dB avec l'ancienne base, hors 2023-02-09). Sur ces mêmes pixels, la mesure
+  faite **un an avant** donne une baisse égale ou plus forte (−0,50 à −2,83 dB) à sept dates sur
+  huit. Pour la plupart des tardifs, ces dates ne marquent donc pas un changement nouveau qui
+  dure : le VH de ces pixels avait déjà baissé l'année précédente. C'est compatible avec un
+  événement antérieur (la date publiée est en médiane 312 à 720 j avant la date de la carte, selon
+  l'acquisition), sans le prouver.
+- **La mesure voit pourtant les vrais événements.** Sur les pixels retrouvés datés à ces mêmes
+  acquisitions, la persistance est de −0,79 à −3,04 dB, et la mesure un an avant est nulle (−0,23 à
+  +0,08 dB). Les tardifs ne ressemblent pas à ce témoin positif.
+- **Une date fait exception en partie** : le 2021-03-28 (tardifs −1,40 dB, un an avant −1,06 ;
+  reste −1,68 contre −0,75). Une part de ces pixels porte peut-être un événement réel à cette
+  date ; ce n'est pas tranché ici.
+- **Le 9 février 2023 (D008)** reste à part : persistance positive pour tous les groupes (tardifs
+  +0,75, déjà coupée +0,66, sans coupe +0,30 dB), et la chute la plus large des huit en forêt sans
+  coupe (2,72 %, au 1er rang de l'orbite). C'est une chute passagère.
+- La persistance compare encore une fin d'hiver à un printemps-été. La part saisonnière est lue sur
+  la forêt sans coupe (−0,22 à +0,30 dB) et sur la même mesure un an avant.
 
 ## Question 3 : postes BD Forêt FF0 et FO0
 
@@ -135,7 +178,7 @@ carte (L93).
 
 | Groupe | Pixels | FF0 | FO0 | Autres postes forêt |
 |---|---:|---:|---:|---:|
-| AOI | 1 000 000 | 39,3 % | 0,03 % | 48,1 % |
+| AOI | 1 000 000 | 39,3 % | 0,03 % (325) | 48,1 % |
 | Pixels datés dans les deux cartes | 54 160 | 48,8 % | 0 | 51,1 % |
 | Date retrouvée (témoin) | 14 293 | **64,3 %** | 0 | 35,6 % |
 | Tardifs | 25 181 | **45,1 %** | 0 | 54,8 % |
@@ -145,11 +188,27 @@ carte (L93).
 | — reste, proche du seuil | 7 080 | 42,9 % | 0 | 57,0 % |
 | — reste, autre orbite | 2 449 | 39,4 % | 0 | 60,5 % |
 
-**Lecture.** Les postes FF0 et FO0, comptés forêt par décision du 2026-11-22, **ne portent pas les
-dates tardives**. FO0 est absent (325 pixels dans l'AOI, aucun daté). FF0 est **moins fréquent**
-parmi les tardifs (45 %) que parmi les pixels à date retrouvée (64 %) ou que parmi l'ensemble des
-pixels communs (49 %). La forte part de FF0 en « début de série » (73 %) est cohérente avec des
-parcelles déjà ouvertes au relevé de la BD Forêt.
+**Datés par l'une, l'autre ou les deux cartes** (aller-retour 2/3, pixels de l'AOI) :
+
+| Poste | AOI | Carte recalculée | v3.0.1 | Les deux | Carte recalculée seule | v3.0.1 seule |
+|---|---:|---:|---:|---:|---:|---:|
+| FF0 | 392 722 | 42 347 | 50 149 | 26 417 | 15 930 | 23 732 |
+| **FO0** | 325 | **293 (90,2 %)** | **0** | 0 | **293** | 0 |
+| Tous | 1 000 000 | 104 165 | 103 482 | 54 160 | 50 005 | 49 322 |
+
+**Lecture.**
+- **Correction du rapport du 2026-11-23** : « FO0 … aucun daté » était faux. Aucun pixel FO0 n'est
+  daté par la v3.0.1, mais **293 des 325 pixels FO0 de l'AOI (90,2 %) sont datés par la carte
+  recalculée seule**. Ils forment un seul objet, daté en 2019 (292 pixels ; 1 en 2020). Ils ne
+  sont dans aucune des classes de 024 et 026 (qui ne portent que sur les pixels datés par les deux
+  cartes). Ils pèsent 0,6 % des 50 005 pixels de la carte recalculée seule. Cela touche la décision
+  de Pascal du 2026-11-22 (FF0 et FO0 comptés forêt) : sur cette AOI, FO0 n'ajoute que des dates
+  que la v3.0.1 n'a pas. Un seul objet ne suffit pas pour conclure ; il n'a pas été vu sur
+  orthophoto.
+- Les postes FF0 et FO0 **ne portent pas les dates tardives**. FF0 est **moins fréquent** parmi les
+  tardifs (45 %) que parmi les pixels à date retrouvée (64 %) ou que parmi l'ensemble des pixels
+  communs (49 %). La forte part de FF0 en « début de série » (73 %) est cohérente avec des parcelles
+  déjà ouvertes au relevé de la BD Forêt.
 
 ## Pixels tracés
 
@@ -172,8 +231,8 @@ une coupe d'arbres, mais le **travail du sol**.
 | 398525 ; 6351825 | proche du seuil | P au printemps 2020 : chute à environ −3 dB sur A030, sous tp en août 2020 seulement. Date de la carte : creux de mars 2021 (−5,5 dB), suivi d'un **rebond** au-dessus de la normale | 2018 : herbe et arbres épars. 2021 : sol labouré nu. 2024 : replanté |
 | 398595 ; 6348385 | autre orbite | P au printemps 2022 : A030 et D081 passent sous tp **à P**. L'orbite retenue (D008) l'est par un creux de mars 2025 suivi d'un rebond | 2018–2021 : peuplement en place. **2024 : coupé et replanté**. La date de la carte (mars 2025) est postérieure à ce que montre l'ortho 2024 |
 | 394175 ; 6352425 | loin du seuil | P à l'été 2019 : rien sur aucune orbite, VH plat. Date de la carte : creux de mars 2021 (D081), juste sous tp | 2018 et 2020 : boisé. **2021 : coupé**, rémanents ; pixel en lisière du reste du peuplement. 2024 : planté. L'ortho ne départage pas 2019 et mars 2021 |
-| 394465 ; 6350145 | loin du seuil | P à la fin de l'été 2020 : rien. Chute en mars 2021 **sur les trois orbites**, durable (−4,6 dB) | 2018–2020 : herbe et arbres épars (aucun arbre au pixel). **2021 : sol travaillé**. 2024 : planté. Événement réel postérieur, le travail du sol, et pas la coupe des arbres épars |
-| 394475 ; 6350815 | proche du seuil | P à la fin de l'été 2020 (−2,9 dB à P). Date de la carte : février 2022, durable | Pixel **sur une piste**, au bord de deux parcelles. 2018 : herbe, un arbre isolé. 2021 : sol travaillé des deux côtés. 2024 : planté. Pixel de lisière |
+| 394465 ; 6350145 | loin du seuil | P à la fin de l'été 2020 : rien. Chute en mars 2021 **sur les trois orbites**, durable (−3,0 dB avec la nouvelle base, +0,2 dB un an avant ; −4,6 dB avec l'ancienne) | 2018–2020 : herbe et arbres épars (aucun arbre au pixel). **2021 : sol travaillé**. 2024 : planté. Événement réel postérieur, le travail du sol, et pas la coupe des arbres épars |
+| 394475 ; 6350815 | proche du seuil | P à la fin de l'été 2020 (−2,9 dB à P). Date de la carte : février 2022, baisse modérée (−1,1 dB avec la nouvelle base, 0,0 un an avant ; −3,6 dB avec l'ancienne) | Pixel **sur une piste**, au bord de deux parcelles. 2018 : herbe, un arbre isolé. 2021 : sol travaillé des deux côtés. 2024 : planté. Pixel de lisière |
 | 393725 ; 6349945 | autre orbite | P en mars 2021, sous tp sur une autre orbite que D008. Date de la carte : 9 février 2023 (la chute passagère) | 2018 : herbe, jeune plantation. **2021 : sol travaillé**. 2024 : planté. La date de la carte (2023) est postérieure au travail du sol que montre l'ortho 2021 |
 | 393975 ; 6349765 | témoin | P et carte en mars 2021, chute suivie d'un rebond | 2018 : herbe, jeune plantation. 2021 : labouré. 2024 : plantation. **La v3.0.1 date ici aussi un événement de fin d'hiver** |
 
@@ -189,12 +248,13 @@ la ligne du Pareto suit la situation.
 | Proche du seuil (54,0 %) | Mesure / Matière | Seuil de datation égal au seuil de détection, avec le facteur 1,15. S1A seul (3 images = 36 j, contre 18 j avec S1B dans la v3.0.1). La règle de date ne lit qu'un passage franc sous tp |
 | Autre orbite à l'heure (18,7 %) | Méthode | L'orbite est retenue par le minimum sur **toute** la série, et la date ne vient que d'elle. Un creux tardif profond, souvent de fin d'hiver, fait retenir l'orbite et la date |
 | Loin du seuil (25,6 %) | Milieu / Mesure | Plusieurs événements sur la même parcelle (coupe, travail du sol, plantation), dont la chaîne date le plus visible en VH. La date de la v3.0.1 suit sa propre règle, et on ne sait pas lequel des événements elle date |
-| Commun aux trois | Milieu | Creux de fin d'hiver sur sol découvert. La règle « minimum » les choisit : 61 % des dates du reste sont en février–mars |
+| Commun aux trois | Milieu / Méthode | Creux de fin d'hiver sur sol découvert, larges et passagers. La règle « minimum » les choisit : 61 % des dates du reste sont en février–mars. Aux 8 acquisitions qui portent 52,6 % des tardifs, ces creux ne sont pas suivis, en médiane, d'un changement nouveau qui dure (question 2, mesure refaite à l'aller-retour 2/3) : la règle date un creux passager, pas un événement |
 
 **Trait** : trois situations couvrent 98,3 % du reste. Les deux premières (« proche du seuil » et
 « autre orbite », 72,7 %) mènent à des causes sur lesquelles on peut agir dans la règle de date.
-La troisième (« loin du seuil », 25,6 %) demande d'abord de mieux observer : elle n'est pas
-tranchée ici.
+La troisième, la classe « loin du seuil » (25,6 %), demande d'abord de mieux observer : elle
+n'est pas tranchée ici. La mesure de persistance refaite ne change pas ce trait ; elle retire
+l'idée que les dates de fin d'hiver de la carte marquent, en général, un changement réel.
 
 ## Autres constats
 
@@ -208,7 +268,8 @@ tranchée ici.
 - Fenêtre de ±15 j et marge de 1 dB choisies ici, provisoires. Seuils de 15 et 180 j de 024.
 - Ratios relevés au centième de dB : 58 pixels du reste sont exactement à −3,45 dB à P et sont
   comptés sous tp.
-- La persistance porte une part saisonnière (voir la question 2).
+- La persistance porte une part saisonnière, lue sur la forêt sans coupe et un an avant (question
+  2). La mesure un an avant suppose que rien d'autre ne change entre les deux années.
 - La passe 2019 n'est pas relevée.
 - Météo, masque neige et Sentinel-2 non lus. Dates de vol des orthophotos inconnues.
 - La v3.0.1 n'est pas une vérité terrain : le témoin tracé montre qu'elle date elle aussi un
