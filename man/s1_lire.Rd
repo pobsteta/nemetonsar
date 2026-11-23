@@ -55,7 +55,7 @@ range les couches en une pile par orbite relative : l'entrée attendue par
 \section{Signature des adresses }{
  Les fichiers du Planetary Computer ne
 se lisent qu'avec un jeton SAS ajouté à l'adresse. Avec \code{signer = TRUE},
-les adresses sont signées par \code{\link[rstac:items_sign_planetary_computer]{rstac::sign_planetary_computer()}} (un
+les adresses sont signées par \code{\link[rstac:sign_planetary_computer]{rstac::sign_planetary_computer()}} (un
 jeton par compte de stockage, gardé en cache et renouvelé à
 l'expiration). Repli sans \code{rstac} : demander un jeton à
 \verb{https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-1-rtc}
@@ -117,7 +117,11 @@ fil, contre 0,22 s pour GDAL en multi-fil : le parallélisme vient des
 orbite (toutes ses tranches) est lue, reprojetée et écrite par un
 processus parmi \code{flux} (\code{\link[parallel:mclapply]{parallel::mclapply()}}, fork ; en série là où
 le fork n'existe pas, sous Windows ; au plus 2 processus sous
-\verb{R CMD check}, quand \verb{_R_CHECK_LIMIT_CORES_} est posée). Chaque date est écrite dans son
+\verb{R CMD check}, quand \verb{_R_CHECK_LIMIT_CORES_} est posée). Chaque
+processus calcule sans le groupe de fils d'exécution de terra
+(\code{terra::terraOptions(parallel = FALSE)}, dans le processus enfant
+seulement) : avec terra 1.9, un enfant qui l'utilise après le fork
+attend sans fin (mission 023). Chaque date est écrite dans son
 fichier, \verb{<dossier>/s1_<serie>/<AAAA-MM-JJ>.tif}, en réel 32 bits
 (\code{FLT4S}), compression DEFLATE avec prédicteur flottant
 (\code{PREDICTOR=3}), comme les fichiers RTC sources. La pile d'une orbite

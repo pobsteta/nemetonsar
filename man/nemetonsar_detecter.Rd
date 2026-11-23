@@ -121,7 +121,7 @@ composantes de la tuile, pas avec sa surface.
 sont traitées en parallèle (lecture, filtre, ratio), un processus par
 orbite, par \code{\link[parallel:mclapply]{parallel::mclapply()}} (fork) ; la combinaison, le masque et
 l'écriture restent dans le processus principal. Chaque processus enfant
-ouvre sa pile (\code{\link[terra:readwrite]{terra::readStart()}}) pour sa seule bande. Le résultat est
+ouvre sa pile (\code{\link[terra:readStart]{terra::readStart()}}) pour sa seule bande. Le résultat est
 \strong{identique au bit près} à celui du calcul en série : mêmes fonctions,
 mêmes données, même ordre de combinaison. Là où le fork n'existe pas
 (Windows), le calcul se fait en série. Mémoire (mission 019,
@@ -129,6 +129,10 @@ mêmes données, même ordre de combinaison. Là où le fork n'existe pas
 enfant à 300 dates et 9 lignes par bloc, soit un pic total de l'ordre de
 4,2 à 4,6 Go pour trois orbites, contre 2,4 Go en série. Sous
 \verb{R CMD check} (variable \verb{_R_CHECK_LIMIT_CORES_}), au plus 2 processus.
+Chaque processus enfant calcule sans le groupe de fils d'exécution de
+terra (\code{terra::terraOptions(parallel = FALSE)}, dans l'enfant
+seulement) : avec terra 1.9, un enfant qui l'utilise après le fork
+attend sans fin (mission 023).
 }
 
 \section{Masque forêt }{

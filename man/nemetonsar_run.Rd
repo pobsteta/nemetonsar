@@ -18,7 +18,8 @@ nemetonsar_run(
   lire_images = NULL,
   bdforet = NULL,
   hauteur_bande = 512L,
-  flux = 4L
+  flux = 4L,
+  processus = NULL
 )
 }
 \arguments{
@@ -79,6 +80,12 @@ tuile d'un seul tenant (disque des images d'une tuile entière). Voir
 \item{flux}{Nombre de processus qui lisent les images en même temps
 (passé à \code{\link[=s1_lire]{s1_lire()}} par le lecteur par défaut). Défaut 4,
 \strong{provisoire}.}
+
+\item{processus}{Nombre de processus de la passe 1 de la détection
+(passé à \code{\link[=nemetonsar_detecter]{nemetonsar_detecter()}} ; voir sa section « Parallélisme »).
+\code{NULL} (défaut) : un processus par orbite, au plus le nombre de cœurs
+moins 1 ; \code{1} : calcul en série. Le résultat ne dépend pas de ce
+réglage.}
 }
 \value{
 (invisible) Une liste : \code{fichiers} (chemins écrits, nommés),
