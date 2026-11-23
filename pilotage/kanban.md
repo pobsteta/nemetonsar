@@ -34,11 +34,12 @@ _Modèle de carte :_
 
 ## Planifié
 
-- [017-tuile-pilote-landes](missions/017-tuile-pilote-landes.md) · depuis le cycle 5 · lancée au cycle 10
 
 
 ## Terminé
 
+- [017-tuile-pilote-landes](missions/017-tuile-pilote-landes.md) · depuis le cycle 10
+  - Mission : tuile pilote des Landes et comparaison à la v3.0.1 ; cibles du brief non atteintes, décision reportée au jalon 2 (après 026)
 - [024-ecarts-date-v301](missions/024-ecarts-date-v301.md) · depuis le cycle 10
   - Mission : d'où viennent les dates tardives par rapport à la v3.0.1 (analyste)
 - [023-fork-gdal](missions/023-fork-gdal.md) · depuis le cycle 10
