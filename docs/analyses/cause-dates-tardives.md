@@ -293,8 +293,8 @@ précédente. Elle ne montre pas non plus qu'il n'y a pas d'événement à ces d
   des tardifs aux retrouvés est donc inégale : une persistance proche de 0 chez les tardifs est
   compatible avec un nouvel événement à X sur un sol déjà découvert.
 - **Deux pixels tracés montrent un événement réel à la date de la carte.** Au 394465 ; 6350145, le
-  sol est travaillé en 2021 et la chute de mars 2021 est durable sur les trois orbites (−2,96 dB,
-  +0,17 un an avant). Au 398525 ; 6351825, le sol est labouré nu sur l'ortho 2021, mais la persistance
+  sol est travaillé en 2021 et la chute de mars 2021 se voit sur les trois orbites ; elle est durable
+  sur A030, l'orbite de la mesure (−2,96 dB, +0,17 un an avant). Au 398525 ; 6351825, le sol est labouré nu sur l'ortho 2021, mais la persistance
   est presque nulle (−0,17 dB) : le creux de mars 2021 est suivi d'un rebond. Ces deux mesures sont
   recalculées par `persister` (`traces` dans `persistance_026.rds`). Une persistance faible n'exclut
   donc pas un événement réel. Les dates de vol des orthophotos ne sont pas connues.
