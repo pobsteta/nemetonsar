@@ -414,8 +414,7 @@ tuile T30TXP) :
 - **[S2]** Contains modified Copernicus Sentinel data 2018–2025. Sentinel-2 L2A
   (`sentinel-2-l2a`), hosted by Microsoft Planetary Computer. Données du programme Copernicus,
   libres et ouvertes (règlement délégué (UE) n° 1159/2013). Données modifiées : NDVI aux pixels
-  nommés, hors dépôt. *`docs/referentiels/licences.md` n'a pas d'entrée [S2] : à ajouter par
-  l'orchestrateur.*
+  nommés, hors dépôt.
 - **[FOR]** Source : IGN, BD Forêt® version 2.0 (2006-2019), Licence Ouverte 2.0 ;
   https://cartes.gouv.fr/rechercher-une-donnee/dataset/IGNF_BD-FORET. Données modifiées : codes
   TFV rastérisés sur la grille de la carte.

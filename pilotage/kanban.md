@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 11 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 12 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -25,24 +25,20 @@ _Modèle de carte :_
 
 ## Validé
 
-- [029-continuite-s1c](missions/029-continuite-s1c.md) · depuis le cycle 11
-  - Homme : `analyste` (opus)
-  - Mission : détections 2026 et continuité Sentinel-1A → 1C/1D sur le pilote Landes ; rapport en Markdown et PDF
-  - Moyens : voir la fiche ; session locale
-- [027-regles-de-date](missions/027-regles-de-date.md) · depuis le cycle 11
-  - Homme : `analyste` (opus)
-  - Mission : essayer seuil de datation distinct et date multi-orbites sur les séries relevées
-  - Moyens : voir la fiche ; session locale (données sur le poste de Pascal)
-- [028-observer-loin-du-seuil](missions/028-observer-loin-du-seuil.md) · depuis le cycle 11
-  - Homme : `analyste` (opus)
-  - Mission : observer ce que datent les pixels « loin du seuil » et l'objet FO0 (Sentinel-2, dates de vol des orthos)
-  - Moyens : voir la fiche ; session locale (données sur le poste de Pascal)
+
 
 ## Planifié
 
 
 
 ## Terminé
+
+- [028-observer-loin-du-seuil](missions/028-observer-loin-du-seuil.md) · depuis le cycle 12
+  - Mission : ce que datent les pixels « loin du seuil » et l'objet FO0, sur Sentinel-2 et dates de vol IGN (agent passé d'`analyste` à `dev` par Pascal ; 1 aller-retour) ; PR du cycle 12 à valider
+- [029-continuite-s1c](missions/029-continuite-s1c.md) · depuis le cycle 12
+  - Mission : continuité Sentinel-1A → 1C/1D et détections 2026, rapport .md et .pdf (1 aller-retour) ; rupture mesurée du ratio après la bascule ; PR du cycle 12 à valider
+- [027-regles-de-date](missions/027-regles-de-date.md) · depuis le cycle 12
+  - Mission : trois règles de date essayées, R2 proposée ; PR du cycle 12 à valider
 
 - [026-cause-dates-tardives](missions/026-cause-dates-tardives.md) · depuis le cycle 11
   - Mission : observer la cause non établie des dates tardives (analyste, 3 allers-retours)

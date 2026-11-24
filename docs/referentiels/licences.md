@@ -39,6 +39,7 @@ Règle de l'ADR 0002 : la clause non commerciale (NC) ne s'applique qu'aux sorti
 Blocs de texte réutilisés (la source est dans la table des sources ci-dessus) :
 
 - **[S1]** « Contains modified Copernicus Sentinel data <année(s) des scènes>. » (Si Sentinel-1 RTC via Planetary Computer, ajouter : « Sentinel-1 RTC processed by Catalyst, hosted by Microsoft Planetary Computer, CC BY 4.0. » : formule rédigée par l'acquereur, aucune formule imposée par la source.)
+- **[S2]** « Contains modified Copernicus Sentinel data <année(s) des scènes>. » (Si Sentinel-2 L2A via Planetary Computer, ajouter : « Sentinel-2 L2A hosted by Microsoft Planetary Computer. » Données Copernicus libres et ouvertes, règlement délégué (UE) n° 1159/2013 ; même formule que [S1], ajoutée au cycle 12 pour le rapport de 028.)
 - **[FOR]** « Generated using European Union's Copernicus Land Monitoring Service information; https://doi.org/10.2909/486f77da-d605-423e-93a9-680760ab6791 » (Tree Cover Density 2018). Ajouter « adapted » si seuillé.
 - **[NEI]** « Hall, D. K. & Riggs, G. A. (2021). MODIS/Terra Snow Cover Daily L3 Global 500m SIN Grid (MOD10A1, Version 61) [Data Set]. NASA NSIDC DAAC. https://doi.org/10.5067/MODIS/MOD10A1.061 <sous-ensemble utilisé> »
 - **[FEU]** « EFFIS, European Commission Joint Research Centre, licence CC BY 4.0 (https://forest-fire.emergency.copernicus.eu/about-effis/data-license). Données modifiées : seuil de 75 % de l'objet. » (formule rédigée par moi d'après la page de licence, qui n'impose pas de texte exact)
