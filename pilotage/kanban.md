@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 12 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 13 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -25,22 +25,10 @@ _Modèle de carte :_
 
 ## Validé
 
-- [030-date-premiere-sous-tp](missions/030-date-premiere-sous-tp.md) · depuis le cycle 12
-  - Homme : dev · opus
-  - Mission : coder la règle de date R2 (seuil_datation, repli sur R0, test de stabilité), puis exécution réelle de la tuile pilote, R2 par défaut (Pascal, 2026-11-24) ; validée par Pascal le 2026-11-24
-  - Moyens : R/rcr.R, R/parametres.R, R/run.R ; poste de Pascal pour l'exécution
-- [031-perimetre-2018](missions/031-perimetre-2018.md) · depuis le cycle 12
-  - Homme : dev · opus (analyse)
-  - Mission : comment SUFOSAT date 2018, et ce qu'un départ en 2018 changerait ; validée par Pascal le 2026-11-24
-  - Moyens : Mermoz et al. (2024), tuile pilote, poste de Pascal
 - [032-documenter-ff0-et-1c1d](missions/032-documenter-ff0-et-1c1d.md) · depuis le cycle 12
   - Homme : dev · opus
   - Mission : documenter FF0/FO0 et avertir après la bascule 1C/1D ; après la fusion de 030 ; validée par Pascal le 2026-11-24
   - Moyens : roxygen, README, avertissement de nemetonsar_run()
-- [033-decalage-1a-1c1d](missions/033-decalage-1a-1c1d.md) · depuis le cycle 12
-  - Homme : dev · opus (analyse)
-  - Mission : décalage du ratio 1A → 1C/1D sur au moins trois tuiles de forêt stable ; validée par Pascal le 2026-11-24
-  - Moyens : méthode de 029, poste de Pascal (environ 40 min par tuile)
 
 ## Planifié
 
@@ -48,12 +36,25 @@ _Modèle de carte :_
 
 ## Terminé
 
+- [030-date-premiere-sous-tp](missions/030-date-premiere-sous-tp.md) · depuis le cycle 13
+  - Homme : dev · opus
+  - Mission : coder la règle de date R2 (seuil_datation, repli sur R0, test de stabilité), puis exécution réelle de la tuile pilote, R2 par défaut (Pascal, 2026-11-24) ; prête (relecture : prêt, retouches de rédaction faites) ; PR du cycle 13 à valider après lecture des chiffres de surface
+  - Moyens : R/rcr.R, R/parametres.R, R/run.R ; poste de Pascal pour l'exécution
+- [031-perimetre-2018](missions/031-perimetre-2018.md) · depuis le cycle 13
+  - Homme : dev · opus (analyse)
+  - Mission : comment SUFOSAT date 2018, et ce qu'un départ en 2018 changerait ; prête (2 allers-retours) ; PR du cycle 13 à valider ; périmètre 2018 à trancher
+  - Moyens : Mermoz et al. (2024), tuile pilote, poste de Pascal
+- [033-decalage-1a-1c1d](missions/033-decalage-1a-1c1d.md) · depuis le cycle 13
+  - Homme : dev · opus (analyse)
+  - Mission : décalage du ratio 1A → 1C/1D sur au moins trois tuiles de forêt stable ; prête (1 aller-retour) ; PR du cycle 13 à valider ; recalage et recouvrement 1A/1C à trancher
+  - Moyens : méthode de 029, poste de Pascal (environ 40 min par tuile)
+
 - [028-observer-loin-du-seuil](missions/028-observer-loin-du-seuil.md) · depuis le cycle 12
-  - Mission : ce que datent les pixels « loin du seuil » et l'objet FO0, sur Sentinel-2 et dates de vol IGN (agent passé d'`analyste` à `dev` par Pascal ; 1 aller-retour) ; PR du cycle 12 à valider
+  - Mission : ce que datent les pixels « loin du seuil » et l'objet FO0, sur Sentinel-2 et dates de vol IGN (agent passé d'`analyste` à `dev` par Pascal ; 1 aller-retour) ; fusionnée (PR #3, v2026.11.3)
 - [029-continuite-s1c](missions/029-continuite-s1c.md) · depuis le cycle 12
-  - Mission : continuité Sentinel-1A → 1C/1D et détections 2026, rapport .md et .pdf (1 aller-retour) ; rupture mesurée du ratio après la bascule ; PR du cycle 12 à valider
+  - Mission : continuité Sentinel-1A → 1C/1D et détections 2026, rapport .md et .pdf (1 aller-retour) ; rupture mesurée du ratio après la bascule ; fusionnée (PR #3, v2026.11.3)
 - [027-regles-de-date](missions/027-regles-de-date.md) · depuis le cycle 12
-  - Mission : trois règles de date essayées, R2 proposée ; PR du cycle 12 à valider
+  - Mission : trois règles de date essayées, R2 proposée ; fusionnée (PR #3, v2026.11.3)
 
 - [026-cause-dates-tardives](missions/026-cause-dates-tardives.md) · depuis le cycle 11
   - Mission : observer la cause non établie des dates tardives (analyste, 3 allers-retours)
