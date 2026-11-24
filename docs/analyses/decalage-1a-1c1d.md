@@ -29,13 +29,15 @@ ailleurs.
 
 ## Réponses
 
-1.  **Décalage de la médiane du ratio, 1C/1D contre 1A (11 orbites sur 4
-    fenêtres) :** de **−0,37 à +0,17 dB**, médiane **−0,09 dB**, signe
-    négatif sur 7 orbites et positif sur 4. Un seul décalage sur 11
+1.  **Décalage de la médiane du ratio, 1C/1D contre 1A (11 couples
+    fenêtre-orbite sur 4 fenêtres ; 9 orbites relatives, A059 et D037
+    figurant deux fois : les couples ne sont pas indépendants) :** de
+    **−0,37 à +0,17 dB**, médiane **−0,09 dB**, signe négatif sur 7
+    couples et positif sur 4. Un seul décalage sur 11
     dépasse 2,6 écarts-types de la variation entre années 1A de la même
     saison (0,20 dB en médiane des orbites, de 0,09 à 0,36). La part de forêt stable sous tp est
     **multipliée par 1,8 en médiane** (de 0,7 à 4,1 selon l'orbite), et
-    sort de la fourchette des six années 1A pour 4 orbites sur 11. Le
+    sort de la fourchette des six années 1A pour 4 couples sur 11. Le
     « 6 à 15 fois » de 029 venait d'une référence d'**une seule année**
     (2025) : la part sous tp des années 1A varie déjà d'un facteur 2 à 20
     d'une année à l'autre sur une même orbite.
@@ -51,7 +53,7 @@ ailleurs.
     changement de capteur de l'année qu'il fait.
 3.  **Recalage constant, essai de sensibilité.** Avec le décalage
     médian commun (−0,09 dB), la part sous tp 1C/1D passe d'un rapport
-    de 1,78 à 1,52 fois la part 1A (médianes sur 11 orbites). Avec le
+    de 1,78 à 1,52 fois la part 1A (médianes sur 11 couples). Avec le
     décalage propre à chaque orbite (circulaire : on retire ce qu'on
     vient de mesurer), 1,26. **Un recalage constant ne ramène pas la
     part sous tp au niveau 1A**, et il ferait passer sous la moyenne 1A
@@ -59,24 +61,38 @@ ailleurs.
     n'est de toute façon qu'une partie de l'effet : l'écart robuste du
     ratio grandit aussi (+6 % en médiane, de +2 à +18 %), et un
     décalage constant ne l'enlève pas.
-4.  **Question ajoutée : 1C et 1A en même temps.** Le catalogue sert
-    Sentinel-1C **depuis mars 2025**, donc 14 mois avant la bascule
+4.  **Question ajoutée, hors fiche : 1C et 1A en même temps** (une
+    observation, pas un résultat demandé par la mission). Le catalogue
+    sert Sentinel-1C **depuis mars 2025**, donc 14 mois avant la bascule
     codée dans `capteurs_sufosat()` (2026-06-30), sur les mêmes
-    orbites. En comparant, par orbite et par mois, le VH moyen de 1C à
-    celui de 1A au même moment (≥ 2 images de chaque), **1C est plus
-    sombre que 1A de 0,37 dB en moyenne** : négatif sur les 11 orbites
-    (−0,17 à −0,64 dB), sur 10 à 14 mois chacune. L'écart n'est pas
-    constant dans le temps (−0,84 dB en mai 2025, −0,24 dB en mai 2026)
-    et 1D (une image par mois en mai et juin 2026 seulement) donne
-    −0,19 dB sur des effectifs trop faibles. C'est la mesure la plus
-    nette de ce rapport, et elle **pointe vers le capteur** plutôt que
-    vers la météo ; elle n'est pas un recalage.
+    orbites. En comparant, par couple fenêtre-orbite et par mois, le VH
+    moyen de 1C à celui de 1A au même moment (≥ 2 images de chaque),
+    **1C est plus sombre que 1A de 0,37 dB en moyenne** : négatif sur
+    les 11 couples (9 orbites relatives, non indépendantes ; −0,17 à
+    −0,64 dB), sur 10 à 14 mois chacun. L'écart n'est pas constant dans
+    le temps : −0,84 dB en 2025-05, −0,24 dB en 2026-05, **+0,01 dB en
+    2026-06 (2 couples seulement)**. Il se réduit donc avec le temps, ce
+    qui rend fragile un niveau estimé sur le recouvrement de 2025 pour
+    corriger l'après-bascule. Et **après la bascule**, la comparaison du
+    niveau VH de 1C (depuis le 2026-07-01) à celui de 1A aux mêmes jours
+    de 2020-2025 est **de signe mixte** : 0,00 et +0,03 dB (Landes A030,
+    D008), +0,17 (Morvan A161), +0,22 (Cévennes A059), et de −0,12 à
+    −0,48 sur les sept autres couples ; moyenne −0,15 dB (1D : −0,13 dB).
+    Cette seconde mesure a une autre référence (années passées, donc
+    avec l'effet de l'année) : elle n'est pas directement comparable à la
+    première. 1D contre 1A au même moment (une image par mois en mai et
+    juin 2026 seulement) donne −0,19 dB sur des effectifs trop faibles.
+    Lecture prudente : ces écarts sont compatibles avec un effet de
+    capteur plutôt qu'avec des écarts de jours tirés au hasard, mais le
+    rapport ne sépare ni la météo commune aux fenêtres, ni le traitement,
+    ni la géométrie ; ce n'est pas un recalage.
 
 **Lecture, sans conclure au-delà de la mesure.** Deux mesures qui se
 contredisent en apparence : le ratio sur fenêtres 1A/1C-1D ne montre
 pas de décalage constant (−0,09 dB en médiane, signe variable), alors
-que 1C et 1A, comparés au même moment, montrent −0,37 dB sur toutes les
-orbites. Le témoin explique en partie l'écart : en 2026, la référence
+que 1C et 1A, comparés au même moment (question 4, hors fiche), montrent
+−0,37 dB sur les 11 couples fenêtre-orbite en 2025-2026, mais −0,15 dB
+seulement, de signe mixte, depuis la bascule. Le témoin explique en partie l'écart : en 2026, la référence
 des années précédentes est trop basse (le ratio de janvier à mai 2026 est
 déjà plus haut de 0,10 dB en moyenne, et de 0,56 dB sur l'orbite A030 des
 Landes, voir « Témoin »), ce qui cache une partie de la baisse. Je ne
@@ -88,11 +104,11 @@ voir « Ce que Pascal tranche ».
 | Élément | Valeur |
 |:---|:---|
 | Zones (choisies avant toute lecture) | Landes (pin maritime, plaine, 30TXP comme 029), Vosges (sapin, épicéa, hêtre, montagne moyenne, neige), Morvan (feuillus et douglas), Cévennes (chêne vert, châtaignier, pin, relief méditerranéen) |
-| Orbites servies en 1C et 1D | Landes A030, D008, D081 ; Vosges A088, D139 ; Morvan A059, A161, D037, D110 ; Cévennes A059, D037 : 11 orbites, toutes servies par 1C et 1D, 10 à 12 dates par orbite et par capteur depuis le 2026-06-30 |
+| Orbites servies en 1C et 1D | Landes A030, D008, D081 ; Vosges A088, D139 ; Morvan A059, A161, D037, D110 ; Cévennes A059, D037 : 11 couples fenêtre-orbite (9 orbites relatives), tous servis par 1C et 1D, 10 à 12 dates par orbite et par capteur depuis le 2026-06-30 |
 | Fenêtre | 300 × 300 pixels de 10 m (3 km × 3 km), la plus riche en forêt à plus de 30 m de toute non-forêt dans 6 km × 6 km, BD Forêt v2 (WFS). Centres (longitude, latitude) : Landes −0,8187 ; 44,1851. Vosges 6,9954 ; 48,1134. Morvan 4,0458 ; 47,1065. Cévennes 3,6052 ; 44,1336 |
 | Images | 2018-01-01 au 2026-11-21 (dernière date servie), toutes les images de chaque orbite sur la fenêtre : 809 (Landes), 547 (Vosges), 1 078 (Morvan), 546 (Cévennes) |
 | Ratio | `10 log10(Ma / Mb)`, Ma = moyenne linéaire des 3 images suivantes d'une orbite, Mb = moyenne de toutes les précédentes (comme la chaîne), seuils ts = −5,175 dB et tp = −3,45 dB (`parametres_sufosat()`) |
-| Forêt stable | Pixels du cœur de forêt (BD Forêt, à plus de 30 m d'une non-forêt) dont le ratio n'est jamais sous ts à deux dates successives d'aucune orbite, de 2018 à 2026-11-21 (**variante A**, façon 029) ; **variante B** : le même critère jugé sur les seules dates avant le 2026-06-30. Les deux variantes donnent des décalages de médiane à 0,02 dB près (sortie de `synthese`) |
+| Forêt stable | Pixels du cœur de forêt (BD Forêt, à plus de 30 m d'une non-forêt) dont le ratio n'est jamais sous ts à deux dates successives d'aucune orbite, de 2018 à 2026-11-21 (**variante A**, façon 029) ; **variante B** : le même critère jugé sur les seules dates avant le 2026-06-30. Les deux variantes donnent des décalages de médiane à 0,02 dB près (au plus 0,017, sortie de `synthese`) |
 | Pixels | de 66 207 à 86 853 pixels stables par fenêtre (variante A) |
 | Fenêtres comparées | « 1C/1D » : dates dont les 3 images de Ma sont toutes 1C/1D (19 à 22 dates par orbite, du 2026-06-18 au 2026-11-03) ; « 1A » : dates dont les 3 images de Ma sont toutes 1A, **les mêmes jours de l'année**, années 2020 à 2025 (Mb d'au moins deux ans) |
 | Durée | lecture de 5 à 30 minutes par fenêtre (une orbite après l'autre) ; mesure de 1 à 4 minutes par fenêtre |
@@ -131,7 +147,7 @@ D037, z = −2,72). Le rapport des écarts robustes est de 1,02 à 1,18
 
 ## Question 2 : constance
 
-Sur les 11 orbites : décalage de −0,37 à +0,17 dB, médiane −0,09,
+Sur les 11 couples : décalage de −0,37 à +0,17 dB, médiane −0,09,
 écart-type 0,20 dB ; l'écart-type entre années 1A de la même
 orbite et de la même saison est de 0,20 dB (médiane des orbites). Par
 fenêtre (moyenne des orbites) : Landes −0,17, Vosges −0,34, Morvan
@@ -156,8 +172,8 @@ Par mois (fenêtres tout-1C/1D du mois contre tout-1A du même mois, 2020
 | Cévennes | D037 | −0,04 | 0,45 | 0,18 | −0,49 |
 
 Le décalage n'est pas constant dans le temps : **octobre est négatif sur
-10 orbites sur 11** (moyenne −0,35 dB) alors que juillet et août sont
-de signe variable ; la pente avec le mois est négative sur 10 orbites
+10 couples sur 11** (moyenne −0,35 dB) alors que juillet et août sont
+de signe variable ; la pente avec le mois est négative sur 10 couples
 sur 11. Une cause commune à toutes les fenêtres en octobre 2026 (temps
 qu'il fait, ou autre) n'est pas écartée. Novembre n'est pas montré (une
 à deux dates par orbite).
@@ -193,7 +209,9 @@ une part seulement de l'écart avec les −0,07 à −0,34 dB d'ici.)
 Part de forêt stable sous tp (variante A), moyenne sur les fenêtres
 tout-1C/1D. Le « recalage » retire c dB au ratio 1C/1D (c = décalage
 mesuré). Recalculé à partir des quantiles 0,1 % à 20 % du ratio, par
-interpolation. **Ce n'est pas un réglage proposé** : c'est la réponse à
+interpolation (d'où 1,74 % pour Morvan D037 ici contre 1,73 % compté
+sur les pixels au tableau de la question 1 : seul écart de 0,01 point, les
+autres lignes coïncident). **Ce n'est pas un réglage proposé** : c'est la réponse à
 « que resterait-il ? ».
 
 | fenêtre | orbite | tp 1A | tp 1C/1D sans | avec c propre | avec c commun (−0,094) |
@@ -210,7 +228,7 @@ interpolation. **Ce n'est pas un réglage proposé** : c'est la réponse à
 | Cévennes | A059 | 0,94 % | 0,70 % | 0,90 % | 0,58 % |
 | Cévennes | D037 | 0,95 % | 0,97 % | 1,03 % | 0,81 % |
 
-Rapport tp 1C/1D ÷ tp 1A (médiane des 11 orbites) : sans recalage 1,78 ;
+Rapport tp 1C/1D ÷ tp 1A (médiane des 11 couples) : sans recalage 1,78 ;
 c commun 1,52 ; c propre 1,26. Des quatre orbites qui sortaient de la
 fourchette des années 1A, le c commun n'en ramène qu'une à sa limite
 (Morvan D037, 1,49 % pour un maximum de 1,48 %) ; les Vosges (0,48 et
@@ -250,23 +268,52 @@ exclusion de pixel ; dB) :
 | Cévennes | A059 | −0,44 | 0,37 | 13 |
 | Cévennes | D037 | −0,37 | 0,61 | 11 |
 
-Moyenne des 11 orbites −0,37 dB, de −0,64 à −0,17, écart-type entre
+Moyenne des 11 couples −0,37 dB, de −0,64 à −0,17, écart-type entre
 orbites 0,13 dB (inférieur à l'écart-type entre mois d'une même orbite,
 0,24 à 0,70). Par mois (moyenne des orbites) : −0,84 (2025-05), −0,56,
 −0,33, −0,48, −0,41, −0,32, −0,49, −0,33, −0,27, −0,36, −0,04 (2026-03),
-−0,28, −0,24 (2026-05). **Sur 11 orbites sur 11, 1C est plus sombre que 1A**,
-avec un écart plus faible en 2026 qu'en 2025. 1D contre 1A (mai et juin
-2026 : un seul mois utilisable par orbite, deux au mieux ; −0,19 dB en
-moyenne, de −0,62 à −0,01) n'a pas l'effectif pour être lu.
+−0,28, −0,24 (2026-05). **Sur les 11 couples fenêtre-orbite (9 orbites relatives, non
+indépendantes), 1C est plus sombre que 1A**, avec un écart plus faible en
+2026 qu'en 2025 : 2026-06 donne +0,01 dB, mais sur 2 couples seulement.
+1D contre 1A (mai et juin 2026 : un seul mois utilisable par couple,
+deux au mieux ; −0,19 dB en moyenne, de −0,62 à −0,01) n'a pas
+l'effectif pour être lu.
+
+**Après la bascule** (niveau VH médian des pixels de cœur de forêt, 1C
+et 1D depuis le 2026-07-01 contre 1A aux mêmes jours de l'année, 2020 à
+2025 ; dB ; `ecart_1C`, `ecart_1D`) :
+
+| fenêtre | orbite | écart 1C | écart 1D |
+|:--|:--|--:|--:|
+| Landes | A030 | 0,00 | +0,06 |
+| Landes | D008 | +0,03 | −0,03 |
+| Landes | D081 | −0,22 | −0,24 |
+| Vosges | A088 | −0,37 | −0,47 |
+| Vosges | D139 | −0,40 | −0,49 |
+| Morvan | A059 | −0,18 | +0,14 |
+| Morvan | A161 | +0,17 | −0,10 |
+| Morvan | D037 | −0,48 | −0,30 |
+| Morvan | D110 | −0,25 | −0,31 |
+| Cévennes | A059 | +0,22 | +0,11 |
+| Cévennes | D037 | −0,13 | +0,22 |
+
+Moyenne des 11 couples : −0,15 dB pour 1C (de −0,48 à +0,22), −0,13 dB
+pour 1D. Le signe est mixte (1C : 7 couples négatifs, 3 positifs, 1 nul).
+La référence est ici 1A des années passées, avec l'effet de l'année (le
+témoin de la question 2 va de −0,28 à +0,56 dB) : cette mesure ne se
+compare pas telle quelle aux −0,37 dB du recouvrement. Elle montre
+seulement que, depuis la bascule, un niveau 1C plus sombre de 0,37 dB
+sur tous les couples ne se retrouve pas.
 
 Ce que cette mesure ne dit pas : si l'écart est un défaut d'étalonnage,
 une différence de traitement par Catalyst/Planetary Computer (1C
 traité autrement que 1A), ou la géométrie (heures de passage, angle
 d'incidence). Elle est faite sur le niveau VH moyen et non sur le ratio.
 Les images 1A et 1C d'un même mois sont de jours différents (de 2 à 6
-jours d'écart) : le temps qu'il fait y ajoute un bruit sans biais, qui
-explique l'écart-type entre mois mais pas un signe commun à 11 orbites
-sur 11.
+jours d'écart) : on suppose que le temps qu'il fait y ajoute surtout un
+bruit, qui expliquerait l'écart-type entre mois ; cette hypothèse n'est
+pas mesurée ici (pas de test d'un biais commun aux fenêtres, qui
+partagent les mêmes jours).
 
 ## Limites et écarts
 
@@ -280,7 +327,7 @@ sur 11.
   elles (même saison, même jour).
 - **« Forêt stable »** : critère défini plus haut ; il ne sait pas ce
   qu'est une coupe ni une tempête. Les variantes A et B donnent des
-  décalages à 0,01 dB près, des parts sous tp un peu plus hautes en B
+  décalages à 0,02 dB près (au plus 0,017), des parts sous tp un peu plus hautes en B
   (+0,0005 à +0,0044).
 - **Les années de référence 2020 à 2025** (6 années) donnent un
   écart-type entre années ; pour 5 degrés de liberté, le seuil à 5 % est
@@ -294,7 +341,7 @@ sur 11.
 - **Le calcul** est vérifié par l'étape `controle` du script (ratio
   contre la définition écrite à la main, écart 6·10⁻¹⁵ dB ; composition
   des fenêtres ; aller-retour dB). Le calcul de la question 4 ne l'est
-  que par recoupement : 11 orbites, mêmes signes.
+  que par recoupement : 11 couples, mêmes signes.
 - Novembre 2026 est incomplet : peu de fenêtres tout-1C/1D (la dernière
   date de fenêtre est le 2026-11-03).
 - **Hors périmètre (noté, non fait)** : `capteurs_sufosat()` ignore 1C
@@ -308,23 +355,28 @@ sur 11.
     constant (signe variable, 0,43 dB entre deux orbites du Morvan) et
     un recalage unique laisse la part sous tp à 1,5 fois la part 1A.
     Je ne propose pas de valeur.
-2.  **La question 4 change la nature du problème** : 1C est plus sombre
-    que 1A de 0,37 dB au même moment sur 11 orbites sur 11. Si la
-    différence est un biais de capteur, ce qui se corrige est le **niveau
-    des images 1C et 1D avant** le calcul du ratio (par orbite, estimé
-    sur le recouvrement 1A/1C de 2025-2026), non le ratio ; à confirmer
-    sur plus de mois pour 1D (recouvrement de mai-juin 2026 seulement).
-    Mission possible, `analyste` ou `dev` : *mesurer le recouvrement 1A/1C,
-    par orbite et par mois, sur des fenêtres de forêt, sur une plus
-    longue période ou plus de tuiles, et chiffrer ce qu'un recalage du
-    niveau (et non du ratio) laisserait comme part sous tp.* À Pascal de
-    trancher.
+2.  **Piste hors fiche, issue de la question 4** : 1C est plus sombre
+    que 1A de 0,37 dB au même moment sur 11 couples fenêtre-orbite
+    (9 orbites relatives, non indépendantes) en 2025-2026, mais de
+    signe mixte (−0,15 dB) depuis la bascule, et l'écart se réduit avec
+    le temps (+0,01 dB en 2026-06, 2 couples). Si l'écart se confirmait
+    comme un biais de capteur, ce qui se corrigerait serait le niveau
+    des images 1C et 1D avant le calcul du ratio, et non le ratio ;
+    mais un niveau estimé sur le recouvrement de 2025 serait fragile pour
+    l'après-bascule, puisque l'écart change. Ce n'est pas une
+    conclusion. Mission possible, `analyste` ou `dev` : *mesurer le
+    recouvrement 1A/1C, par orbite et par mois, sur des fenêtres de
+    forêt, sur une plus longue période ou plus de tuiles, et chiffrer ce
+    qu'un recalage du niveau (et non du ratio) laisserait comme part
+    sous tp.* À Pascal de dire s'il garde cette question au rapport et
+    s'il lance cette mission.
 3.  **Les détections postérieures au 2026-06-30** : ce rapport ne les
     rend pas plus sûres. L'arbitrage n° 3 du brief reste à lui.
 
 **Question de contrôle.** Qui fait quoi d'ici quand, et comment saura-t-on
 que ça marche ? Pascal décide s'il lance la mission de recouvrement
 1A/1C (point 2) : elle réussira si, sur plus de fenêtres, 1C reste plus
-sombre que 1A de 0,2 à 0,6 dB au même moment, et si un recalage du
+sombre que 1A de 0,2 à 0,6 dB au même moment (ou si l'écart se révèle
+se réduire avec le temps, ce qui dirait que le recalage de niveau ne tient pas), et si un recalage du
 niveau par orbite ramène la part sous tp 1C/1D dans la fourchette des
-années 1A (aujourd'hui 4 orbites sur 11 en sortent).
+années 1A (aujourd'hui 4 couples sur 11 en sortent).
