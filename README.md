@@ -52,7 +52,7 @@ Il n'y a rien à faire à la main. Après la fusion d'une pull request sur `main
 2. Le workflow `Release` vérifie qu'une release est nécessaire : un fichier du package doit avoir changé depuis le dernier tag. Les changements limités à `pilotage/`, à `docs/`, aux fichiers `*.md`, au badge et aux tests ne publient rien.
 3. Il calcule la version, pose le tag annoté, construit l'archive du package à cette version et crée la release GitHub avec ses notes.
 
-Le champ `Version` de `DESCRIPTION` reste une version de développement dans le dépôt ; seule l'archive publiée porte la version du tag. Les règles sont dans `.github/scripts/`, avec leurs tests.
+Le champ `Version` de `DESCRIPTION` porte la dernière version publiée : après chaque release, le workflow l'y écrit par un commit `[skip ci]` sur `main`, qui ne déclenche pas de nouvelle release. Les règles sont dans `.github/scripts/`, avec leurs tests.
 
 ### Notation des commits et des pull requests
 
