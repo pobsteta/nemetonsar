@@ -20,6 +20,8 @@
 
 **R2 devient-elle la règle par défaut, ou une option à côté de R0 ?** (Proposition de 027 : R0 reste le défaut tant que Pascal n'a pas tranché.) La réponse est écrite ici avant le lancement.
 
+**Réponse de Pascal (2026-11-24) : R2 est la règle par défaut** ; R0 reste disponible par un paramètre exposé. La PR n'est fusionnée qu'après lecture par Pascal des chiffres de surface et de correction 2019 de l'exécution réelle.
+
 ## Les trois questions (règle de staffing)
 
 | Question | Réponse | Conséquence |

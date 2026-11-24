@@ -25,26 +25,25 @@ _Modèle de carte :_
 
 ## Validé
 
-
-
-## Planifié
-
 - [030-date-premiere-sous-tp](missions/030-date-premiere-sous-tp.md) · depuis le cycle 12
   - Homme : dev · opus
-  - Mission : coder la règle de date R2 (seuil_datation, repli sur R0, test de stabilité), puis exécution réelle de la tuile pilote ; à valider par Pascal (et la règle par défaut)
+  - Mission : coder la règle de date R2 (seuil_datation, repli sur R0, test de stabilité), puis exécution réelle de la tuile pilote, R2 par défaut (Pascal, 2026-11-24) ; validée par Pascal le 2026-11-24
   - Moyens : R/rcr.R, R/parametres.R, R/run.R ; poste de Pascal pour l'exécution
 - [031-perimetre-2018](missions/031-perimetre-2018.md) · depuis le cycle 12
   - Homme : dev · opus (analyse)
-  - Mission : comment SUFOSAT date 2018, et ce qu'un départ en 2018 changerait ; à valider par Pascal
+  - Mission : comment SUFOSAT date 2018, et ce qu'un départ en 2018 changerait ; validée par Pascal le 2026-11-24
   - Moyens : Mermoz et al. (2024), tuile pilote, poste de Pascal
 - [032-documenter-ff0-et-1c1d](missions/032-documenter-ff0-et-1c1d.md) · depuis le cycle 12
   - Homme : dev · opus
-  - Mission : documenter FF0/FO0 et avertir après la bascule 1C/1D ; après la fusion de 030 ; à valider par Pascal
+  - Mission : documenter FF0/FO0 et avertir après la bascule 1C/1D ; après la fusion de 030 ; validée par Pascal le 2026-11-24
   - Moyens : roxygen, README, avertissement de nemetonsar_run()
 - [033-decalage-1a-1c1d](missions/033-decalage-1a-1c1d.md) · depuis le cycle 12
   - Homme : dev · opus (analyse)
-  - Mission : décalage du ratio 1A → 1C/1D sur au moins trois tuiles de forêt stable ; à valider par Pascal
+  - Mission : décalage du ratio 1A → 1C/1D sur au moins trois tuiles de forêt stable ; validée par Pascal le 2026-11-24
   - Moyens : méthode de 029, poste de Pascal (environ 40 min par tuile)
+
+## Planifié
+
 
 
 ## Terminé
