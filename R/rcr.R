@@ -60,6 +60,16 @@
 #'   En cas d'égalité de ratios, la date la plus ancienne l'emporte.
 #'   **Provisoire, non sourcé (choix du package), gèle au jalon 2.**
 #'
+#' @section Première date sous le seuil de datation : En plus du minimum,
+#'   chaque orbite donne, par pixel, la **première** date `d_(i+1)` où le ratio
+#'   de datation est au plus égal à `seuil_datation_db` (`date_seuil`,
+#'   `date_avant_seuil`, `duree_seuil_jours`), `NA` s'il n'y passe jamais.
+#'   La comparaison se fait sur le rapport linéaire `Ma / Mb`, contre
+#'   `db_vers_lineaire(seuil_datation_db)`. C'est l'entrée de la règle de date
+#'   `"premiere_sous_seuil"` de [rcr_combine_orbites()]. Elle ne dépend que des
+#'   images jusqu'à `d_(i+1)` + `xa` : prolonger la série ne change pas une
+#'   date déjà trouvée (voir `docs/analyses/regle-r2-pilote.md`).
+#'
 #' @section Début des ratios : Aucun ratio n'est calculé pour une date `d_i`
 #'   antérieure au 1er janvier de l'année `annee_noyau + 1` (2019 par défaut).
 #'   Les images plus anciennes servent encore à la moyenne `Mb` d'une date
@@ -86,7 +96,7 @@
 #' @param dates Vecteur de classe `Date`, strictement croissant, sans `NA`, de
 #'   longueur `dim(serie)[3]` : la date d'acquisition de chaque image.
 #' @param parametres Un objet créé par [parametres_sufosat()] ; seuls `xa`,
-#'   `xb`, `xb_date` et `annee_noyau` servent ici.
+#'   `xb`, `xb_date`, `seuil_datation_db` et `annee_noyau` servent ici.
 #'
 #' @return Une liste :
 #'   * `ratio_min_db` : matrice (lignes x colonnes) du minimum du ratio de
@@ -99,6 +109,9 @@
 #'     avant la chute, au même minimum ;
 #'   * `duree_xa_jours` : matrice d'entiers, durée en jours de `d_i` à la
 #'     dernière image de la fenêtre `Ma`, au même minimum ;
+#'   * `date_seuil`, `date_avant_seuil`, `duree_seuil_jours` : comme `date_min`,
+#'     `date_avant` et `duree_xa_jours`, mais à la première date où le ratio de
+#'     datation est au plus égal à `seuil_datation_db` (`NA` si aucune) ;
 #'   * `parametres` : l'objet `parametres` validé.
 #'
 #'   Les matrices gardent les noms des deux premières dimensions de `serie`.
@@ -261,6 +274,18 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
     etat
   }
   k1 <- rep(NA_integer_, npix)
+  # Première image valide (rang k) dont le ratio de datation passe au plus à
+  # `seuil_datation_db` : comparaison en linéaire, sans logarithme.
+  seuil_lin <- db_vers_lineaire(p$seuil_datation_db)
+  k_seuil <- rep(NA_integer_, npix)
+  marquer_seuil <- function(q, pix, k) {
+    sous <- which(!is.na(q) & q <= seuil_lin)
+    if (length(sous) == 0L) return(invisible())
+    cible <- if (is.null(pix)) sous else pix[sous]
+    nouveau <- is.na(k_seuil[cible])
+    k_seuil[cible[nouveau]] <<- k
+    invisible()
+  }
   detection <- suivi()
   datation <- if (dater_a_part) suivi() else NULL
   regulier <- TRUE
@@ -273,6 +298,8 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
       if (is.na(m <- min(q)) || m <= 0) regulier <<- FALSE
       datation <<- suivre(datation, q, pix, k, TRUE)
     }
+    # `q` est ici le rapport de datation (xb_date, ou xb s'ils sont égaux).
+    marquer_seuil(q, pix, k)
   })
   marge <- 1 + 1e-6
 
@@ -334,27 +361,44 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
   }
   rm(meilleur_date)
 
+  # Dates (d_(i+1), d_i) et durée de Xa pour les pixels `pix` dont le rang de
+  # la dernière image avant la chute est `k`.
+  dates_de <- function(pix, k) {
+    if (pleine) {
+      i_avant <- k
+      i_apres <- k + 1L
+      i_fin <- k + xa
+    } else {
+      lire <- function(j) position[(j - 1) * npix + pix]
+      i_avant <- lire(k)
+      i_apres <- lire(k + 1L)
+      i_fin <- lire(k + xa)
+    }
+    list(apres = codes[i_apres], avant = codes[i_avant],
+         duree = as.integer(dates[i_fin] - dates[i_avant]))
+  }
   trouve <- which(!is.na(k_avant))
   ratio <- rep(NA_real_, npix)
   date_min <- rep(NA_integer_, npix)
   date_avant <- rep(NA_integer_, npix)
   duree <- rep(NA_integer_, npix)
   if (length(trouve) > 0L) {
-    k <- k_avant[trouve]
-    if (pleine) {
-      i_avant <- k
-      i_apres <- k + 1L
-      i_fin <- k + xa
-    } else {
-      lire <- function(j) position[(j - 1) * npix + trouve]
-      i_avant <- lire(k)
-      i_apres <- lire(k + 1L)
-      i_fin <- lire(k + xa)
-    }
+    dd <- dates_de(trouve, k_avant[trouve])
     ratio[trouve] <- meilleur[trouve]
-    date_avant[trouve] <- codes[i_avant]
-    date_min[trouve] <- codes[i_apres]
-    duree[trouve] <- as.integer(dates[i_fin] - dates[i_avant])
+    date_avant[trouve] <- dd$avant
+    date_min[trouve] <- dd$apres
+    duree[trouve] <- dd$duree
+  }
+  # Première date sous le seuil de datation (règle « premiere_sous_seuil »).
+  date_seuil <- rep(NA_integer_, npix)
+  date_avant_seuil <- rep(NA_integer_, npix)
+  duree_seuil <- rep(NA_integer_, npix)
+  sous_seuil <- which(!is.na(k_seuil))
+  if (length(sous_seuil) > 0L) {
+    dd <- dates_de(sous_seuil, k_seuil[sous_seuil])
+    date_seuil[sous_seuil] <- dd$apres
+    date_avant_seuil[sous_seuil] <- dd$avant
+    duree_seuil[sous_seuil] <- dd$duree
   }
 
   en_matrice <- function(v) {
@@ -367,6 +411,9 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
     date_min = en_matrice(date_min),
     date_avant = en_matrice(date_avant),
     duree_xa_jours = en_matrice(duree),
+    date_seuil = en_matrice(date_seuil),
+    date_avant_seuil = en_matrice(date_avant_seuil),
+    duree_seuil_jours = en_matrice(duree_seuil),
     parametres = p
   )
 }
@@ -385,13 +432,39 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
 #' cas d'égalité, la première orbite de la liste l'emporte : **provisoire,
 #' non sourcé (choix du package), gèle au jalon 2.**
 #'
+#' @section Règle de date : Le ratio (`ratio_min_db`) est toujours celui de
+#'   l'orbite au ratio de détection le plus bas : la règle de date ne change ni
+#'   la détection ni la segmentation. Les dates dépendent de
+#'   `parametres$regle_date` :
+#'
+#'   * `"minimum"` : dates du minimum du ratio de datation de l'orbite retenue
+#'     (règle d'avant la mission 030) ;
+#'   * `"premiere_sous_seuil"` (défaut, règle R2 de la mission 027) : par
+#'     pixel, parmi **toutes** les orbites, la première date `d_(i+1)` (la plus
+#'     ancienne) où le ratio de datation est au plus égal à
+#'     `seuil_datation_db`. Une date commune à deux orbites : la première de la
+#'     liste. Un pixel qui a un ratio mais aucun passage sous le seuil garde les
+#'     dates de la règle `"minimum"` (repli) ; `date_repli` le marque.
+#'
+#'   Les dates sont comparées en `YYDDD` : valable pour des dates d'un même
+#'   siècle (Sentinel-1 date de 2014). Pour `"premiere_sous_seuil"`, `date_avant`
+#'   et `duree_xa_jours` sont celles de l'orbite qui donne la date.
+#'   **Provisoire, décision de Pascal du 2026-11-24, gèle au jalon 2.**
+#'
 #' @param resultats Liste (nommée ou non) d'au moins un résultat de
 #'   [rcr_compute()], tous de mêmes dimensions et calculés avec `parametres`.
 #' @param parametres Un objet créé par [parametres_sufosat()].
 #'
-#' @return Une liste de même forme que celle de [rcr_compute()], plus
-#'   `orbite` : matrice donnant, par pixel, le nom de l'orbite retenue (ou son
-#'   rang dans `resultats` si la liste n'est pas nommée), `NA` sans ratio.
+#' @return Une liste de même forme que celle de [rcr_compute()], sans les champs
+#'   `date_seuil`, `date_avant_seuil` et `duree_seuil_jours` (déjà utilisés), plus :
+#'   * `orbite` : matrice donnant, par pixel, le nom de l'orbite retenue par la
+#'     détection (ou son rang dans `resultats` si la liste n'est pas nommée),
+#'     `NA` sans ratio ;
+#'   * `orbite_date` : l'orbite qui donne la date (celle de `orbite` pour la
+#'     règle `"minimum"` et pour un pixel en repli) ;
+#'   * `date_repli` : matrice logique, `TRUE` pour un pixel en repli sur la règle
+#'     `"minimum"` (règle `"premiere_sous_seuil"` sans passage sous le seuil) ;
+#'     toujours `FALSE` avec la règle `"minimum"`.
 #'
 #' @examples
 #' dates <- seq(as.Date("2021-01-05"), by = 12, length.out = 10)
@@ -410,13 +483,15 @@ rcr_compute <- function(serie, dates, parametres = parametres_sufosat()) {
 rcr_combine_orbites <- function(resultats, parametres = parametres_sufosat()) {
   p <- valide_parametres(parametres)
   champs <- c("ratio_min_db", "date_min", "date_avant", "duree_xa_jours", "parametres")
+  champs_seuil <- c("date_seuil", "date_avant_seuil", "duree_seuil_jours")
+  champs_requis <- c(champs, if (p$regle_date == "premiere_sous_seuil") champs_seuil)
   if (!is.list(resultats) || inherits(resultats, "parametres_sufosat") ||
       length(resultats) < 1L) {
     stop("`resultats` doit \u00eatre une liste d'au moins un r\u00e9sultat de rcr_compute().", call. = FALSE)
   }
   for (j in seq_along(resultats)) {
     r <- resultats[[j]]
-    if (!is.list(r) || !all(champs %in% names(r))) {
+    if (!is.list(r) || !all(champs_requis %in% names(r))) {
       stop("L'\u00e9l\u00e9ment ", j, " de `resultats` n'est pas un r\u00e9sultat de rcr_compute().", call. = FALSE)
     }
     if (!isTRUE(all.equal(valide_parametres(r$parametres), p))) {
@@ -453,9 +528,36 @@ rcr_combine_orbites <- function(resultats, parametres = parametres_sufosat()) {
       }
       sortie$parametres <- p
       sortie$orbite <- orbite
+      sortie$orbite_date <- orbite
+      sortie$date_repli <- array(FALSE, dim = dim(orbite), dimnames = dimnames(orbite))
+      if (p$regle_date == "premiere_sous_seuil") sortie <- dater_premiere(sortie, orbite)
       sortie
     }
   )
+  # Règle R2 : première date sous le seuil, toutes orbites, repli sur le minimum.
+  dater_premiere <- function(sortie, orbite) {
+    t_date <- array(NA_integer_, dim = dim(orbite), dimnames = dimnames(orbite))
+    t_avant <- t_date
+    t_duree <- t_date
+    t_orbite <- orbite
+    t_orbite[] <- NA
+    for (j in seq_along(resultats)) {
+      r <- resultats[[j]]
+      mieux <- !is.na(r$date_seuil) & (is.na(t_date) | r$date_seuil < t_date)
+      t_date[mieux] <- r$date_seuil[mieux]
+      t_avant[mieux] <- r$date_avant_seuil[mieux]
+      t_duree[mieux] <- r$duree_seuil_jours[mieux]
+      t_orbite[mieux] <- etiquettes[j]
+    }
+    # Seuls les pixels détectables (avec un ratio) sont datés.
+    pris <- !is.na(t_date) & !is.na(sortie$ratio_min_db)
+    sortie$date_min[pris] <- t_date[pris]
+    sortie$date_avant[pris] <- t_avant[pris]
+    sortie$duree_xa_jours[pris] <- t_duree[pris]
+    sortie$orbite_date[pris] <- t_orbite[pris]
+    sortie$date_repli[] <- !pris & !is.na(sortie$ratio_min_db)
+    sortie
+  }
   combine()
 }
 

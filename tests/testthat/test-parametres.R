@@ -164,3 +164,44 @@ test_that("l'affichage montre les valeurs du brief et les seuils effectifs", {
   capture.output(v <- withVisible(print(parametres_sufosat())))
   expect_false(v$visible)
 })
+
+test_that("mission 030 : règle de date et seuil de datation", {
+  p <- parametres_sufosat()
+  expect_identical(p$regle_date, "premiere_sous_seuil")
+  # défaut : le seuil de détection effectif (tp x facteur), -3,45 dB
+  expect_identical(p$seuil_datation_db, seuils_db(p)[["tp"]])
+  expect_equal(p$seuil_datation_db, -3.45)
+  # il suit tp_db et facteur_seuil quand on ne le donne pas
+  expect_equal(parametres_sufosat(facteur_seuil = 1)$seuil_datation_db, -3)
+  expect_equal(parametres_sufosat(tp_db = -2)$seuil_datation_db, -2.3)
+  # réglage distinct : le donner ne change pas les seuils de détection
+  q <- parametres_sufosat(seuil_datation_db = -3)
+  expect_identical(q$seuil_datation_db, -3)
+  expect_identical(seuils_db(q), seuils_db(p))
+  expect_identical(parametres_sufosat(regle_date = "minimum")$regle_date, "minimum")
+  # le passage dB <-> linéaire du seuil
+  expect_equal(lineaire_vers_db(db_vers_lineaire(p$seuil_datation_db)), p$seuil_datation_db)
+  # impression
+  sortie <- capture.output(print(p))
+  expect_true(any(grepl("regle_date          : premiere_sous_seuil", sortie, fixed = TRUE)))
+  expect_true(any(grepl("seuil_datation_db   : -3.45 dB", sortie, fixed = TRUE)))
+})
+
+test_that("mission 030 : un seuil de datation absurde ou une règle inconnue est refusé", {
+  expect_error(parametres_sufosat(seuil_datation_db = 0), "`seuil_datation_db`")
+  expect_error(parametres_sufosat(seuil_datation_db = 3), "`seuil_datation_db`")
+  expect_error(parametres_sufosat(seuil_datation_db = -Inf), "`seuil_datation_db`")
+  expect_error(parametres_sufosat(seuil_datation_db = NA_real_), "`seuil_datation_db`")
+  expect_error(parametres_sufosat(seuil_datation_db = c(-3, -4)), "`seuil_datation_db`")
+  expect_error(parametres_sufosat(seuil_datation_db = "-3"), "`seuil_datation_db`")
+  expect_error(parametres_sufosat(regle_date = "maximum"), "`regle_date`")
+  expect_error(parametres_sufosat(regle_date = NA_character_), "`regle_date`")
+  expect_error(parametres_sufosat(regle_date = c("minimum", "minimum")), "`regle_date`")
+  p <- parametres_sufosat()
+  q <- p
+  q$seuil_datation_db <- NULL
+  expect_error(seuils_db(q), "exactement")
+  q <- p
+  q$seuil_datation_db <- 1
+  expect_error(seuils_db(q), "`seuil_datation_db`")
+})

@@ -31,6 +31,24 @@
 #'   `xb = Inf` ; repli 10 ; gèle au jalon 2** (mesure sur données réelles).
 #'   Avec `xb_date = xb`, la date est celle du ratio de détection (comportement
 #'   d'avant la mission 010 si `xb = xb_date = Inf`).
+#' @param regle_date Règle qui donne la date de coupe d'un pixel détecté :
+#'   `"premiere_sous_seuil"` (défaut) ou `"minimum"`. Avec
+#'   `"premiere_sous_seuil"` (règle R2 de `docs/analyses/regles-de-date.md`,
+#'   mission 027), la date est la **première date** où l'une quelconque des
+#'   orbites a un ratio de datation (calculé avec `xb_date`) au plus égal à
+#'   `seuil_datation_db` ; un pixel détecté sans aucun passage sous ce seuil
+#'   garde la date de la règle `"minimum"` (repli). Avec `"minimum"` (règle
+#'   d'avant la mission 030, R0), la date est celle du minimum du ratio de
+#'   datation de la seule orbite retenue par la détection. La règle ne change
+#'   ni le ratio de détection ni les pixels détectés. Défaut décidé par Pascal
+#'   le 2026-11-24 ; **provisoire, gèle au jalon 2** (choix du package, non
+#'   précisé dans M24 : « la date correspondant au RCR le plus bas »).
+#' @param seuil_datation_db Seuil du ratio de datation, en dB (strictement
+#'   négatif), pour la règle `"premiere_sous_seuil"`. `NULL` (défaut) : le seuil
+#'   de détection effectif, `facteur_seuil * tp_db` (-3,45 dB), calculé à la
+#'   construction ; la valeur est ensuite fixe. Réglage distinct du seuil de
+#'   détection : le changer ne change pas la détection. **Provisoire, gèle au
+#'   jalon 2.**
 #' @param facteur_seuil Facteur multiplicatif appliqué à `ts_db` et `tp_db`.
 #'   Défaut 1,15 : M24, § III-A, p. 13750 (plage étudiée 0,8 à 1,2).
 #' @param ts_db Seuil des ombres radar, en dB, avant facteur. Défaut -4,5 :
@@ -95,6 +113,8 @@ parametres_sufosat <- function(polarisation = "VH",
                                xa = 3L,
                                xb = Inf,
                                xb_date = 5L,
+                               regle_date = "premiere_sous_seuil",
+                               seuil_datation_db = NULL,
                                facteur_seuil = 1.15,
                                ts_db = -4.5,
                                tp_db = -3,
@@ -109,11 +129,19 @@ parametres_sufosat <- function(polarisation = "VH",
                                seuil_feu = 0.75,
                                capteurs = capteurs_sufosat(),
                                source_neige = "MOD10A1") {
+  # Seuil de datation par défaut : le seuil de détection effectif (tp), si les
+  # deux réglages qui le donnent sont valides ; sinon la validation les refuse.
+  if (is.null(seuil_datation_db) && est_scalaire_num(facteur_seuil) &&
+      est_scalaire_num(tp_db)) {
+    seuil_datation_db <- facteur_seuil * tp_db
+  }
   p <- list(
     polarisation = polarisation,
     xa = xa,
     xb = xb,
     xb_date = xb_date,
+    regle_date = regle_date,
+    seuil_datation_db = seuil_datation_db,
     facteur_seuil = facteur_seuil,
     ts_db = ts_db,
     tp_db = tp_db,
@@ -231,6 +259,8 @@ print.parametres_sufosat <- function(x, ...) {
     paste0("  xa                  : ", x$xa, " images"),
     paste0("  xb                  : ", texte_xb(x$xb), " (d\u00e9tection)"),
     paste0("  xb_date             : ", texte_xb(x$xb_date), " (date de coupe)"),
+    paste0("  regle_date          : ", x$regle_date),
+    paste0("  seuil_datation_db   : ", format(x$seuil_datation_db), " dB"),
     paste0("  facteur_seuil       : ", format(x$facteur_seuil)),
     paste0("  ts_db, tp_db        : ", format(x$ts_db), " dB, ", format(x$tp_db), " dB (avant facteur)"),
     paste0("  ts, tp effectifs    : ", format(s[["ts"]]), " dB, ", format(s[["tp"]]), " dB"),
@@ -256,7 +286,7 @@ texte_xb <- function(xb) {
 # Validation ----------------------------------------------------------------
 
 noms_parametres <- c(
-  "polarisation", "xa", "xb", "xb_date", "facteur_seuil", "ts_db", "tp_db",
+  "polarisation", "xa", "xb", "xb_date", "regle_date", "seuil_datation_db", "facteur_seuil", "ts_db", "tp_db",
   "combinaison_orbites", "connexite", "surface_min_ha", "fermeture",
   "taille_fermeture", "fenetre_filtre", "annee_noyau", "seuil_tcd",
   "seuil_feu", "capteurs", "source_neige"
@@ -298,6 +328,11 @@ valide_parametres <- function(p) {
       "(les ombres radar sont plus sombres que les coupes).",
       call. = FALSE
     )
+  }
+  choix(p$regle_date, "regle_date", c("premiere_sous_seuil", "minimum"))
+  v <- p$seuil_datation_db
+  if (!est_scalaire_num(v) || !is.finite(v) || v >= 0) {
+    stop("`seuil_datation_db` doit \u00eatre un nombre strictement n\u00e9gatif (en dB).", call. = FALSE)
   }
   choix(p$combinaison_orbites, "combinaison_orbites", "minimum")
   p$connexite <- entier(p$connexite, "connexite", min = 4L)

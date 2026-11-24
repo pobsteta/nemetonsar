@@ -365,7 +365,9 @@ test_that("mission 016 : sorties figées avant optimisation (empreinte)", {
   attendu <- c("7" = "1331e266ee09802e51d7ef3502b8a073", "30" = "dcb3811021ea89a0485800510704d14b")
   for (lpb in c(7L, 30L)) {
     dossier <- tempfile("detecter-")
-    res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = lpb)
+    # regle_date = "minimum" : l'empreinte date d'avant la règle R2 (mission 030)
+    res <- nemetonsar_detecter(orbites, dates, dossier, lignes_par_bloc = lpb,
+                               parametres = parametres_sufosat(regle_date = "minimum"))
     expect_identical(
       empreinte(lire(res$fichiers[["dates"]]), lire(res$fichiers[["ratio"]]),
                 lire(res$fichiers[["objets_raster"]]), res$objets$nb_pixels,

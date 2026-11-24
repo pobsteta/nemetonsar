@@ -15,7 +15,7 @@ seule orbite relative.}
 longueur \code{dim(serie)[3]} : la date d'acquisition de chaque image.}
 
 \item{parametres}{Un objet créé par \code{\link[=parametres_sufosat]{parametres_sufosat()}} ; seuls \code{xa},
-\code{xb}, \code{xb_date} et \code{annee_noyau} servent ici.}
+\code{xb}, \code{xb_date}, \code{seuil_datation_db} et \code{annee_noyau} servent ici.}
 }
 \value{
 Une liste :
@@ -30,6 +30,9 @@ datation (calculé avec \code{xb_date}) ;
 avant la chute, au même minimum ;
 \item \code{duree_xa_jours} : matrice d'entiers, durée en jours de \code{d_i} à la
 dernière image de la fenêtre \code{Ma}, au même minimum ;
+\item \code{date_seuil}, \code{date_avant_seuil}, \code{duree_seuil_jours} : comme \code{date_min},
+\code{date_avant} et \code{duree_xa_jours}, mais à la première date où le ratio de
+datation est au plus égal à \code{seuil_datation_db} (\code{NA} si aucune) ;
 \item \code{parametres} : l'objet \code{parametres} validé.
 }
 
@@ -104,6 +107,18 @@ dates de la carte SUFOSAT v3.0.1.
 
 En cas d'égalité de ratios, la date la plus ancienne l'emporte.
 \strong{Provisoire, non sourcé (choix du package), gèle au jalon 2.}
+}
+
+\section{Première date sous le seuil de datation }{
+ En plus du minimum,
+chaque orbite donne, par pixel, la \strong{première} date \code{d_(i+1)} où le ratio
+de datation est au plus égal à \code{seuil_datation_db} (\code{date_seuil},
+\code{date_avant_seuil}, \code{duree_seuil_jours}), \code{NA} s'il n'y passe jamais.
+La comparaison se fait sur le rapport linéaire \code{Ma / Mb}, contre
+\code{db_vers_lineaire(seuil_datation_db)}. C'est l'entrée de la règle de date
+\code{"premiere_sous_seuil"} de \code{\link[=rcr_combine_orbites]{rcr_combine_orbites()}}. Elle ne dépend que des
+images jusqu'à \code{d_(i+1)} + \code{xa} : prolonger la série ne change pas une
+date déjà trouvée (voir \code{docs/analyses/regle-r2-pilote.md}).
 }
 
 \section{Début des ratios }{
