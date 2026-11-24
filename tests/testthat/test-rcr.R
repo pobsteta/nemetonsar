@@ -82,7 +82,10 @@ test_that("le rendu a la forme annoncée", {
   dates <- dates_12(8)
   serie <- array(niveau, dim = c(2, 3, 8), dimnames = list(c("a", "b"), c("x", "y", "z"), NULL))
   r <- rcr_compute(serie, dates)
-  expect_named(r, c("ratio_min_db", "date_min", "date_avant", "duree_xa_jours", "parametres"))
+  expect_named(r, c("ratio_min_db", "date_min", "date_avant", "duree_xa_jours",
+                    "date_seuil", "date_avant_seuil", "duree_seuil_jours", "parametres"))
+  expect_type(r$date_seuil, "integer")
+  expect_identical(dimnames(r$date_seuil), list(c("a", "b"), c("x", "y", "z")))
   expect_identical(dim(r$ratio_min_db), c(2L, 3L))
   expect_identical(dimnames(r$date_min), list(c("a", "b"), c("x", "y", "z")))
   expect_type(r$date_min, "integer")
@@ -218,7 +221,8 @@ test_that("les entrées incohérentes sont refusées", {
 })
 
 test_that("deux orbites combinées : le minimum l'emporte avec sa date", {
-  p <- parametres_sufosat()
+  # règle de date « minimum » (celle d'avant la mission 030) ; R2 plus bas
+  p <- parametres_sufosat(regle_date = "minimum")
   dates_asc <- dates_12(20)
   dates_desc <- dates_asc + 5
   asc <- array(niveau, dim = c(2, 2, 20))
@@ -416,7 +420,7 @@ test_that("cas simulé de la mission 008 : date bien meilleure, détection ident
 })
 
 test_that("deux orbites : l'orbite au ratio de détection le plus bas donne ses dates", {
-  p <- parametres_sufosat(xb = Inf, xb_date = 3)
+  p <- parametres_sufosat(xb = Inf, xb_date = 3, regle_date = "minimum")
   dates_asc <- dates_12(18)
   dates_desc <- dates_asc + 5
   # asc : marches 1 / 0,5 / 0,25 ; détection -4,77 dB, ratio de datation -3,01 dB (image 7)
@@ -436,7 +440,7 @@ test_that("deux orbites : l'orbite au ratio de détection le plus bas donne ses 
   expect_identical(comb$duree_xa_jours[1, 1], ra$duree_xa_jours[1, 1])
   expect_equal(yyddd_vers_date(rd$date_min[1, 1]), dates_desc[12])
   # des résultats calculés avec un autre xb_date sont refusés
-  rx <- rcr_compute(desc, dates_desc, parametres_sufosat(xb = Inf, xb_date = 5))
+  rx <- rcr_compute(desc, dates_desc, parametres_sufosat(xb = Inf, xb_date = 5, regle_date = "minimum"))
   expect_error(rcr_combine_orbites(list(ra, rx), p), "autres r")
 })
 
@@ -559,12 +563,15 @@ rcr_016 <- function(serie, dates, parametres = parametres_sufosat()) {
   )
 }
 
+# Mission 030 : rcr_compute() rend en plus date_seuil, date_avant_seuil et
+# duree_seuil_jours ; le contrôle d'identité porte sur les champs d'avant.
 avec_avertissements <- function(expr) {
   messages <- character(0)
   valeur <- withCallingHandlers(expr, warning = function(w) {
     messages <<- c(messages, conditionMessage(w))
     invokeRestart("muffleWarning")
   })
+  valeur$date_seuil <- valeur$date_avant_seuil <- valeur$duree_seuil_jours <- NULL
   list(valeur = valeur, avertissements = messages)
 }
 
@@ -619,4 +626,295 @@ test_that("mission 016 : sorties figées avant optimisation (empreinte)", {
     expect_identical(empreinte(r$ratio_min_db, r$date_min, r$date_avant, r$duree_xa_jours),
                      attendu[i])
   }
+})
+
+# Mission 030 : règle de date R2, première date sous le seuil de datation -------
+
+# Référence naïve de la première date sous le seuil, pixel par pixel, écrite
+# depuis la définition : première image valide d_i (admise, suivie de xa images
+# valides) dont le ratio de datation (Mb sur xb_date images) est <= seuil_db ;
+# la date est d_(i+1).
+premiere_naif <- function(v, dates, xa, xb_date, annee_noyau, seuil_db) {
+  debut <- as.Date(sprintf("%d-01-01", annee_noyau + 1L))
+  v[!is.na(v) & v <= 0] <- NA
+  idx <- which(!is.na(v))
+  for (j in seq_along(idx)) {
+    if (j + xa > length(idx)) break
+    if (dates[idx[j]] < debut) next
+    b <- idx[max(1, if (is.infinite(xb_date)) 1 else j - xb_date + 1):j]
+    r <- 10 * log10(mean(v[idx[(j + 1):(j + xa)]]) / mean(v[b]))
+    if (r <= seuil_db) {
+      return(c(apres = date_vers_yyddd(dates[idx[j + 1]]),
+               avant = date_vers_yyddd(dates[idx[j]]),
+               duree = as.integer(dates[idx[j + xa]] - dates[idx[j]])))
+    }
+  }
+  c(apres = NA_integer_, avant = NA_integer_, duree = NA_integer_)
+}
+
+test_that("R2 : la première date sous le seuil est celle de la marche, pas celle du minimum", {
+  dates <- dates_12(30)
+  serie <- array(niveau, dim = c(2, 1, 30))
+  # pixel 1 : -4 dB à l'image 10, puis -9 dB à l'image 22 (creux plus profond, plus tardif)
+  serie[1, 1, 10:30] <- niveau * db_vers_lineaire(-4)
+  serie[1, 1, 22:30] <- niveau * db_vers_lineaire(-9)
+  # pixel 2 : stable
+  r <- rcr_compute(serie, dates)
+  # le minimum (règle R0) tombe sur le creux profond ; R2 sur la première marche
+  expect_equal(yyddd_vers_date(r$date_min[1, 1]), dates[22])
+  expect_equal(yyddd_vers_date(r$date_seuil[1, 1]), dates[10])
+  expect_equal(yyddd_vers_date(r$date_avant_seuil[1, 1]), dates[9])
+  expect_identical(r$duree_seuil_jours[1, 1], as.integer(dates[12] - dates[9]))
+  # aller-retour YYDDD
+  expect_identical(date_vers_yyddd(yyddd_vers_date(r$date_seuil[1, 1])), r$date_seuil[1, 1])
+  # pixel stable : aucun passage sous le seuil
+  expect_true(is.na(r$date_seuil[2, 1]))
+  expect_true(is.na(r$date_avant_seuil[2, 1]))
+  expect_true(is.na(r$duree_seuil_jours[2, 1]))
+  # la détection ne change pas : le ratio minimal est celui du creux de -9 dB
+  expect_lt(r$ratio_min_db[1, 1], -5)
+})
+
+test_that("R2 : le seuil de datation fait la frontière, en dB (passage linéaire <-> dB)", {
+  dates <- dates_12(20)
+  serie <- array(niveau, dim = c(1, 1, 20))
+  serie[1, 1, 8:20] <- niveau * db_vers_lineaire(-3.5) # marche de -3,5 dB
+  # seuil par défaut -3,45 dB : -3,5 dB passe
+  p <- parametres_sufosat()
+  expect_equal(p$seuil_datation_db, -3.45)
+  r <- rcr_compute(serie, dates, p)
+  expect_equal(yyddd_vers_date(r$date_seuil[1, 1]), dates[8])
+  # le rapport linéaire retrouve la marche injectée
+  expect_equal(db_vers_lineaire(r$ratio_min_db[1, 1]), db_vers_lineaire(-3.5))
+  # seuil à -3,6 dB : -3,5 dB ne passe plus ; à -3,4 dB : il passe
+  expect_true(is.na(rcr_compute(serie, dates, parametres_sufosat(seuil_datation_db = -3.6))$date_seuil[1, 1]))
+  expect_equal(
+    yyddd_vers_date(rcr_compute(serie, dates, parametres_sufosat(seuil_datation_db = -3.4))$date_seuil[1, 1]),
+    dates[8]
+  )
+  # changer le seuil de datation ne change ni le ratio de détection ni le minimum
+  r6 <- rcr_compute(serie, dates, parametres_sufosat(seuil_datation_db = -3.6))
+  expect_identical(r6$ratio_min_db, r$ratio_min_db)
+  expect_identical(r6$date_min, r$date_min)
+})
+
+test_that("R2 : égale la définition pixel par pixel (images manquantes, dates irrégulières)", {
+  set.seed(301)
+  for (cas in 1:6) {
+    nt <- sample(15:45, 1)
+    dates <- sort(as.Date("2018-03-01") + sample(0:1500, nt))
+    serie <- array(0.05 * stats::rgamma(5 * 4 * nt, 12, 12), dim = c(5, 4, nt))
+    for (l in 1:5) {
+      j <- sample(nt, 1)
+      col <- sample(4, 2)
+      serie[l, col, j:nt] <- serie[l, col, j:nt] * db_vers_lineaire(-sample(3:8, 1))
+    }
+    if (cas %% 2 == 0) serie[sample(length(serie), length(serie) %/% 6)] <- NA
+    for (p in list(parametres_sufosat(),
+                   parametres_sufosat(xa = 2L, xb_date = Inf),
+                   parametres_sufosat(xb = 4, xb_date = 4, seuil_datation_db = -2.5),
+                   parametres_sufosat(xa = 1L, xb_date = 3, seuil_datation_db = -5))) {
+      r <- rcr_compute(serie, dates, p)
+      for (l in 1:5) for (k in 1:4) {
+        att <- premiere_naif(serie[l, k, ], dates, p$xa, p$xb_date, p$annee_noyau, p$seuil_datation_db)
+        expect_identical(c(r$date_seuil[l, k], r$date_avant_seuil[l, k], r$duree_seuil_jours[l, k]),
+                         unname(att))
+      }
+    }
+  }
+})
+
+# Deux orbites ---------------------------------------------------------------
+
+deux_orbites <- function(p) {
+  dates_asc <- dates_12(24)
+  dates_desc <- dates_asc + 5
+  asc <- array(niveau, dim = c(4, 1, 24))
+  desc <- array(niveau, dim = c(4, 1, 24))
+  # pixel 1 : asc -4 dB à l'image 9 ; desc -6 dB à l'image 14 (détection : desc)
+  asc[1, 1, 9:24] <- niveau * db_vers_lineaire(-4)
+  desc[1, 1, 14:24] <- niveau * db_vers_lineaire(-6)
+  # pixel 2 : asc -6 dB à l'image 9 ; desc -4 dB à l'image 14 (détection et date : asc)
+  asc[2, 1, 9:24] <- niveau * db_vers_lineaire(-6)
+  desc[2, 1, 14:24] <- niveau * db_vers_lineaire(-4)
+  # pixel 3 : une seule marche de -3,2 dB, au-dessus du seuil de datation : repli
+  asc[3, 1, 10:24] <- niveau * db_vers_lineaire(-3.2)
+  # pixel 4 : sans donnée en descendante, -5 dB en ascendante à l'image 12
+  asc[4, 1, 12:24] <- niveau * db_vers_lineaire(-5)
+  desc[4, 1, ] <- NA
+  ra <- rcr_compute(asc, dates_asc, p)
+  rd <- rcr_compute(desc, dates_desc, p)
+  list(ra = ra, rd = rd, dates_asc = dates_asc, dates_desc = dates_desc,
+       comb = rcr_combine_orbites(list(asc = ra, desc = rd), p))
+}
+
+test_that("R2 : la première date vient de n'importe quelle orbite, le ratio de l'orbite retenue", {
+  p <- parametres_sufosat()
+  x <- deux_orbites(p)
+  comb <- x$comb
+  # pixel 1 : la détection retient desc (-6 dB), la date vient de asc, plus ancienne
+  expect_identical(comb$orbite[1, 1], "desc")
+  expect_equal(comb$ratio_min_db[1, 1], -6)
+  expect_identical(comb$orbite_date[1, 1], "asc")
+  expect_equal(yyddd_vers_date(comb$date_min[1, 1]), x$dates_asc[9])
+  expect_equal(yyddd_vers_date(comb$date_avant[1, 1]), x$dates_asc[8])
+  expect_identical(comb$duree_xa_jours[1, 1], as.integer(x$dates_asc[11] - x$dates_asc[8]))
+  expect_false(comb$date_repli[1, 1])
+  # pixel 2 : asc retient la détection et la date
+  expect_identical(comb$orbite[2, 1], "asc")
+  expect_identical(comb$orbite_date[2, 1], "asc")
+  expect_equal(yyddd_vers_date(comb$date_min[2, 1]), x$dates_asc[9])
+  # pixel 4 : une seule orbite a des données
+  expect_identical(comb$orbite_date[4, 1], "asc")
+  expect_equal(yyddd_vers_date(comb$date_min[4, 1]), x$dates_asc[12])
+  # le ratio est celui de la règle « minimum », par construction
+  pm <- parametres_sufosat(regle_date = "minimum")
+  cm <- deux_orbites(pm)$comb
+  expect_identical(comb$ratio_min_db, cm$ratio_min_db)
+  expect_identical(comb$orbite, cm$orbite)
+  # et la règle « minimum » date le pixel 1 à la descendante
+  expect_equal(yyddd_vers_date(cm$date_min[1, 1]), x$dates_desc[14])
+  expect_true(all(!cm$date_repli))
+  expect_identical(cm$orbite_date, cm$orbite)
+})
+
+test_that("R2 : repli sur le minimum quand aucune orbite ne passe sous le seuil", {
+  p <- parametres_sufosat()
+  x <- deux_orbites(p)
+  comb <- x$comb
+  pm <- deux_orbites(parametres_sufosat(regle_date = "minimum"))$comb
+  # pixel 3 : -3,2 dB > -3,45 dB, aucune date sous le seuil ; date du minimum
+  expect_true(is.na(x$ra$date_seuil[3, 1]) && is.na(x$rd$date_seuil[3, 1]))
+  expect_true(comb$date_repli[3, 1])
+  expect_identical(comb$date_min[3, 1], pm$date_min[3, 1])
+  expect_identical(comb$date_avant[3, 1], pm$date_avant[3, 1])
+  expect_identical(comb$duree_xa_jours[3, 1], pm$duree_xa_jours[3, 1])
+  expect_identical(comb$orbite_date[3, 1], comb$orbite[3, 1])
+  # avec un seuil de datation moins sévère, le pixel n'est plus en repli
+  c3 <- deux_orbites(parametres_sufosat(seuil_datation_db = -3))$comb
+  expect_false(c3$date_repli[3, 1])
+  expect_equal(yyddd_vers_date(c3$date_min[3, 1]), x$dates_asc[10])
+  # un pixel sans ratio (aucune donnée) n'a pas de date et n'est pas en repli
+  vide <- array(NA_real_, dim = c(1, 1, 24))
+  rv <- rcr_compute(vide, x$dates_asc, p)
+  cv <- rcr_combine_orbites(list(a = rv, b = rv), p)
+  expect_true(is.na(cv$date_min[1, 1]))
+  expect_false(cv$date_repli[1, 1])
+})
+
+test_that("R2 : en cas d'égalité de date, la première orbite de la liste l'emporte", {
+  p <- parametres_sufosat()
+  dates <- dates_12(20)
+  a <- array(niveau, dim = c(1, 1, 20))
+  b <- a
+  a[1, 1, 10:20] <- niveau * db_vers_lineaire(-5)
+  b[1, 1, 10:20] <- niveau * db_vers_lineaire(-7)
+  ra <- rcr_compute(a, dates, p)
+  rb <- rcr_compute(b, dates, p)
+  expect_identical(rcr_combine_orbites(list(a = ra, b = rb), p)$orbite_date[1, 1], "a")
+  expect_identical(rcr_combine_orbites(list(b = rb, a = ra), p)$orbite_date[1, 1], "b")
+  expect_equal(yyddd_vers_date(rcr_combine_orbites(list(b = rb, a = ra), p)$date_min[1, 1]), dates[10])
+  # plateau sous le seuil sur toute la fin de série : la date la plus ancienne l'emporte
+  plat <- array(niveau, dim = c(1, 1, 20))
+  plat[1, 1, 8:20] <- niveau * db_vers_lineaire(-5)
+  r <- rcr_compute(plat, dates, p)
+  expect_equal(yyddd_vers_date(r$date_seuil[1, 1]), dates[8])
+})
+
+test_that("R2 : une liste de résultats sans les champs de la règle est refusée", {
+  p <- parametres_sufosat()
+  dates <- dates_12(10)
+  r <- rcr_compute(array(niveau, dim = c(1, 1, 10)), dates, p)
+  r$date_seuil <- NULL
+  expect_error(rcr_combine_orbites(list(r), p), "n'est pas un r")
+  # la règle « minimum » n'en a pas besoin
+  pm <- parametres_sufosat(regle_date = "minimum")
+  rm_ <- rcr_compute(array(niveau, dim = c(1, 1, 10)), dates, pm)
+  rm_$date_seuil <- NULL
+  expect_s3_class(rcr_combine_orbites(list(rm_), pm)$parametres, "parametres_sufosat")
+})
+
+# Stabilité quand la série est prolongée ------------------------------------------
+
+test_that("R2 : prolonger la série ne change pas une date déjà sortie ; R0 la change", {
+  set.seed(302)
+  n_court <- 60
+  n_ajout <- 15
+  n_long <- n_court + n_ajout
+  dates <- seq(as.Date("2018-06-03"), by = 12, length.out = n_long)
+  npix <- 300
+  serie <- array(0.05 * stats::rgamma(npix * n_long, 20, 20), dim = c(npix, 1, n_long))
+  # chaque pixel : une marche à une image tirée au hasard (jusqu'au bout de la série
+  # longue), certains avec un second creux plus profond et plus tardif
+  for (i in seq_len(npix)) {
+    j <- sample(25:(n_long - 2), 1)
+    serie[i, 1, j:n_long] <- serie[i, 1, j:n_long] * db_vers_lineaire(-sample(4:6, 1))
+    if (i %% 3 == 0 && j < n_long - 10) {
+      j2 <- sample((j + 8):(n_long - 2), 1)
+      serie[i, 1, j2:n_long] <- serie[i, 1, j2:n_long] * db_vers_lineaire(-4)
+    }
+  }
+  p <- parametres_sufosat()
+  court <- rcr_compute(serie[, , seq_len(n_court), drop = FALSE], dates[seq_len(n_court)], p)
+  long <- rcr_compute(serie, dates, p)
+
+  # R2, une orbite : toute date trouvée par la série courte est inchangée, sans exception
+  trouvees <- !is.na(court$date_seuil)
+  expect_gt(sum(trouvees), 100)
+  expect_identical(long$date_seuil[trouvees], court$date_seuil[trouvees])
+  expect_identical(long$date_avant_seuil[trouvees], court$date_avant_seuil[trouvees])
+  expect_identical(long$duree_seuil_jours[trouvees], court$duree_seuil_jours[trouvees])
+  # Effet de bord de fenêtre, nommé : un pixel sans date dans la série courte peut en
+  # gagner une dans la longue (la marche arrive dans les images ajoutées, ou il
+  # manquait les xa dernières images). C'est le seul changement permis.
+  gagnees <- !trouvees & !is.na(long$date_seuil)
+  expect_gt(sum(gagnees), 0)
+  expect_true(all(long$date_avant_seuil[gagnees] >= date_vers_yyddd(dates[n_court - p$xa])))
+
+  # R0 (minimum du ratio de datation) : des dates déjà sorties changent (les creux
+  # tardifs l'emportent). Le chiffre n'est pas fixé, il doit seulement être non nul.
+  redatees <- !is.na(court$date_min) & court$date_min != long$date_min
+  expect_gt(sum(redatees), 0)
+})
+
+test_that("R2 : prolonger deux orbites ne change pas une date trouvée avant la fenêtre finale", {
+  set.seed(303)
+  n_court <- 60
+  n_long <- 75
+  d_asc <- seq(as.Date("2018-06-03"), by = 12, length.out = n_long)
+  d_desc <- d_asc + 5
+  npix <- 200
+  fabrique <- function() {
+    s <- array(0.05 * stats::rgamma(npix * n_long, 20, 20), dim = c(npix, 1, n_long))
+    for (i in seq_len(npix)) {
+      j <- sample(25:(n_long - 2), 1)
+      s[i, 1, j:n_long] <- s[i, 1, j:n_long] * db_vers_lineaire(-sample(4:7, 1))
+    }
+    s
+  }
+  asc <- fabrique()
+  desc <- fabrique()
+  p <- parametres_sufosat()
+  recoupe <- function(n) {
+    rcr_combine_orbites(list(
+      asc = rcr_compute(asc[, , seq_len(n), drop = FALSE], d_asc[seq_len(n)], p),
+      desc = rcr_compute(desc[, , seq_len(n), drop = FALSE], d_desc[seq_len(n)], p)
+    ), p)
+  }
+  court <- recoupe(n_court)
+  long <- recoupe(n_long)
+  # Effet de bord de fenêtre, nommé : une date de la série courte voisine de la fin
+  # (à moins de xa + 1 images d'une orbite, soit (xa + 1) x 12 + 5 j) peut être
+  # devancée par une date plus ancienne de l'autre orbite dont la fenêtre Ma n'était
+  # pas fermée. Les pixels en repli (aucun passage sous le seuil) sont exclus : leur
+  # date est celle du minimum, qui, elle, bouge quand la série s'allonge.
+  fin <- d_asc[n_court]
+  loin <- !is.na(court$date_min) & !court$date_repli &
+    yyddd_vers_date(ifelse(is.na(court$date_min), 1L, court$date_min)) < fin - (p$xa + 1) * 12 - 5
+  expect_gt(sum(loin), 50)
+  expect_identical(long$date_min[loin], court$date_min[loin])
+  # Une date de R2 ne peut que rester ou devenir plus ancienne quand la série est
+  # prolongée (jamais plus récente), pour les pixels qui avaient un passage sous le seuil.
+  sous <- !court$date_repli & !is.na(court$date_min)
+  expect_true(all(long$date_min[sous] <= court$date_min[sous]))
 })

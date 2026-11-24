@@ -13,9 +13,18 @@ rcr_combine_orbites(resultats, parametres = parametres_sufosat())
 \item{parametres}{Un objet créé par \code{\link[=parametres_sufosat]{parametres_sufosat()}}.}
 }
 \value{
-Une liste de même forme que celle de \code{\link[=rcr_compute]{rcr_compute()}}, plus
-\code{orbite} : matrice donnant, par pixel, le nom de l'orbite retenue (ou son
-rang dans \code{resultats} si la liste n'est pas nommée), \code{NA} sans ratio.
+Une liste de même forme que celle de \code{\link[=rcr_compute]{rcr_compute()}}, sans les champs
+\code{date_seuil}, \code{date_avant_seuil} et \code{duree_seuil_jours} (déjà utilisés), plus :
+\itemize{
+\item \code{orbite} : matrice donnant, par pixel, le nom de l'orbite retenue par la
+détection (ou son rang dans \code{resultats} si la liste n'est pas nommée),
+\code{NA} sans ratio ;
+\item \code{orbite_date} : l'orbite qui donne la date (celle de \code{orbite} pour la
+règle \code{"minimum"} et pour un pixel en repli) ;
+\item \code{date_repli} : matrice logique, \code{TRUE} pour un pixel en repli sur la règle
+\code{"minimum"} (règle \code{"premiere_sous_seuil"} sans passage sous le seuil) ;
+toujours \code{FALSE} avec la règle \code{"minimum"}.
+}
 }
 \description{
 Applique la règle \code{combinaison_orbites} de \code{\link[=parametres_sufosat]{parametres_sufosat()}} aux
@@ -30,6 +39,28 @@ datation calculé avec \code{xb_date}) ; une orbite sans ratio pour ce pixel
 cas d'égalité, la première orbite de la liste l'emporte : \strong{provisoire,
 non sourcé (choix du package), gèle au jalon 2.}
 }
+\section{Règle de date }{
+ Le ratio (\code{ratio_min_db}) est toujours celui de
+l'orbite au ratio de détection le plus bas : la règle de date ne change ni
+la détection ni la segmentation. Les dates dépendent de
+\code{parametres$regle_date} :
+\itemize{
+\item \code{"minimum"} : dates du minimum du ratio de datation de l'orbite retenue
+(règle d'avant la mission 030) ;
+\item \code{"premiere_sous_seuil"} (défaut, règle R2 de la mission 027) : par
+pixel, parmi \strong{toutes} les orbites, la première date \code{d_(i+1)} (la plus
+ancienne) où le ratio de datation est au plus égal à
+\code{seuil_datation_db}. Une date commune à deux orbites : la première de la
+liste. Un pixel qui a un ratio mais aucun passage sous le seuil garde les
+dates de la règle \code{"minimum"} (repli) ; \code{date_repli} le marque.
+}
+
+Les dates sont comparées en \code{YYDDD} : valable pour des dates d'un même
+siècle (Sentinel-1 date de 2014). Pour \code{"premiere_sous_seuil"}, \code{date_avant}
+et \code{duree_xa_jours} sont celles de l'orbite qui donne la date.
+\strong{Provisoire, décision de Pascal du 2026-11-24, gèle au jalon 2.}
+}
+
 \examples{
 dates <- seq(as.Date("2021-01-05"), by = 12, length.out = 10)
 asc <- array(0.05, dim = c(1, 2, 10))

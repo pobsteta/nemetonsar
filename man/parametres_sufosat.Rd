@@ -10,6 +10,8 @@ parametres_sufosat(
   xa = 3L,
   xb = Inf,
   xb_date = 5L,
+  regle_date = "premiere_sous_seuil",
+  seuil_datation_db = NULL,
   facteur_seuil = 1.15,
   ts_db = -4.5,
   tp_db = -3,
@@ -52,6 +54,26 @@ non précisé dans M24 ni B18. \strong{Provisoire : simulation
 \code{xb = Inf} ; repli 10 ; gèle au jalon 2} (mesure sur données réelles).
 Avec \code{xb_date = xb}, la date est celle du ratio de détection (comportement
 d'avant la mission 010 si \code{xb = xb_date = Inf}).}
+
+\item{regle_date}{Règle qui donne la date de coupe d'un pixel détecté :
+\code{"premiere_sous_seuil"} (défaut) ou \code{"minimum"}. Avec
+\code{"premiere_sous_seuil"} (règle R2 de \code{docs/analyses/regles-de-date.md},
+mission 027), la date est la \strong{première date} où l'une quelconque des
+orbites a un ratio de datation (calculé avec \code{xb_date}) au plus égal à
+\code{seuil_datation_db} ; un pixel détecté sans aucun passage sous ce seuil
+garde la date de la règle \code{"minimum"} (repli). Avec \code{"minimum"} (règle
+d'avant la mission 030, R0), la date est celle du minimum du ratio de
+datation de la seule orbite retenue par la détection. La règle ne change
+ni le ratio de détection ni les pixels détectés. Défaut décidé par Pascal
+le 2026-11-24 ; \strong{provisoire, gèle au jalon 2} (choix du package, non
+précisé dans M24 : « la date correspondant au RCR le plus bas »).}
+
+\item{seuil_datation_db}{Seuil du ratio de datation, en dB (strictement
+négatif), pour la règle \code{"premiere_sous_seuil"}. \code{NULL} (défaut) : le seuil
+de détection effectif, \code{facteur_seuil * tp_db} (-3,45 dB), calculé à la
+construction ; la valeur est ensuite fixe. Réglage distinct du seuil de
+détection : le changer ne change pas la détection. \strong{Provisoire, gèle au
+jalon 2.}}
 
 \item{facteur_seuil}{Facteur multiplicatif appliqué à \code{ts_db} et \code{tp_db}.
 Défaut 1,15 : M24, § III-A, p. 13750 (plage étudiée 0,8 à 1,2).}

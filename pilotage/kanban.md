@@ -6,7 +6,7 @@
 > colonne ; on change ce numéro chaque fois qu'elle change de colonne.
 > **Une carte qui ne bouge pas est souvent la mauvaise nouvelle à dire tout de suite.**
 
-**Dernier cycle :** 12 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
+**Dernier cycle :** 13 _(augmenté de 1 à la fin de chaque `/boucle`, même quand elle n'a
 rien lancé. Une carte est immobile quand dernier cycle − N ≥ 2.)_
 
 _Modèle de carte :_
@@ -25,7 +25,10 @@ _Modèle de carte :_
 
 ## Validé
 
-
+- [032-documenter-ff0-et-1c1d](missions/032-documenter-ff0-et-1c1d.md) · depuis le cycle 12
+  - Homme : dev · opus
+  - Mission : documenter FF0/FO0 et avertir après la bascule 1C/1D ; après la fusion de 030 ; validée par Pascal le 2026-11-24
+  - Moyens : roxygen, README, avertissement de nemetonsar_run()
 
 ## Planifié
 
@@ -33,12 +36,25 @@ _Modèle de carte :_
 
 ## Terminé
 
+- [030-date-premiere-sous-tp](missions/030-date-premiere-sous-tp.md) · depuis le cycle 13
+  - Homme : dev · opus
+  - Mission : coder la règle de date R2 (seuil_datation, repli sur R0, test de stabilité), puis exécution réelle de la tuile pilote, R2 par défaut (Pascal, 2026-11-24) ; prête (relecture : prêt, retouches de rédaction faites) ; PR du cycle 13 à valider après lecture des chiffres de surface
+  - Moyens : R/rcr.R, R/parametres.R, R/run.R ; poste de Pascal pour l'exécution
+- [031-perimetre-2018](missions/031-perimetre-2018.md) · depuis le cycle 13
+  - Homme : dev · opus (analyse)
+  - Mission : comment SUFOSAT date 2018, et ce qu'un départ en 2018 changerait ; prête (2 allers-retours) ; PR du cycle 13 à valider ; périmètre 2018 à trancher
+  - Moyens : Mermoz et al. (2024), tuile pilote, poste de Pascal
+- [033-decalage-1a-1c1d](missions/033-decalage-1a-1c1d.md) · depuis le cycle 13
+  - Homme : dev · opus (analyse)
+  - Mission : décalage du ratio 1A → 1C/1D sur au moins trois tuiles de forêt stable ; prête (1 aller-retour) ; PR du cycle 13 à valider ; recalage et recouvrement 1A/1C à trancher
+  - Moyens : méthode de 029, poste de Pascal (environ 40 min par tuile)
+
 - [028-observer-loin-du-seuil](missions/028-observer-loin-du-seuil.md) · depuis le cycle 12
-  - Mission : ce que datent les pixels « loin du seuil » et l'objet FO0, sur Sentinel-2 et dates de vol IGN (agent passé d'`analyste` à `dev` par Pascal ; 1 aller-retour) ; PR du cycle 12 à valider
+  - Mission : ce que datent les pixels « loin du seuil » et l'objet FO0, sur Sentinel-2 et dates de vol IGN (agent passé d'`analyste` à `dev` par Pascal ; 1 aller-retour) ; fusionnée (PR #3, v2026.11.3)
 - [029-continuite-s1c](missions/029-continuite-s1c.md) · depuis le cycle 12
-  - Mission : continuité Sentinel-1A → 1C/1D et détections 2026, rapport .md et .pdf (1 aller-retour) ; rupture mesurée du ratio après la bascule ; PR du cycle 12 à valider
+  - Mission : continuité Sentinel-1A → 1C/1D et détections 2026, rapport .md et .pdf (1 aller-retour) ; rupture mesurée du ratio après la bascule ; fusionnée (PR #3, v2026.11.3)
 - [027-regles-de-date](missions/027-regles-de-date.md) · depuis le cycle 12
-  - Mission : trois règles de date essayées, R2 proposée ; PR du cycle 12 à valider
+  - Mission : trois règles de date essayées, R2 proposée ; fusionnée (PR #3, v2026.11.3)
 
 - [026-cause-dates-tardives](missions/026-cause-dates-tardives.md) · depuis le cycle 11
   - Mission : observer la cause non établie des dates tardives (analyste, 3 allers-retours)
@@ -159,3 +175,4 @@ l'inscrit avec ce qu'elle nous apprend._
 - cycle 10 · la chaîne en parallèle sur le poste de Pascal (terra 1.9, GDAL 3.11) : pilote Landes 100 km² en 35 min au lieu de 52 en série, sans blocage, résultats identiques au bit près (023) ; premier diagnostic chiffré des écarts à la v3.0.1 (024, rapport NC) · pour Pascal · de plus que les cycles 8 et 9 : une exécution réelle et parallèle sur sa machine, plus seulement dans le cloud ; mauvaise nouvelle apprise : l'accord avec la v3.0.1 est faible, et la moitié des dates tardives reste sans cause établie
 - cycle 11 · une chaîne qui tient sur une durée quelconque : jeton du Planetary Computer renouvelé pendant la lecture (025), pilote Landes en série 50 min sans 403, sorties identiques ; diagnostic des dates tardives qui désigne deux réglages à essayer, seuil de datation distinct et date multi-orbites (026, rapport NC) · pour Pascal · de plus que le cycle 10 : plus de panne sur les exécutions longues (condition d'une tuile MGRS entière), et des écarts à la v3.0.1 expliqués en partie par des causes sur lesquelles agir
 - cycle 12 · mauvaise nouvelle sur laquelle on apprend : rapport PDF de la continuité Sentinel-1A → 1C/1D (029) ; la chaîne passe jusqu'en novembre 2026 mais les détections du mois qui suit le changement de satellite sont probablement de faux positifs (ratio de forêt stable décalé) ; règle de date R2 chiffrée et prête à coder (027) ; FO0 et une partie de FF0 observés sur Sentinel-2 et orthos (028) · pour Pascal · de plus que le cycle 11 : une première carte des coupes 2026, et l'on sait qu'elle ne doit pas être publiée après le 2026-06-30 tant que le décalage entre capteurs n'est pas mesuré
+- cycle 13 · release v2026.11.4 (à la fusion de la PR #6) : nemetonsar_run() date par défaut chaque coupe au premier passage sous le seuil, toutes orbites (R2, mission 030) ; périmètre 2018 étudié (031), décalage Sentinel-1A → 1C/1D mesuré (033) · pour Pascal et tout utilisateur du package · de plus que le cycle 12 : une version installable dont les dates ne bougent plus quand la série s'allonge (92 % des dates 2025 identiques, contre 42 %) ; indicateur de repli, avertissement après le 2026-06-30 et documentation de FF0/FO0 et de 2018 à venir (032)
