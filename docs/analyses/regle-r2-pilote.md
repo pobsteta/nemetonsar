@@ -83,16 +83,15 @@ Pixels de la série courte dont la date tombe du 2025-01-01 au 2025-09-30, relus
 Toutes dates de la série courte (jusqu'au 2025-09-30) : R0 89 428 identiques sur 104 165 (85,9 %), **R2 101 037 sur
 102 891 (98,2 %)**, soit 1 854 changées.
 
-**Les 533 dates de 2025 que R2 change ne sont pas un défaut de la règle sur un pixel qui a un passage sous le seuil.**
-Le test unitaire (`test-rcr.R`, « prolonger la série ne change pas une date déjà sortie ») montre que la première date
-sous le seuil ne bouge jamais quand on ajoute des images, sans exception, sauf pour un pixel qui n'en avait pas. Sur
-l'exécution réelle, 469 des 533 pixels (88 %) prennent une date postérieure au 2025-09-30 (2026-03 : 269 ; 2026-07 : 78 ;
-2025-12 : 36) ; les 64 autres restent dans la série courte (20 plus anciennes, 44 plus récentes). Médiane du
-déplacement : +293 jours. **Lecture, non démontrée sur les données** (l'exécution ne garde pas l'indicateur de repli) : ce
-sont des pixels sans passage sous le seuil dans la série courte, donc datés par le repli sur le minimum, et le minimum
-bouge quand une coupe plus tardive apparaît. Le test unitaire sépare ces deux cas ; la sortie `dates.tif` ne les
-distingue pas. À ce stade, la règle ne tient pas sa promesse de stabilité pour les pixels en repli : **le repli est
-la part de R0 qui reste.**
+**Ce que l'on peut déduire des 533 dates changées, et ce que l'on ne peut pas.** À tuile et orbites égales, une date
+R2 hors repli ne peut que rester ou reculer quand la série s'allonge (tests unitaires de `test-rcr.R`, « prolonger la
+série ne change pas une date déjà sortie » et « prolonger deux orbites… »). Sur l'exécution réelle, 513 des 533 pixels
+sont datés plus tard en série longue (469 après le 2025-09-30, dont 2026-03 : 269, 2026-07 : 78, 2025-12 : 36 ; 44 plus
+tard mais dans la série courte). Ces 513 pixels sont donc en repli, ou touchés par un changement de chaîne entre les deux
+exécutions (masque de la correction 2019, orbites) ; l'exécution ne garde pas l'indicateur de repli, et la part de chaque
+cause n'est pas mesurée. Seuls les 20 pixels datés plus tôt restent ambigus : un recul est permis par la règle, mais la
+cause n'est pas recherchée. Déplacement médian des 533 : +293 jours. Pour les pixels en repli, la règle ne tient pas la
+stabilité : le repli est la part de R0 qui reste.
 
 Le pixel qui devient daté dans la fenêtre sans l'être en série courte (2 063 pixels sous R2, 2 062 sous R0) n'est pas
 un défaut : la série courte n'avait pas les `xa` images suivantes pour les dater, ou la marche est arrivée plus tard

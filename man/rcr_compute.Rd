@@ -118,7 +118,10 @@ La comparaison se fait sur le rapport linéaire \code{Ma / Mb}, contre
 \code{db_vers_lineaire(seuil_datation_db)}. C'est l'entrée de la règle de date
 \code{"premiere_sous_seuil"} de \code{\link[=rcr_combine_orbites]{rcr_combine_orbites()}}. Elle ne dépend que des
 images jusqu'à \code{d_(i+1)} + \code{xa} : prolonger la série ne change pas une
-date déjà trouvée (voir \code{docs/analyses/regle-r2-pilote.md}).
+date déjà trouvée. Cette stabilité est démontrée par le test unitaire
+« R2 : prolonger la série ne change pas une date déjà sortie »
+(\code{tests/testthat/test-rcr.R}) ; le rapport \code{docs/analyses/regle-r2-pilote.md}
+n'en donne que la mesure sur la tuile pilote.
 }
 
 \section{Début des ratios }{

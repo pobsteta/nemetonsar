@@ -68,7 +68,10 @@
 #'   `db_vers_lineaire(seuil_datation_db)`. C'est l'entrée de la règle de date
 #'   `"premiere_sous_seuil"` de [rcr_combine_orbites()]. Elle ne dépend que des
 #'   images jusqu'à `d_(i+1)` + `xa` : prolonger la série ne change pas une
-#'   date déjà trouvée (voir `docs/analyses/regle-r2-pilote.md`).
+#'   date déjà trouvée. Cette stabilité est démontrée par le test unitaire
+#'   « R2 : prolonger la série ne change pas une date déjà sortie »
+#'   (`tests/testthat/test-rcr.R`) ; le rapport `docs/analyses/regle-r2-pilote.md`
+#'   n'en donne que la mesure sur la tuile pilote.
 #'
 #' @section Début des ratios : Aucun ratio n'est calculé pour une date `d_i`
 #'   antérieure au 1er janvier de l'année `annee_noyau + 1` (2019 par défaut).
