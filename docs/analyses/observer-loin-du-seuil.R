@@ -65,6 +65,8 @@ SCL_VALIDE <- c(4L, 5L)      # végétation, sol nu (SCL de Sen2Cor)
 
 suppressMessages(pkgload::load_all(".", quiet = TRUE))
 ns <- asNamespace("nemetonsar")
+# Attention : `ns$bdforet_lire` et `ns$yyddd_vers_date` sont des fonctions INTERNES du package,
+# lues par asNamespace() (non exportées pour bdforet_lire) ; leur signature peut changer.
 
 # Étape 1 : tirage --------------------------------------------------------------------
 
@@ -195,7 +197,7 @@ DEC9 <- as.matrix(expand.grid(dx = c(-10, 0, 10), dy = c(-10, 0, 10)))
 
 if (ETAPE == "s2") {
   limite <- if (length(args) >= 3L) as.numeric(args[3]) else 520
-  nproc <- if (length(args) >= 4L) as.integer(args[4]) else 7L
+  nproc <- if (length(args) >= 4L) as.integer(args[4]) else 8L
   t_debut <- Sys.time()
   P <- readRDS(file.path(M028, "points_028.rds"))$points
   d_s2 <- file.path(M028, "s2"); dir.create(d_s2, showWarnings = FALSE)
@@ -244,13 +246,11 @@ if (ETAPE == "s2") {
     num_pt <- rep(P$id, each = 9L)[garde_pt]
     num_dec <- rep(seq_len(9L), times = nrow(P))[garde_pt]
 
-    lire_scene <- function(i, pu, num_pt, num_dec, d_s2, deadline, scl_valide) {
+    lire_scene <- function(i, pu, num_pt, num_dec, d_s2, deadline, scl_valide, url_jeton) {
       if (Sys.time() > deadline) return("reporte")
       if (!exists(".jeton", envir = globalenv()) || is.null(get(".jeton", globalenv())) ||
           Sys.time() > get(".jeton", globalenv())$fin) {
-        j <- jsonlite::fromJSON(paste(readLines(
-          "https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-2-l2a", warn = FALSE),
-          collapse = ""))
+        j <- jsonlite::fromJSON(paste(readLines(url_jeton, warn = FALSE), collapse = ""))
         assign(".jeton", list(tok = j$token, fin = Sys.time() + 40 * 60), globalenv())
         terra::setGDALconfig("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
         terra::setGDALconfig("CPL_VSIL_CURL_ALLOWED_EXTENSIONS", ".tif")
@@ -281,7 +281,8 @@ if (ETAPE == "s2") {
     cl <- parallel::makeCluster(min(nproc, length(reste)))
     on.exit(parallel::stopCluster(cl), add = TRUE)
     out <- parallel::parLapplyLB(cl, reste, lire_scene, pu = pu, num_pt = num_pt, num_dec = num_dec,
-                                 d_s2 = d_s2, deadline = deadline, scl_valide = SCL_VALIDE)
+                                 d_s2 = d_s2, deadline = deadline, scl_valide = SCL_VALIDE,
+                                 url_jeton = S2_URL_JETON)
     out <- unlist(out)
     cat("Résultat :", paste(names(table(substr(out, 1, 7))), table(substr(out, 1, 7)), collapse = " ; "), "\n")
     if (any(grepl("^erreur", out))) print(head(unique(out[grepl("^erreur", out)]), 5))
@@ -352,13 +353,39 @@ chute_autour <- function(t, L, X, h = 60) {
 
 # Baisses nettes : parmi les six plus fortes marches (fenêtres de 120 j), celles dont la baisse
 # du NDVI est >= `seuil` (0,30 : au-dessus de la plus forte marche médiane des témoins, 0,24,
-# et de leur 3e quartile, 0,28 ; des témoins en ont pourtant, voir le rapport). Date = première
-# observation après la marche.
+# et de leur 3e quartile, 0,28 ; des témoins en ont pourtant, voir le rapport).
+# DATE : `marches()` place la marche au maximum d'un écart de médianes sur 120 j, donc souvent
+# une acquisition ou plus (jusqu'à ~2 mois) après la chute. La date est donc ramenée à la
+# PREMIÈRE observation, dans les 120 j qui précèdent la date de la marche, à partir de laquelle
+# toutes les observations jusqu'à la marche restent <= milieu de (NDVI avant, NDVI après) + 0,05
+# et dont les 3 observations suivantes (elle comprise) ont une médiane <= à ce milieu. `avant` : l'observation valide qui la précède (la baisse a eu lieu
+# entre `avant` et `date`) ; précision = `date - avant`.
 chutes_nettes <- function(t, v, seuil = 0.30) {
   m <- marches(t, v, kmax = 6L)
   m <- m[m$marche >= seuil, ]
   m <- m[order(m$apres), ]
-  data.frame(date = m$apres, L = m$marche)
+  o <- order(t); tn <- as.numeric(t[o]); vn <- v[o]
+  date <- avant <- as.Date(rep(NA_real_, nrow(m)), origin = "1970-01-01")
+  for (i in seq_len(nrow(m))) {
+    mid <- (m$ndvi_av[i] + m$ndvi_ap[i]) / 2; ap <- as.numeric(m$apres[i])
+    date[i] <- m$apres[i]; avant[i] <- m$avant[i]
+    ia <- which(tn == ap)[1]
+    for (j in which(tn >= ap - 120 & tn <= ap)) {
+      # toutes les observations de j à la date de la marche restent sous le milieu (à 0,05 près) :
+      # écarte un creux saisonnier suivi d'une remontée avant la marche
+      if (j > 1L && all(vn[j:ia] <= mid + 0.05) && stats::median(vn[j:min(j + 2L, length(vn))]) <= mid) {
+        date[i] <- as.Date(tn[j], origin = "1970-01-01"); avant[i] <- as.Date(tn[j - 1L], origin = "1970-01-01"); break
+      }
+    }
+  }
+  data.frame(date = date, avant = avant, L = m$marche)
+}
+# Classe d'écart (jours) pour une date de carte : le rapport ne donne jamais l'écart exact de P.
+classe_ecart <- function(dj) {
+  # deux classes seulement hors ±60 j : une classe plus fine laisserait, avec le mois de P, un
+  # intervalle de quelques jours (vérifié par calcul, voir le rapport)
+  ifelse(is.na(dj), "-", ifelse(abs(dj) <= 60, "dans ±60 j",
+         ifelse(dj > 0, "plus de 2 mois après", "plus de 2 mois avant")))
 }
 
 mediane_fen <- function(t, v, d0, d1) {   # médiane des v pour t dans [d0, d1] ; NA si aucune
@@ -482,7 +509,7 @@ if (ETAPE == "analyser") {
                L_carte = rd[["L"]], t_carte = as.Date(rd[["quand"]], origin = "1970-01-01"), delta_carte = rd[["delta"]],
                q95_carte = rd[["q95"]], rang_carte = rd[["rang"]],
                L_max = Lz[jg], t_max = z$date[jg], sous030 = sous(),
-               n_nettes = nrow(ev), nettes = paste(sprintf("%s (%.2f)", fmt_d(ev$date), ev$L), collapse = " ; "),
+               n_nettes = nrow(ev), nettes = paste(sprintf("%s (%.2f ; trou %d j)", fmt_d(ev$date), ev$L, as.integer(ev$date - ev$avant)), collapse = " ; "),
                nette_proche_pub = proche(p$pub), nette_proche_carte = proche(p$date_carte),
                marches = paste(sprintf("%s..%s %+.2f (%.2f>%.2f)", fmt_d(out$c5$avant), fmt_d(out$c5$apres),
                                        -out$c5$marche, out$c5$ndvi_av, out$c5$ndvi_ap), collapse = " ; "),
@@ -646,12 +673,22 @@ if (ETAPE == "analyser") {
            ifelse(!is.na(nette) & abs(nette) <= 60, sprintf("baisse nette à %+d j", round(nette)),
                   ifelse(is.na(rang), "n/d", sprintf("aucune (%.2f)", L))))
   }
+  # P (v3.0.1, CC BY-NC) : jamais d'écart exact en jours, seulement une classe
+  cel_p <- function(rang, L, conf, nette) {
+    par_nette <- !is.na(nette) & abs(nette) <= 60
+    ifelse(par_nette, "dans ±60 j d'une baisse nette listée",
+           ifelse(conf, ifelse(is.na(nette), "dans ±60 j d'une chute locale (date non publiée)",
+                               sprintf("dans ±60 j d'une chute locale (date non publiée) ; baisse nette la plus proche : %s", classe_ecart(nette))),
+                  ifelse(is.na(rang) & is.na(nette), "n/d",
+                         ifelse(is.na(nette), sprintf("aucune baisse nette (%.2f)", L),
+                                sprintf("aucune à ±60 j ; baisse nette la plus proche : %s", classe_ecart(nette))))))
+  }
   md <- sprintf("| %d | %d ; %d | %s | %s | %s | %s | %s | %s | %s | %s |",
                 TAB$id, round(TAB$x), round(TAB$y), ifelse(TAB$loin, "loin", sub("sous_tp_a_P_", "", sub("_du_seuil_a_P", "", TAB$classe))),
                 format(TAB$pub, "%Y-%m"),   # la v3.0.1 est CC BY-NC : le mois seulement, comme en 026
-                cel_s2(TAB$rang_pub, TAB$L_pub, TAB$delta_pub, TAB$nette_proche_pub),
+                cel_p(TAB$rang_pub, TAB$L_pub, TAB$P_conf, TAB$nette_proche_pub),
                 fmt_d(TAB$date_carte), cel_s2(TAB$rang_carte, TAB$L_carte, TAB$delta_carte, TAB$nette_proche_carte),
-                sub("\\s+$", "", ifelse(TAB$n_nettes > 0, gsub("\\(0\\.[0-9]+\\)", "", TAB$nettes), "-")),
+                sub("\\s+$", "", ifelse(TAB$n_nettes > 0, gsub("\\(0\\.[0-9]+ ; trou ([0-9]+) j\\)", "(trou \\1 j)", TAB$nettes), "-")),
                 TAB$o2018, TAB$o2021)
   writeLines(md, file.path(M028, "tableau_pixels.md"))
 
