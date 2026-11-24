@@ -8,7 +8,7 @@
 #   Rscript docs/analyses/perimetre-2018.R <m031> signal   <m026> <m027>
 #   Rscript docs/analyses/perimetre-2018.R <m031> mesurer  <m026> <m027> <dates_v301.tif> <sorties_017>
 #
-#   Base des « gagnés / perdus » du rapport (332 / 603) : n = 49 620 pixels publiés en 2019 et après,
+#   Base des « gagnés / perdus » du rapport (332 / 603) : n = 49 617 pixels publiés en 2019 et après,
 #   datés par les deux cartes (étape mesurer, journal A_hors18_a15).
 #
 #   Ordre : executer (76 min sur le poste de Pascal, réseau), calculer (4 min), signal (3 min),

@@ -107,7 +107,7 @@ Carte relancée (A), noyau 2017, contre la carte de 017 :
 | dont datés en 2020 | 7 145 | 10 312 | 18 124 |
 | Accord ≤ 15 j sur les pixels publiés **en 2019 et après** (n = 51 270 / 50 361) | 27,9 % | 27,1 % | |
 | Plus de 180 j trop tard (même base) | 43,6 % | 45,2 % | |
-| Sur ces mêmes pixels datés par les deux cartes : gagnés / perdus à ≤ 15 j (n = 49 620) | | 332 / 603 | |
+| Sur ces mêmes pixels datés par les deux cartes : gagnés / perdus à ≤ 15 j (n = 49 617) | | 332 / 603 | |
 
 - La carte relancée date **26 949 pixels en 2018, dont 25 805 (95,8 %) absents de la v3.0.1**, 205 (0,8 %) datés 2018 par elle aussi, 939 (3,5 %) datés
   d'une autre année. Ils se placent surtout en **avril (12 222) et février (2 633)**, des mois où la v3.0.1 n'en publie à peu près aucun (45 en avril, 0 en février).
