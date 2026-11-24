@@ -21,10 +21,10 @@ la v3.0.1 et que perd-on ?
 |---|---|
 | Entrées | Les séries relevées par la mission 026 (30 blocs, 3 orbites A030, D008, D081, ratios de détection et de datation à toutes les dates, en centièmes de dB). **Aucune lecture Sentinel-1, package inchangé.** Durée : `calculer` 2 min 20 s, `mesurer` quelques secondes |
 | Pixels | 54 160 pixels datés dans les deux cartes (les mêmes qu'en 024 et 026) : 25 181 tardifs (> +180 j), 14 293 « retrouvés » (témoin, ≤ 15 j), 14 686 autres. Pour les objets : les 103 804 pixels datés de la tuile |
-| Contrôle de la règle actuelle | Recalculée depuis les séries, elle redonne la date de la carte de 017 pour **53 659 pixels sur 54 160** (99,1 %) ; 389 s'en écartent de plus de 15 j. Sur la tuile : 102 635 pixels sur 103 804 identiques (98,9 %). Au premier essai, 87 % seulement : les 6 559 pixels datés de 2019 par la carte viennent de la **passe 2019** (série coupée à fin 2019 plus 3 images), pas de la passe principale. Le script refait cette passe (ratios des dates de 2019 seuls, orbite retenue sur cette fenêtre) pour les pixels que la carte date de 2019 |
+| Contrôle de la règle actuelle | Recalculée depuis les séries, elle redonne la date de la carte de 017 pour **53 659 pixels sur 54 160** (99,1 %) ; 389 s'en écartent de plus de 15 j. Sur la tuile : 102 635 pixels sur 103 804 identiques (98,9 %). Au premier essai (une exécution du script avant l'ajout de la passe 2019, non conservée), 87 % seulement : les 6 559 pixels datés de 2019 par la carte viennent de la **passe 2019** (série coupée à fin 2019 plus 3 images), pas de la passe principale. Le script refait cette passe (ratios des dates de 2019 seuls, orbite retenue sur cette fenêtre) pour les pixels que la carte date de 2019 |
 | Contrôle du ratio de détection | Le minimum du ratio de détection recalculé égale `ratio.tif` de la tuile (à 0,006 dB) pour **59 960 pixels sur 60 075** hors passe 2019 |
-| Contrôle croisé de 024 | La règle « première date sous tp sur l'orbite retenue » (ligne de référence ci-dessous) redonne les 33,4 % de dates retrouvées de la règle `premiere_datation` de 024, calculée par un autre code en relançant le pipeline. La part de tardifs concorde aussi (30,9 % contre 31,0 %) |
-| Contrôle indépendant | Sur les 14 pixels de `pixels_traces.rds` (séries relues par un autre chemin), les dates de R0, R1 et R3 sont identiques à celles du calcul par blocs : 14 sur 14 |
+| Contrôle croisé de 024 (fait hors script, par lecture du rapport de 024) | La règle « première date sous tp sur l'orbite retenue » (ligne de référence ci-dessous) redonne les 33,4 % de dates retrouvées de la règle `premiere_datation` de 024, calculée par un autre code en relançant le pipeline. La part de tardifs concorde aussi (30,9 % contre 31,0 %) |
+| Contrôle indépendant (fait hors script, par un court calcul à part dans le dossier de session, non versé) | Sur les 14 pixels de `pixels_traces.rds` (séries relues par un autre chemin), les dates de R0, R1 et R3 sont identiques à celles du calcul par blocs : 14 sur 14 |
 
 ## Les règles
 
@@ -229,6 +229,7 @@ de S1B), masque neige et météo (non lus), objet FO0 (028), les 1 578 et 1 512 
 - Les groupes tardifs et retrouvés sont conditionnés par R0 (voir « la base de mesure ») ; le jugement porte sur les pixels communs.
 - Les essais de seuil (−2,5 ; −3,45 ; −4,0 dB) sont faits sur les mêmes pixels que la comparaison : ils indiquent une sensibilité, non un réglage.
 - Le sort des objets dont la date passe en 2019 n'est pas simulé (voir « Détection et surface »).
+- **Le choix de la passe de chaque pixel dépend de la règle actuelle.** Pour chaque pixel, le script prend la passe 2019 si l'année de la date de la carte actuelle (R0) est 2019, la passe principale sinon, et garde ce choix sous R1, R2 et R3. Cela touche environ 20 % des pixels communs (20,3 %). Un pixel que R1 à R3 dateraient autrement en 2019, ou hors de 2019, reste dans la passe que R0 lui a donnée.
 - La passe 2019 est refaite à partir de la série principale (les ratios des dates de 2019 ne dépendent que des images d'avant et des 3
   suivantes) ; elle reproduit la carte de 017 à 99 % mais n'est pas la passe réelle.
 - Un seul balayage des seuils, des règles et des moitiés de la tuile : pas d'intervalle de confiance.

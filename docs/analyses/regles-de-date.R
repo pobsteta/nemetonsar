@@ -56,7 +56,6 @@ dir.create(DOSSIER, showWarnings = FALSE, recursive = TRUE)
 set.seed(20261124L)
 
 suppressMessages(pkgload::load_all(".", quiet = TRUE))
-ns <- asNamespace("nemetonsar")
 
 # AOI, période, réglages : ceux de la mission 017 / 026.
 POINT <- c(-0.80, 44.20)
