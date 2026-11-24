@@ -31,7 +31,7 @@
 
 ## L'Homme
 
-- **Agent :** `analyste` · **Modèle :** opus
+- **Agent :** `dev` · **Modèle :** opus _(était `analyste` ; changé par Pascal le 2026-11-24 : l'analyste n'a pas d'outil d'écriture de fichiers et ses scripts étaient refusés par Bash. Mission inchangée pour le reste : analyse seulement, package non touché.)_
 
 ## Harnais
 
