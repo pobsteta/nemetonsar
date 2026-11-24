@@ -1,0 +1,478 @@
+---
+title: "Détections 2026 et continuité Sentinel-1A, 1C, 1D : mission 029"
+author: "Analyste, 2026-11-24, sur le poste de Pascal"
+lang: fr
+format:
+  gfm:
+    toc: false
+  pdf:
+    pdf-engine: xelatex
+    toc: true
+    geometry: margin=2cm
+    fontsize: 10pt
+    colorlinks: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+D <- Sys.getenv("M029_DONNEES", "/home/pascal/dev/nemetonsar-donnees")
+M <- file.path(D, "m029")
+P17 <- file.path(D, "pilote")
+BASCULE <- as.Date("2026-06-30")
+FIN_017 <- as.Date("2025-09-30")
+it <- readRDS(file.path(M, "items-2025-2026.rds"))
+ex <- readRDS(file.path(M, "execution.rds"))
+res <- ex$res
+mes <- ex$mesures
+sig <- readRDS(file.path(M, "signal.rds"))
+rsm <- readRDS(file.path(M, "resume.rds"))
+obj <- res$objets
+obj$d <- obj$date_mediane_date
+f1 <- function(x) format(round(x, 1), nsmall = 1, decimal.mark = ",")
+f0 <- function(x) format(round(x), big.mark = " ")
+kab <- function(x, ...) knitr::kable(x, row.names = FALSE, format.args = list(decimal.mark = ","), ...)
+u <- unique(it[, c("serie", "date", "capteur")])
+u <- u[order(u$serie, u$date), ]
+u$mois <- format(u$date, "%Y-%m")
+```
+
+> **Ce que ce rapport contient.** Des chiffres agrégés tirés de la chaîne `nemetonsar` lancée
+> sur la tuile pilote des Landes (images Sentinel-1 RTC du Planetary Computer, masque BD Forêt),
+> des statistiques de pixels forestiers sans coupe et trois coupes à contrôler (coordonnées).
+> Il ne contient **aucune donnée de la carte SUFOSAT v3.0.1** (elle s’arrête en septembre 2025) et
+> n’hérite donc pas de la clause non commerciale de celle-ci. Il ne contient aucune image
+> Sentinel-1. Attribution : Sentinel-1 RTC traité par Catalyst, hébergé par Microsoft Planetary
+> Computer, CC BY 4.0 ; données Copernicus Sentinel modifiées. Masque forêt : BD Forêt v2 (IGN),
+> par le service WFS de la Géoplateforme.
+
+Script : [`continuite-s1c.R`](continuite-s1c.R) (étapes `orbites`, `executer`, `resumer`,
+`controle`, `signal`, `synthese`). Mission : `pilotage/missions/029-continuite-s1c.md`.
+
+**Mission, en une phrase.** Lancer le pilote des Landes sur toute la période servie jusqu’en
+novembre 2026 et mesurer si la chaîne passe sans rupture de Sentinel-1A (arrêté le 2026-06-29) à
+Sentinel-1C et 1D, pour tenir l’arbitrage n° 3 du brief.
+
+## Réponses
+
+```{r}
+cd <- u[u$date >= BASCULE, ]
+av <- u[u$date < BASCULE & u$date >= as.Date("2025-01-01"), ]
+nb_obj_apres <- sum(obj$d > FIN_017)
+nb_obj_bas <- sum(obj$d >= BASCULE)
+nb_obj_30 <- sum(obj$d >= BASCULE & obj$d < BASCULE + 30)
+pix <- terra::values(terra::rast(file.path(M, "sorties", "dates.tif")), mat = FALSE)
+pix17 <- terra::values(terra::rast(file.path(P17, "sorties", "dates.tif")), mat = FALSE)
+pix[is.na(pix)] <- 0
+pix17[is.na(pix17)] <- 0
+bas <- 25001L
+haut <- 25273L
+a <- pix17 >= bas & pix17 <= haut
+b <- pix >= bas & pix <= haut
+```
+
+1. **Le Planetary Computer sert-il S1C et S1D ?** Oui. `r nrow(u[u$capteur == "S1C", ])` dates de
+   Sentinel-1C (du `r format(min(u$date[u$capteur == "S1C"]))` au `r format(max(u$date[u$capteur == "S1C"]))`)
+   et `r nrow(u[u$capteur == "S1D", ])` de Sentinel-1D (du `r format(min(u$date[u$capteur == "S1D"]))`
+   au `r format(max(u$date[u$capteur == "S1D"]))`), sur **les trois mêmes orbites relatives que
+   Sentinel-1A** (A030, D008, D081). Dernière date servie : `r format(max(u$date))`.
+2. **La chaîne va-t-elle au bout ?** Oui : `r f0(res$tuiles$nb_images)` images, `r res$tuiles$nb_orbites`
+   orbites, aucune écartée, aucune erreur, aucune série coupée, `r f1(mes$duree_h * 60)` min,
+   `r nrow(obj)` objets dans la carte finale.
+3. **Continuité du signal ?** **Non, pas sans rupture mesurable.** Le niveau VH moyen d’une image
+   ne saute pas de façon univoque (1C et 1D s’accordent à 0,03 dB près ; l’écart avec les années
+   1A va de −0,04 à −0,57 dB selon l’orbite, pour 0,16 à 0,18 dB d’écart-type entre années). En
+   revanche, **la queue du ratio de changement sur forêt sans coupe s’épaissit : la part de pixels sous le seuil de propagation tp est multipliée par 6 à 15 et l’écart robuste augmente de 5 à 17 %**, tandis que la médiane baisse de 0,4 à 0,6 dB (du même ordre que sa variation saisonnière de ± 0,5 dB)
+   dès que la
+   fenêtre « après » du ratio ne contient que des images 1C/1D (section « Question 3 »). La
+   cause (étalonnage, géométrie, saison) n’est pas isolée avec une seule année.
+4. **Combien de coupes, et le délai ?** `r nb_obj_apres` objets datés après 2025-09-30
+   (`r f1(sum(obj$surface_ha[obj$d > FIN_017]))` ha), dont `r nb_obj_bas` à partir du 2026-06-30
+   (`r f1(sum(obj$surface_ha[obj$d >= BASCULE]))` ha). **`r nb_obj_30` de ces objets tombent dans les
+   30 jours qui suivent la bascule**, contre environ 2 par mois les années précédentes : très
+   probablement des faux positifs, en tout cas non démontrés comme coupes. Le délai de détection
+   n’est pas dégradé : la 3e image arrive en 12 jours après la bascule, contre 24 avant.
+
+**Contrôle du test de la mission.** Sur 2025-01 à 2025-09, les détections de cette exécution ne sont
+**pas** celles de 017 : `r f0(sum(a & b & pix17 == pix))` pixels sur `r f0(sum(a))` gardent la même
+date (`r f1(100 * sum(a & b & pix17 == pix) / sum(a))` %), `r nrow(obj[obj$d >= as.Date("2025-01-01") & obj$d <= FIN_017, ])`
+objets contre 7 en 017. Ce n’est pas propre au changement de capteur (section « Stabilité des dates »).
+
+## Ce qui a tourné
+
+```{r}
+kab(data.frame(
+  Élément = c("Appel", "Période lue", "Réglages", "Masque forêt", "Images", "Durée", "Poste"),
+  Valeur = c("`nemetonsar_run()` sur l’AOI de la mission 017 (10 km × 10 km, tuile 30TXP), réglages par défaut (processus et flux par défaut)",
+             "2018-01-01 au 2026-11-21 (dernier jour servi). Le début est 2018 et non 2025 : le ratio de référence Mb est la moyenne de toutes les images antérieures (`xb = Inf`) et le noyau du filtre est 2018 ; une série commencée en 2025 ne reproduirait pas 017",
+             "`parametres_sufosat()` (Xa = 3, ts = −4,5 dB et tp = −3 dB × 1,15, 0,1 ha, combinaison `minimum`)",
+             "BD Forêt v2, WFS de la Géoplateforme",
+             paste(f0(res$tuiles$nb_images), "images, 3 orbites"),
+             paste(f1(mes$duree_h * 60), "min, un seul passage, sans reprise"),
+             "poste de Pascal, deux autres analystes en même temps sur la même connexion")))
+```
+
+## Question 1 : quels capteurs, quelles orbites
+
+Chaque ligne est une date d’acquisition d’une orbite (les images de l’orbite ascendante A030
+ont deux tranches par date, comptées une fois).
+
+```{r}
+tm <- table(u$mois, u$capteur)
+tm <- as.data.frame.matrix(tm)
+tm <- cbind(mois = rownames(tm), tm)
+kab(tm[tm$mois >= "2026-01", ], caption = "Dates d’acquisition par mois et par capteur, 2026 (toutes orbites)")
+```
+
+```{r}
+to <- as.data.frame.matrix(table(u$serie, u$capteur))
+to <- cbind(orbite = rownames(to), to)
+kab(to, caption = "Dates par orbite relative et par capteur, 2025-01-01 au 2026-11-21")
+```
+
+La bascule se lit le 2026-06-29 (dernière image 1A, orbite D008) et le 2026-06-30 (première image 1C,
+même orbite). Après elle, 1C et 1D **alternent à 6 jours sur chaque orbite** (une image de chaque,
+tous les 12 jours), alors que 1A seul revenait tous les 12 jours : la cadence double. Quelques
+trous de 12 à 24 jours subsistent (une date de 1D manquante, par exemple le 2026-07-18 sur D008).
+
+```{r}
+ec <- do.call(rbind, lapply(split(u, u$serie), function(x) {
+  x$ecart <- c(NA, diff(as.numeric(x$date)))
+  x$periode <- ifelse(x$date >= BASCULE, "après (1C, 1D)", "avant (1A)")
+  x[is.na(x$ecart) == FALSE, ]
+}))
+ec <- aggregate(ecart ~ serie + periode, ec, function(v) c(round(mean(v), 1), max(v)))
+ec <- data.frame(orbite = ec$serie, periode = ec$periode, ecart_moyen_j = ec$ecart[, 1], ecart_max_j = ec$ecart[, 2])
+kab(ec, caption = "Écart entre dates successives d’une orbite, en jours")
+```
+
+## Question 2 : la chaîne va-t-elle au bout
+
+Oui. Une seule exécution, du 2018-01-01 au 2026-11-21, sans erreur.
+
+```{r}
+tu <- res$tuiles
+kab(data.frame(
+  Mesure = c("Images lues", "Orbites", "Orbites écartées", "Objets, passe 2019 (corrigée)", "Objets, détection", "Objets gardés (compte de la tuile, avant ré-étiquetage)", "Objets de la carte finale", "Bandes", "Disque maximal (Mo)", "Durée (min)"),
+  Valeur = c(f0(tu$nb_images), tu$nb_orbites, tu$orbites_ecartees, tu$objets_2019, tu$objets_detection, tu$objets_gardes, nrow(obj), tu$nb_bandes, f0(tu$disque_max_mo), f1(mes$duree_h * 60))))
+```
+
+Le jeton SAS a été renouvelé en cours de lecture sans refus (mission 025) : aucun 403. Un seul
+avertissement, déjà vu aux exécutions précédentes : « 1 fichier sans métadonnées d’unité (lu comme
+gamma0 linéaire) » ; les métadonnées d’une image 1A (2026-06-29), d’une 1C (2026-06-30) et d’une
+1D (2026-07-06) déclarent toutes `SARPixelContent = intensity` et `Scale = linear` : l’unité ne
+change pas au passage de capteur (le fichier sans métadonnées n’a pas été identifié ici).
+
+## Question 3 : continuité du signal
+
+**Méthode.** Une fenêtre de 300 × 300 pixels (9 km²) de la tuile, choisie comme celle qui contient
+le plus de pixels « stables » (dans le masque forêt, à plus de 3 pixels de tout objet détecté, avant
+comme après la bascule ; 80,8 % de la fenêtre). Toutes les images de 2018-01-01 au 2026-11-21 y sont
+relues. Pour chaque orbite et chaque date : le VH moyen (linéaire, exprimé en dB) et le ratio de
+changement de la définition du package (rapport de la moyenne des 3 images suivantes à la moyenne
+de toutes les images jusqu’à la date, en dB), dont on garde la médiane, l’écart robuste (écart
+interquartile / 1,349) et la part de pixels sous tp = −3,45 dB et sous ts = −5,175 dB. Saison
+S2 = juillet à novembre (la seule comparable avant et après la bascule) ; S1 = janvier à juin.
+
+```{r}
+sig$annee <- as.integer(format(sig$date, "%Y"))
+sig$mois <- as.integer(format(sig$date, "%m"))
+sig$saison <- ifelse(sig$mois >= 7L | sig$date >= BASCULE, "S2", "S1")
+an <- 2022:2026
+niv <- do.call(rbind, lapply(unique(sig$serie), function(s) {
+  x <- sig[sig$serie == s, ]
+  s1 <- tapply(x$niveau_db[x$saison == "S1"], x$annee[x$saison == "S1"], mean)
+  s2 <- tapply(x$niveau_db[x$saison == "S2"], x$annee[x$saison == "S2"], mean)
+  data.frame(orbite = s, annee = an, VH_S1_dB = round(s1[as.character(an)], 2), VH_S2_dB = round(s2[as.character(an)], 2))
+}))
+niv$S2_moins_S1 <- round(niv$VH_S2_dB - niv$VH_S1_dB, 2)
+kab(niv, caption = "Niveau VH moyen (dB) des pixels stables. 2022 à 2025 : 1A seul ; S2 2026 : 1C et 1D")
+```
+
+```{r}
+ecart <- do.call(rbind, lapply(unique(niv$orbite), function(s) {
+  x <- niv[niv$orbite == s, ]
+  ant <- x[x$annee <= 2025, ]
+  data.frame(orbite = s,
+             ecart_S2_2026 = round(x$VH_S2_dB[x$annee == 2026] - mean(ant$VH_S2_dB), 2),
+             sd_annees_S2 = round(sd(ant$VH_S2_dB), 2),
+             ecart_S1_2026 = round(x$VH_S1_dB[x$annee == 2026] - mean(ant$VH_S1_dB), 2),
+             sd_annees_S1 = round(sd(ant$VH_S1_dB), 2))
+}))
+kab(ecart, caption = "2026 contre la moyenne 2022-2025 (dB) et écart-type des quatre années")
+```
+
+```{r}
+x2 <- sig[sig$annee == 2026L & sig$saison == "S2", ]
+kab(aggregate(niveau_db ~ serie + capteur, x2, function(v) round(mean(v), 2)), caption = "Niveau VH (dB), S2 2026, par capteur")
+```
+
+**Lecture du niveau.** 1C et 1D s’accordent entre eux (écart de 0,01 à 0,03 dB sur chaque orbite).
+Face aux quatre années 1A de la même saison, l’orbite A030 est à −0,19 dB (dans la variation entre
+années, 0,18 dB), D008 à −0,04 dB (dans la variation), D081 à −0,57 dB (3,4 fois l’écart-type
+entre années). Les images de janvier à juin 2026, toutes en 1A, sont déjà plus claires que les
+années précédentes sur A030 (+0,41 dB) : l’écart entre saisons de 2026 mélange donc du temps qu’il
+fait et un éventuel changement d’instrument. **Le niveau seul ne permet pas de conclure à un saut
+d’étalonnage ; il n’exclut pas un décalage de l’ordre de 0,5 dB sur une orbite.**
+
+```{r}
+sig$comp <- NA_character_
+for (s in unique(sig$serie)) {
+  k <- which(sig$serie == s)
+  cp <- sig$capteur[k]
+  for (i in seq_len(length(k) - 3L)) {
+    v <- cp[(i + 1L):(i + 3L)] == "S1A"
+    sig$comp[k[i]] <- ifelse(all(v), "Ma en 1A", ifelse(any(v), "Ma mixte", "Ma en 1C/1D"))
+  }
+}
+cm <- sig[sig$date >= as.Date("2025-07-01") & is.na(sig$comp) == FALSE, ]
+cm$groupe <- paste(cm$comp, ifelse(cm$annee == 2025L, "(2025)", "(2026)"))
+r1 <- aggregate(cbind(ratio_med, ratio_sd, part_tp, part_ts) ~ serie + groupe, cm, function(v) round(mean(v), 4))
+r2 <- aggregate(date ~ serie + groupe, cm, length)
+names(r2)[3] <- "dates"
+r1 <- merge(r1, r2)
+r1$part_tp <- round(100 * r1$part_tp, 2)
+r1$part_ts <- round(100 * r1$part_ts, 3)
+names(r1)[names(r1) == "part_tp"] <- "sous_tp_pct"
+names(r1)[names(r1) == "part_ts"] <- "sous_ts_pct"
+kab(r1[order(r1$serie, r1$groupe), ], caption = "Ratio de changement des pixels stables, selon les capteurs de la fenêtre « après » (Ma), de juillet 2025 à novembre 2026")
+```
+
+**Lecture du ratio.** Ici la rupture se lit surtout dans la queue de la distribution, moins dans la médiane (qui varie de ± 0,5 dB au fil des saisons, voir la figure). Tant que la fenêtre « après » (les 3 images
+suivantes) ne contient que des images 1A, le ratio de 2026 est celui de 2025 (écart robuste 1,11,
+0,99 et 1,10 dB ; part sous tp de 0,07 à 0,09 %). Dès que la fenêtre ne contient plus que des
+images 1C/1D, la médiane du ratio tombe de 0,4 à 0,6 dB sous celle de la même saison de 2025,
+l’écart robuste augmente de 5 à 17 % et **la part de pixels sous tp passe à 0,45 à 1,2 %, soit 6
+à 15 fois plus qu’en 1A** (sous ts : 0,01 à 0,04 % des pixels stables et par date, contre 0 en
+2022-2025). La dispersion spatiale du niveau d’une image seule est pourtant la même en 1A, 1C et
+1D (voir le tableau suivant) : ce qui change, c’est l’écart pixel par pixel entre les moyennes
+« après » (1C/1D) et « avant » (1A), pas le bruit d’une image.
+
+```{r}
+rec <- sig[sig$annee >= 2025L, ]
+kab(aggregate(sd_db ~ serie + capteur, rec, function(v) round(mean(v), 2)), caption = "Écart-type spatial du niveau VH d’une image (dB), pixels stables, depuis 2025")
+```
+
+```{r}
+#| eval: !expr knitr::is_latex_output()
+#| fig-height: 5
+#| fig-cap: "Médiane du ratio des pixels stables (dB), à la date de chaque image, depuis 2025-07 ; trait vertical : première image 1C (2026-06-30). Cercles : 1A ; points pleins : 1C et 1D."
+op <- par(mfrow = c(3, 1), mar = c(2, 4, 1, 1))
+for (s in unique(sig$serie)) {
+  x <- sig[sig$serie == s & sig$date >= as.Date("2025-07-01"), ]
+  plot(x$date, x$ratio_med, type = "b", pch = ifelse(x$capteur == "S1A", 1, 16), ylab = paste(s, "ratio (dB)"), xlab = "")
+  abline(v = BASCULE, lty = 2)
+  abline(h = 0, col = "grey")
+}
+par(op)
+```
+
+Version Markdown : la figure (médiane du ratio par date et par orbite) est dans le PDF.
+
+## Question 4 : coupes détectées et délai
+
+```{r}
+o4 <- obj[obj$d >= as.Date("2024-01-01"), ]
+o4$tri <- paste0(format(o4$d, "%Y"), "T", (as.integer(format(o4$d, "%m")) - 1L) %/% 3L + 1L)
+nb <- tapply(o4$surface_ha, o4$tri, length)
+ha <- tapply(o4$surface_ha, o4$tri, sum)
+tr <- data.frame(trimestre = names(nb), objets = as.integer(nb), surface_ha = round(as.numeric(ha), 1))
+av24 <- obj[obj$d >= as.Date("2019-01-01") & obj$d <= as.Date("2024-12-31"), ]
+tr <- rbind(tr, data.frame(trimestre = "moyenne 2019-2024", objets = round(nrow(av24) / 24, 1), surface_ha = round(sum(av24$surface_ha) / 24, 1)))
+tr$objets <- ifelse(tr$trimestre == "moyenne 2019-2024", f1(tr$objets), as.character(tr$objets))
+kab(tr, caption = "Objets par trimestre (date médiane de l’objet)")
+```
+
+```{r}
+am <- obj[obj$d > FIN_017, ]
+mo <- format(am$d, "%Y-%m")
+kab(data.frame(mois = names(table(mo)), objets = as.integer(table(mo)), surface_ha = round(as.numeric(tapply(am$surface_ha, mo, sum)), 1)),
+    caption = "Objets datés après 2025-09-30, par mois")
+```
+
+Le mois de juillet 2026 porte à lui seul `r sum(am$d >= as.Date("2026-07-01") & am$d < as.Date("2026-08-01"))`
+objets (`r f1(sum(am$surface_ha[am$d >= as.Date("2026-07-01") & am$d < as.Date("2026-08-01")]))` ha),
+alors que le trimestre moyen de 2019 à 2024 en compte 6 à 7. Les dates de ces objets se rangent sur la
+**première image 1C/1D de chaque orbite** (2026-06-30 sur D008, 2026-07-01 sur A030, 2026-07-11 sur
+D081), puis sur les suivantes. C’est la signature d’un décalage du ratio qui franchit le seuil dès
+que la fenêtre « après » devient 1C/1D, pas celle de coupes réparties dans le temps ; mais c’est
+une inférence, pas une preuve.
+
+```{r}
+dd <- function(x) as.Date(paste0("20", x %/% 1000, "-01-01")) + (x %% 1000) - 1
+fen <- pix[pix >= 26181 & pix <= 26211]
+tf <- sort(table(as.character(dd(fen))), decreasing = TRUE)[1:6]
+kab(data.frame(date = names(tf), pixels = as.integer(tf)), caption = "Dates qui portent le plus de pixels, du 2026-06-30 au 2026-07-30")
+pr <- aggregate(date ~ serie, u[u$capteur != "S1A", ], min)
+names(pr) <- c("orbite", "premiere_image_1C_1D")
+kab(pr, caption = "Première image 1C ou 1D de chaque orbite")
+```
+
+```{r}
+obj$periode <- ifelse(obj$d >= BASCULE & obj$d < BASCULE + 30, "30 jours après la bascule",
+                ifelse(obj$d >= BASCULE, "plus de 30 jours après la bascule",
+                 ifelse(obj$d > FIN_017, "2025-10 à 2026-06-29",
+                  ifelse(obj$d >= as.Date("2019-01-01"), "2019 à 2025-09", "avant 2019"))))
+g <- split(obj, obj$periode)
+kab(data.frame(periode = names(g), objets = vapply(g, nrow, 0L),
+               ratio_moyen_mediane_dB = vapply(g, function(x) round(median(x$ratio_moyen_db), 2), 0),
+               surface_mediane_ha = vapply(g, function(x) round(median(x$surface_ha), 2), 0),
+               part_sous_1_ha = vapply(g, function(x) round(mean(x$surface_ha < 1), 2), 0)),
+    caption = "Nature des objets selon la période de leur date")
+```
+
+Le ratio moyen des objets ne distingue pas les périodes (médiane de −4,3 à −4,4 dB partout) : les
+objets de juillet 2026 sont **plus petits** (médiane 0,5 ha, 75 % sous 1 ha contre 31 % de 2019 à
+2025-09) mais pas plus faibles en ratio. Les chiffres seuls n’établissent donc pas qu’ils sont faux :
+c’est le rôle du contrôle sur le terrain.
+
+**Délai de détection (Xa = 3 images).** Délai = jours entre la date de l’objet et la 3e image
+disponible à partir d’elle, sur la meilleure orbite (combinaison `minimum`).
+
+```{r}
+ap <- rsm$apres
+pp <- unique(ap$periode)
+kab(data.frame(periode = pp,
+               objets = vapply(pp, function(p) sum(ap$periode == p), 0L),
+               delai_moyen_j = vapply(pp, function(p) round(mean(ap$delai_j[ap$periode == p]), 1), 0),
+               delai_max_j = vapply(pp, function(p) max(ap$delai_j[ap$periode == p]), 0)),
+    caption = "Délai jusqu’à la 3e image, objets datés après 2025-09-30")
+```
+
+```{r}
+jr <- lapply(split(as.Date(u$date), u$serie), function(x) sort(unique(x)))
+dt <- do.call(rbind, lapply(names(jr), function(s) {
+  x <- jr[[s]]
+  n <- length(x)
+  dl <- as.numeric(x[3:n] - x[1:(n - 2L)])
+  av <- x[1:(n - 2L)] < BASCULE
+  data.frame(orbite = s, avant_j = round(mean(dl[av]), 1), apres_j = round(mean(dl[av == FALSE]), 1))
+}))
+kab(dt, caption = "Durée de trois images consécutives (jours), moyenne par orbite, avant et après la bascule (depuis 2025-01)")
+```
+
+Le délai **est tenu, et même raccourci** à la reprise : 12 jours au lieu de 24 environ, parce que
+1C et 1D alternent. Dernier jour détectable le 2026-11-09 (3e image avant la fin, meilleure orbite) :
+les coupes de la dernière semaine servie ne peuvent pas encore l’être. Ce raccourcissement joue dans
+les deux sens : il accélère aussi les faux positifs.
+
+## Stabilité des dates : 2025-01 à 2025-09 contre la mission 017
+
+Le test de la mission demandait que, sur 2025-01 à 2025-09, les détections soient celles de 017.
+**Il échoue.** 017 s’arrêtait au 2025-09-30 ; ici la série continue jusqu’en novembre 2026.
+
+```{r}
+o17 <- readRDS(file.path(P17, "execution.rds"))$res$objets
+n17 <- sum(o17$date_mediane_date >= as.Date("2025-01-01") & o17$date_mediane_date <= FIN_017)
+n29 <- sum(obj$d >= as.Date("2025-01-01") & obj$d <= FIN_017)
+kab(data.frame(
+  Mesure = c("Pixels datés de 2025-01 à 2025-09, 017", "Pixels datés de 2025-01 à 2025-09, 029",
+             "Dans les deux, même date", "Dans les deux, date différente",
+             "Seulement en 017 (daté ailleurs ou plus du tout en 029)", "Seulement en 029",
+             "Objets datés de 2025-01 à 2025-09, 017", "Objets datés de 2025-01 à 2025-09, 029"),
+  Valeur = c(f0(sum(a)), f0(sum(b)), f0(sum(a & b & pix17 == pix)), f0(sum(a & b & (pix17 == pix) == FALSE)),
+             f0(sum(a & b == FALSE)), f0(sum(b & a == FALSE)), n17, n29)))
+```
+
+```{r}
+dd <- function(x) as.Date(paste0("20", x %/% 1000, "-01-01")) + (x %% 1000) - 1
+ou <- table(ifelse(pix[a] == 0, "aucune", ifelse(pix[a] > haut, ifelse(pix[a] < 26000, "2025-10 à 2025-12", as.character(2000 + pix[a] %/% 1000)), "2025-01 à 2025-09 (même date ou autre)")))
+kab(data.frame(date_029 = names(ou), pixels = as.integer(ou)),
+    caption = "Pixels datés de 2025-01 à 2025-09 en 017 : leur date dans cette exécution")
+dep <- pix17 > 0 & pix > pix17
+mt <- table(format(dd(pix[dep]), "%Y-%m"))
+mt <- mt[mt >= 300]
+kab(data.frame(mois_029 = names(mt), pixels = as.integer(mt)), caption = "Pixels de 017 re-datés plus tard en 029 (mois d’arrivée de plus de 300 pixels)")
+```
+
+Sur l’ensemble des pixels datés par 017 (toutes années), `r f0(sum(dep))` sur `r f0(sum(pix17 > 0))`
+(`r f1(100 * sum(dep) / sum(pix17 > 0))` %) ont été re-datés plus tard. Les arrivées se concentrent sur
+**mars 2026** (sans lien avec le capteur : toutes les images y sont en 1A) et sur **juillet 2026**
+(bascule). Le mécanisme est celui du package, pas du capteur : un pixel garde **la date de son
+minimum de ratio sur toute la série**, de sorte qu’une chute plus profonde, plus tard, sur un pixel
+déjà coupé (nouvelle opération, ou décalage du ratio), déplace sa date. Conséquence pour l’usage : une
+date publiée peut changer quand on prolonge la série. Je ne propose pas de changer ce comportement
+ici (c’est un choix de méthode, pas un défaut) ; je le signale à Pascal.
+
+## Causes : où mettre la main
+
+Objets datés après 2025-09-30, rangés par cause **probable** (les causes sont des hypothèses, la
+mesure ne les établit pas) :
+
+```{r}
+pa <- data.frame(cause = c("Fenêtre de 30 jours après la bascule 1A vers 1C/1D (décalage du ratio, hypothèse)",
+                           "Mars 2026 (événement non expliqué : 3 726 pixels le 2026-03-26)",
+                           "Autres dates (cause inconnue)"),
+                 nombre = c(sum(am$d >= BASCULE & am$d < BASCULE + 30),
+                            sum(format(am$d, "%Y-%m") == "2026-03"), 0))
+pa$nombre[3] <- nrow(am) - pa$nombre[1] - pa$nombre[2]
+pa <- pa[order(-pa$nombre), ]
+pa$pct <- round(100 * pa$nombre / sum(pa$nombre), 1)
+pa$cumul <- round(cumsum(pa$pct), 1)
+names(pa) <- c("cause", "nombre", "%", "% cumulé")
+kab(pa)
+```
+
+Le trait ne peut tomber qu’après la première cause : le passage de capteur explique à lui seul près
+de 60 % des objets postérieurs à septembre 2025, ce qui est moins que l’essentiel. La ligne « cause
+inconnue » (26 %, une trentaine d’objets dispersés sur huit mois) vient en second et mars 2026 (15 %)
+en dernier : la cause inconnue n’est pas en tête, on peut donc agir sur la première sans mieux
+observer d’abord, mais **un quart des objets reste sans explication**.
+
+## Les trois coupes à contrôler
+
+À contrôler par Pascal sur Sentinel-2 ou orthophoto récente. Choix : les deux plus grands objets
+des 30 jours qui suivent la bascule (s’ils sont de vraies coupes, le décalage du ratio n’explique
+pas tout ; sinon, ils confirment le faux positif) et le plus grand objet plus tardif, hors de cette
+fenêtre (témoin). Date = date médiane de l’objet (première image après la chute).
+
+```{r}
+cc <- rsm$controle
+cc$attendu <- c("coupe ou non ?", "coupe ou non ?", "témoin hors fenêtre")
+kab(cc[, c("identifiant", "surface_ha", "date_mediane", "lon", "lat", "x_l93", "y_l93", "attendu")])
+```
+
+Lecture : une coupe rase récente se voit sur Sentinel-2 comme une tache sans végétation (sol nu,
+résidus), à partir de la date indiquée et pas avant. Si les deux premiers objets sont encore en
+forêt sur une image de septembre ou octobre 2026, ce sont des faux positifs du changement de
+capteur.
+
+## Limites et écarts
+
+- **Une tuile, une fenêtre de 9 km², une année avec 1C/1D** : les décalages mesurés (0,4 à 0,6 dB,
+  6 à 15 fois plus de pixels sous tp) sont ceux de cette zone et de cette saison. Rien ne sépare
+  l’étalonnage du temps qu’il fait ou de la géométrie (les orbites relatives sont les mêmes, mais
+  rien ne garantit des passages au mètre près).
+- **Pas de vérité de terrain** : aucune des coupes postérieures au 2026-06-30 n’est vérifiée.
+- Le critère de « pixel stable » (hors des objets détectés, faux positifs compris) retire par
+  construction les pixels qui ont franchi le seuil : il **sous-estime** la part sous tp des
+  fenêtres 1C/1D, ce qui va dans le sens prudent.
+- Le **test de la mission** (« sur 2025-01 à 2025-09, les détections sont celles de 017 ») est
+  faux tel qu’écrit : voir « Stabilité des dates ». Il aurait fallu écrire « sur la même période
+  et avec la même fin de série ».
+- La mission demandait une période « 2025-01-01 au dernier mois » ; la lecture part de 2018-01-01
+  (raison en tête de rapport), ce qui rallonge le calcul mais garde la référence de 017.
+- Le « dernier mois disponible » est novembre 2026, incomplet (au 2026-11-21).
+
+## Ce que je propose
+
+1. **Mesurer le décalage 1A vers 1C/1D sur plus large**, avant toute décision de réglage. Mission
+   `analyste` : *mesurer, sur au moins trois tuiles de forêt stable de régions différentes, le décalage
+   médian du ratio entre fenêtres 1A et 1C/1D par orbite, et dire s’il est constant.* Cause : le
+   passage de capteur, près de 60 % des objets récents.
+2. **Si le décalage est constant, un paramètre exposé de recalage** (valeur par défaut 0, comme les
+   autres réglages), jamais une correction muette. Mission `dev` : *ajouter à `parametres_sufosat()`
+   un recalage en dB du ratio entre capteurs 1A et 1C/1D, valeur par défaut 0, avec test
+   d’aller-retour.* À Pascal de trancher (changement de réglage).
+3. **Contrôler les trois coupes**, puis, si les deux premières sont fausses, ne pas publier les
+   détections postérieures au 2026-06-30 avant l’action 1 (arbitrage n° 3 du brief, à Pascal).
+
+Les autres causes attendent leur tour : mars 2026 (17 objets, 109 ha, cause inconnue) ; le
+re-datage des pixels quand la série est prolongée (12 % des pixels de 017), à nommer en décision de
+méthode plutôt qu’en défaut.
+
+**Question de contrôle.** Quelles sont les deux ou trois causes sur lesquelles agir ? Le passage de
+capteur 1A vers 1C/1D (près de 60 % des objets récents), l’absence de vérité de terrain sur les
+détections 2026 et, à décider, le re-datage des pixels quand la série est prolongée.
