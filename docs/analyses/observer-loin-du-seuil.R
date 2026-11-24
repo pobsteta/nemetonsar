@@ -680,7 +680,7 @@ if (ETAPE == "analyser") {
            ifelse(conf, ifelse(is.na(nette), "dans ±60 j d'une chute locale (date non publiée)",
                                sprintf("dans ±60 j d'une chute locale (date non publiée) ; baisse nette la plus proche : %s", classe_ecart(nette))),
                   ifelse(is.na(rang) & is.na(nette), "n/d",
-                         ifelse(is.na(nette), sprintf("aucune baisse nette (%.2f)", L),
+                         ifelse(is.na(nette), "aucune à ±60 j ; pas de baisse nette dans la série",
                                 sprintf("aucune à ±60 j ; baisse nette la plus proche : %s", classe_ecart(nette))))))
   }
   md <- sprintf("| %d | %d ; %d | %s | %s | %s | %s | %s | %s | %s | %s |",
@@ -704,8 +704,9 @@ if (ETAPE == "analyser") {
     graphics::lines(s$m9$date, s$m9$ndvi, col = "grey60")
     graphics::abline(v = p$pub, lwd = 2); graphics::abline(v = p$date_carte, lwd = 2, col = "red")
     graphics::abline(v = c(D18[k], D21[k]), lty = 3, col = "blue", lwd = 2)
-    mm <- marches(z$date, z$ndvi)
-    if (nrow(mm)) graphics::rect(mm$avant, -0.1, mm$apres, 0, col = "orange", border = NA)
+    # baisses nettes du rapport : de l'observation précédente (trou) à la date retenue
+    mm <- chutes_nettes(z$date, z$ndvi)
+    if (nrow(mm)) graphics::rect(mm$avant, -0.1, mm$date, 0, col = "orange", border = NA)
     graphics::abline(h = c(0.3, 0.6), lty = 2, col = "grey85")
   }
   for (g in split(seq_len(nrow(ET)), ceiling(seq_len(nrow(ET)) / 4))) {

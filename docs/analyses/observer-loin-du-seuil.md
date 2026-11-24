@@ -65,7 +65,7 @@ Ce rapport **ne tranche pas** ce que la carte doit dater, ni FF0 et FO0 : c'est 
 | Décalage de réflectance | Les produits de ligne de base >= 04.00 (depuis 2022-01-25) portent un décalage de +1000 DN. Vérifié sur les données : B04 médian des témoins sous végétation, en hiver, **254 DN avant 04.00 contre 1 237 DN après**, plancher du B04 à **1 DN avant, 1 035 DN après**. Après correction (− 1000 DN, puis /10 000), la réflectance médiane est de 0,0255 avant et 0,0237 après |
 | Dates de vol | WFS de la Géoplateforme, graphes de mosaïquage `ORTHOIMAGERY.ORTHOPHOTOS.GRAPHE.2016-2020:graphe_bdortho` et `…GRAPHE.2021-2023:graphe_bdortho`, champ `date_vol`. Intersection exacte du centre du pixel (et de la boîte de 10 m) avec les polygones, en EPSG:4326 (la couche 2016-2020 est servie en EPSG:3857) |
 | Orthophotos | Vignettes de 300 m du WMS de la Géoplateforme (2018, 2020, 2021, 2024, 2025), pour lecture à l'œil. Hors dépôt |
-| Durées | Lecture Sentinel-2 : environ 15 min de lecture utile en plusieurs lancements (reprise par fichier de scène ; deux premiers essais arrêtés pour lenteur : l'extraction point par point était environ 4 fois plus lente que la lecture d'une fenêtre). Analyse : 30 s |
+| Durées | Lecture Sentinel-2 : environ 15 min de lecture utile en plusieurs lancements (reprise par fichier de scène ; deux premiers essais arrêtés pour lenteur : l'extraction point par point était environ 4 fois plus lente que la lecture d'une fenêtre). Analyse : environ 50 s |
 | Contrôle de non-fuite de P | Calcul sur les 34 pixels : pour chacun, intervalle des dates de P compatibles avec ce que publie le rapport (le mois de P, et la classe d'écart appliquée à chaque baisse nette listée du pixel). **Largeur minimale de l'intervalle : 27 jours** (mois entier : 28 à 31 jours). Aucun écart exact en jours n'est publié pour P. Les lignes du rapport qui portent un écart en jours sont toutes relatives à D (carte produite par ce projet) |
 
 ## Question 2 : dates de vol des orthophotos
@@ -123,7 +123,9 @@ Ce que cela change :
   suivi d'une remontée est écarté. La baisse a eu lieu entre l'observation précédente et cette
   date : le **trou** d'observation est donné à côté de chaque date dans le tableau (de 3 à
   80 j, le plus souvent 5 à 30 j). **La précision réelle de la date d'une baisse est ce trou.**
-  Les baisses de pente lente (pixels 9, 29, 32) restent mal datées.
+  Les **baisses de pente lente sont mal datées** : pixels 9, 29, 32, 28, et les pixels 4, 5, 6 et 31
+  pour la baisse de juillet 2025 (jeunes plantations, pente lente d'environ 0,78 à environ 0,25,
+  fenêtre « après » tronquée au 2025-09-30 : la date et le niveau « après » sont incertains).
 - **Ce qui est publié de P.** Le mois, et une classe : « dans ±60 j » d'une baisse nette listée,
   « dans ±60 j d'une chute locale (date non publiée) », ou « plus de 2 mois avant/après » la baisse
   nette la plus proche. Jamais un écart en jours. Les écarts en jours donnés plus bas sont
@@ -169,9 +171,9 @@ d'observation entre parenthèses) et écart de D à cette date (D − baisse, en
 seulement. « Chute locale » : chute au-dessus du 95e centile des témoins à ±60 j de P, sans
 baisse nette dans ±60 j.
 
-| Pixel | Baisse nette du NDVI (trou) | P | Écart de D (j) | Lecture |
+| Pixel | Baisse nette du NDVI (trou) | P | Écart de D à la baisse nette la plus proche de D (j) | Lecture |
 |---|---|---|---:|---|
-| 3 : 400405 ; 6353545 | aucune baisse nette >= 0,30 ; chute locale de 0,20 à ±60 j de P (95e centile des témoins : 0,19) ; NDVI médian 0,47 dans les 90 j avant P, 0,36 après | dans ±60 j d'une chute locale | – (D à 2025-07-09 : chute de 0,20 le 2025-07-16, rang 0,07, juste sous le seuil) | **compatible** avec la coupe de 2024 ; pas de baisse nette ni de date |
+| 3 : 400405 ; 6353545 | aucune baisse nette >= 0,30 ; chute locale au-dessus du 95e centile des témoins à ±60 j de P (valeurs non publiées) | dans ±60 j d'une chute locale | – (D à 2025-07-09 : chute de 0,20 le 2025-07-16, rang 0,07, juste sous le seuil) | **compatible** avec la coupe de 2024 ; pas de baisse nette ni de date |
 | 4 : 393535 ; 6352525 | 2020-09-10 (5 j) | dans ±60 j | −518 | P compatible avec la coupe |
 | 5 : 393465 ; 6352515 | 2020-09-10 (5 j) | dans ±60 j | +199 | P compatible avec la coupe |
 | 6 : 393545 ; 6352425 | 2020-08-21 (5 j) | dans ±60 j | −880 | P compatible avec la coupe |
@@ -196,7 +198,7 @@ est la moins sûre des quatre.
 
 ### Quand le sol est travaillé (nature S, pixels « loin du seuil »)
 
-| Pixel | Baisse nette du NDVI, herbe → sol nu (trou) | P | Écart de D (j) |
+| Pixel | Baisse nette du NDVI, herbe → sol nu (trou) | P | Écart de D à la baisse nette la plus proche de D (j) |
 |---|---|---|---:|
 | 15 : 394725 ; 6350475 | 2020-08-16 (10 j) ; médiane du NDVI 0,76 avant, 0,24 après | dans ±60 j | +584 |
 | 17 : 394595 ; 6350375 | 2020-08-21 (5 j) | dans ±60 j | +231 |
@@ -257,12 +259,12 @@ précédent, des marches >= 0,30 sur 120 j, **y compris la fin d'été et l'auto
 | 4 | 393535 ; 6352525 | loin | 2020-10 | dans ±60 j d'une baisse nette listée | 2024-02-09 | aucune (−0,10) | 2020-09-10 (5 j) ; 2025-07-11 (3 j) | pinède | coupe rase nue |
 | 5 | 393465 ; 6352515 | loin | 2020-08 | dans ±60 j d'une baisse nette listée | 2021-03-28 | aucune (0,03) | 2020-09-10 (5 j) ; 2025-07-08 (7 j) | pinède | coupe rase nue |
 | 6 | 393545 ; 6352425 | loin | 2020-08 | dans ±60 j d'une baisse nette listée | 2023-02-09 | aucune (0,07) | 2020-08-21 (5 j) ; 2025-07-08 (7 j) | pinède | coupe rase nue |
-| 7 | 394175 ; 6352425 | loin | 2019-06 | aucune baisse nette (0,01) | 2021-03-20 | aucune (0,14) | - | bois, lisière | bord d'une coupe (rémanents) |
+| 7 | 394175 ; 6352425 | loin | 2019-06 | aucune à ±60 j ; pas de baisse nette dans la série | 2021-03-20 | aucune (0,14) | - | bois, lisière | bord d'une coupe (rémanents) |
 | 8 | 399425 ; 6352395 | loin | 2023-07 | aucune à ±60 j ; baisse nette la plus proche : plus de 2 mois avant | 2025-03-18 | aucune (−0,02) | 2024-04-12 (10 j) | pinède claire, lande | pinède (feuillage roux) |
 | 9 | 399475 ; 6352165 | passage antérieur | 2023-09 | aucune à ±60 j ; baisse nette la plus proche : plus de 2 mois après | 2025-02-23 | aucune (0,13) | 2023-04-03 (30 j) | pinède | pinède |
 | 10 | 395355 ; 6351835 | loin | 2020-06 | aucune à ±60 j ; baisse nette la plus proche : plus de 2 mois après | 2022-03-23 | aucune (−0,14) | 2019-12-15 (5 j) | lande herbeuse, arbres épars | sol travaillé |
 | 11 | 398525 ; 6351825 | proche | 2020-04 | dans ±60 j d'une chute locale (date non publiée) ; baisse nette la plus proche : plus de 2 mois après | 2021-03-04 | aucune (0,06) | 2020-02-03 (15 j) | herbe | sol travaillé |
-| 12 | 395125 ; 6351495 | loin | 2020-07 | aucune baisse nette (0,07) | 2021-03-28 | aucune (0,10) | - | herbe | jeune plantation sombre |
+| 12 | 395125 ; 6351495 | loin | 2020-07 | aucune à ±60 j ; pas de baisse nette dans la série | 2021-03-28 | aucune (0,10) | - | herbe | jeune plantation sombre |
 | 13 | 400015 ; 6351205 | pas d'image | 2024-11 | aucune à ±60 j ; baisse nette la plus proche : plus de 2 mois après | 2025-06-27 | aucune (0,02) | 2024-02-07 (80 j) | pinède (bord) | pinède (bord) |
 | 14 | 394475 ; 6350815 | proche | 2020-08 | aucune à ±60 j ; baisse nette la plus proche : plus de 2 mois après | 2022-02-26 | aucune (−0,14) | 2018-09-26 (15 j) | herbe | sol travaillé |
 | 15 | 394725 ; 6350475 | loin | 2020-08 | dans ±60 j d'une baisse nette listée | 2022-03-23 | aucune (−0,18) | 2018-10-16 (20 j) ; 2020-08-16 (10 j) | herbe | sol travaillé |
@@ -377,10 +379,12 @@ tuile T30TXP) :
 - **Datation des baisses.** La précision d'une date de baisse est le trou d'observation (3 à
   80 j) ; la correction de l'aller-retour 1/3 retire le décalage de la marche, pas ce trou. Un
   même seuil de milieu s'applique à tous les pixels, y compris à ceux dont la baisse est lente.
-- **Baisses de juillet 2025.** Les pixels 4, 5, 6 et 31 montrent une baisse nette du NDVI le
-  même jour ou la même semaine (2025-07-08 à 2025-07-11) sur des pixels différents : un événement
-  commun (sécheresse de l'herbe des jeunes plantations, voile non masqué) est possible. Non
-  tranché.
+- **Baisses de juillet 2025 et pixel 28 : pentes lentes mal datées.** Les pixels 4, 5, 6 et 31
+  (jeunes plantations) montrent une baisse du NDVI listée du 2025-07-08 au 2025-07-11, mais c'est
+  une pente lente (d'environ 0,78 à environ 0,25) dont la fenêtre « après » est tronquée au
+  2025-09-30 ; il en est de même du pixel 28. Leurs dates et niveaux sont mal établis, comme ceux
+  des pixels 9, 29 et 32. Un événement commun (sécheresse de l'herbe, voile non masqué) est
+  possible. Non tranché.
 - **Lecture à l'œil.** Les colonnes « Ortho 2018 » et « Ortho 2021 » et la nature (A, S, L, H, C,
   R) sont la lecture du dev de vignettes de 300 m, un seul lecteur : à contrôler. Les dates de
   vol de 2024 et 2025 sont inconnues, l'ortho 2020 est l'image de 2018.
