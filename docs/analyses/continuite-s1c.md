@@ -73,7 +73,8 @@ des dates »).
 ## Question 1 : quels capteurs, quelles orbites
 
 Chaque ligne est une date d’acquisition d’une orbite (les images de
-l’orbite ascendante A030 ont deux tranches par date, comptées une fois).
+l’orbite ascendante A030 ont deux tranches par date, de même D081 en
+1C/1D ; chaque date est comptée une fois).
 
 | mois    | S1A | S1C | S1D |
 |:--------|----:|----:|----:|
@@ -203,7 +204,7 @@ Niveau VH (dB), S2 2026, par capteur
 l’orbite A030 est à −0,19 dB (dans la variation entre années, 0,18 dB),
 D008 à −0,04 dB (dans la variation), D081 à −0,57 dB (3,4 fois
 l’écart-type entre années). Les images de janvier à juin 2026, toutes en
-1A, sont déjà plus claires que les années précédentes sur A030 (+0,41
+1A, sont déjà plus claires que les années précédentes sur A030 (+0,40
 dB) : l’écart entre saisons de 2026 mélange donc du temps qu’il fait et
 un éventuel changement d’instrument. **Le niveau seul ne permet pas de
 conclure à un saut d’étalonnage ; il n’exclut pas un décalage de l’ordre
@@ -384,9 +385,10 @@ détections soient celles de 017. **Il échoue.** 017 s’arrêtait au
 
 | date_029                               | pixels |
 |:---------------------------------------|-------:|
-| 2025-01 à 2025-09 (même date ou autre) |   7244 |
+| 2025-01 à 2025-09 (même date ou autre) |   6541 |
 | 2025-10 à 2025-12                      |     54 |
 | 2026                                   |   4453 |
+| avant 2025                             |    703 |
 
 Pixels datés de 2025-01 à 2025-09 en 017 : leur date dans cette
 exécution
@@ -403,17 +405,40 @@ exécution
 Pixels de 017 re-datés plus tard en 029 (mois d’arrivée de plus de 300
 pixels)
 
-Sur l’ensemble des pixels datés par 017 (toutes années), 12 698 sur 104
-165 (12,2 %) ont été re-datés plus tard. Les arrivées se concentrent sur
-**mars 2026** (sans lien avec le capteur : toutes les images y sont en
-1A) et sur **juillet 2026** (bascule). Le mécanisme est celui du
-package, pas du capteur : un pixel garde **la date de son minimum de
-ratio sur toute la série**, de sorte qu’une chute plus profonde, plus
-tard, sur un pixel déjà coupé (nouvelle opération, ou décalage du
-ratio), déplace sa date. Conséquence pour l’usage : une date publiée
-peut changer quand on prolonge la série. Je ne propose pas de changer ce
-comportement ici (c’est un choix de méthode, pas un défaut) ; je le
-signale à Pascal.
+| Pixels                                         | Nombre  |
+|:-----------------------------------------------|:--------|
+| datés par 017 : total                          | 104 165 |
+| re-datés plus tard en 029                      | 12 698  |
+| re-datés plus tôt en 029                       | 2 039   |
+| dont, datés de 2025 en 017, passés à 2019-2024 | 703     |
+| même date                                      | 89 428  |
+| plus datés du tout                             | 0       |
+| datés en 029 seulement, avant le 2025-09-30    | 11 346  |
+
+Dates de 029 par rapport à celles de 017
+
+Ce que je mesure : sur 104 165 pixels datés par 017, 12 698 (12,2 %)
+sont re-datés plus tard, 2 039 plus tôt, aucun n’est perdu. En outre 11
+346 pixels nouveaux sont datés d’avant le 2025-09-30 (en 017, ils
+n’étaient pas datés).
+
+Les arrivées plus tardives se concentrent sur **mars 2026** (sans lien
+avec le capteur : toutes les images y sont en 1A) et sur **juillet
+2026** (bascule). **Une partie** s’explique par la règle du package : un
+pixel garde la date du minimum de son ratio sur toute la série, de sorte
+qu’une chute plus profonde, plus tard, sur un pixel déjà coupé (nouvelle
+opération, ou décalage du ratio), déplace sa date vers plus tard. **La
+règle n’explique ni les re-datages vers plus tôt, ni les pixels nouveaux
+datés d’avant septembre 2025** : un minimum global ne peut que rester ou
+se déplacer vers un point plus bas, il ne devrait pas apparaître plus
+tôt pour un pixel déjà daté. Autre écart relevé, sans que j’en mesure
+l’effet : la recherche STAC rend aujourd’hui 813 tranches d’images pour
+2018-01-01 à 2025-09-30 contre 815 dans le journal de 017, pour les
+mêmes 676 dates (les tranches de S1A du 2018-05-23 et du 2020-01-13 ne
+sont plus servies). **La cause de ces écarts reste ouverte.**
+Conséquence pour l’usage : une date publiée peut changer quand on
+prolonge la série. Je ne propose pas de changer la règle ici (choix de
+méthode) ; je signale à Pascal que 017 et 029 ne se recouvrent pas.
 
 ## Causes : où mettre la main
 
@@ -426,34 +451,51 @@ sont des hypothèses, la mesure ne les établit pas) :
 | Autres dates (cause inconnue) | 30 | 26,3 | 85,1 |
 | Mars 2026 (événement non expliqué : 3 726 pixels le 2026-03-26) | 17 | 14,9 | 100,0 |
 
-Le trait ne peut tomber qu’après la première cause : le passage de
-capteur explique à lui seul près de 60 % des objets postérieurs à
-septembre 2025, ce qui est moins que l’essentiel. La ligne « cause
-inconnue » (26 %, une trentaine d’objets dispersés sur huit mois) vient
-en second et mars 2026 (15 %) en dernier : la cause inconnue n’est pas
-en tête, on peut donc agir sur la première sans mieux observer d’abord,
-mais **un quart des objets reste sans explication**.
+Le trait ne peut tomber qu’après la première cause : 67 objets sur 114
+(59 %) tombent dans la fenêtre des 30 jours après la bascule, ce qui est
+moins que l’essentiel ; le changement de capteur en est l’hypothèse, non
+établie. La ligne « cause inconnue » (26 %, une trentaine d’objets
+dispersés sur huit mois) vient en second et mars 2026 (15 %) en dernier
+: la cause inconnue n’est pas en tête, on peut donc agir sur la première
+sans mieux observer d’abord, mais **un quart des objets reste sans
+explication**.
 
 ## Les trois coupes à contrôler
 
-À contrôler par Pascal sur Sentinel-2 ou orthophoto récente. Choix : les
-deux plus grands objets des 30 jours qui suivent la bascule (s’ils sont
-de vraies coupes, le décalage du ratio n’explique pas tout ; sinon, ils
-confirment le faux positif) et le plus grand objet plus tardif, hors de
-cette fenêtre (témoin). Date = date médiane de l’objet (première image
-après la chute).
+À contrôler par Pascal sur Sentinel-2 ou orthophoto récente. Choix :
+parmi les objets des 30 jours qui suivent la bascule, les deux plus
+grands **dont au moins 75 % des pixels datés le sont à partir du
+2026-06-30**, et le plus grand objet plus tardif, hors de cette fenêtre
+(témoin). Date = date médiane de l’objet (première image après la
+chute).
 
-| identifiant | surface_ha | date_mediane | lon | lat | x_l93 | y_l93 | attendu |
-|---:|---:|:---|---:|---:|---:|---:|:---|
-| 174 | 11,40 | 2026-07-11 | -0,84116 | 44,17553 | 392985 | 6349305 | coupe ou non ? |
-| 192 | 14,17 | 2026-06-30 | -0,75659 | 44,17094 | 399715 | 6348470 | coupe ou non ? |
-| 234 | 2,21 | 2026-08-17 | -0,81803 | 44,15827 | 394740 | 6347300 | témoin hors fenêtre |
+| identifiant | surface_ha | date_mediane | date_au_centroide | part_apres | lon | lat | x_l93 | y_l93 | attendu |
+|---:|---:|:---|:---|---:|---:|---:|---:|---:|:---|
+| 198 | 2,43 | 2026-07-11 | 2026-07-06 | 0,85 | -0,76208 | 44,17152 | 399280 | 6348555 | coupe ou non ? |
+| 206 | 6,87 | 2026-07-11 | 2026-07-24 | 0,76 | -0,74394 | 44,16989 | 400720 | 6348305 | coupe ou non ? |
+| 234 | 2,21 | 2026-08-17 | 2026-08-11 | 0,74 | -0,81803 | 44,15827 | 394740 | 6347300 | témoin hors fenêtre |
 
-Lecture : une coupe rase récente se voit sur Sentinel-2 comme une tache
-sans végétation (sol nu, résidus), à partir de la date indiquée et pas
-avant. Si les deux premiers objets sont encore en forêt sur une image de
-septembre ou octobre 2026, ce sont des faux positifs du changement de
-capteur.
+`part_apres` est la part des pixels datés de l’objet qui le sont à
+partir du 2026-06-30 ; `date_au_centroide` est la date du pixel au
+centroïde de l’objet.
+
+**Pourquoi pas les deux plus grands.** L’objet 192 (14,17 ha, date
+médiane 2026-06-30) est **mixte** : sur ses 1 285 pixels datés, 635 le
+sont avant la bascule (77 au seul 2023-02-09) et le pixel au centroïde
+est daté du 2026-05-17. Il juxtapose donc une partie déjà dégagée avant
+la bascule et une partie datée après : sa date médiane n’a pas de sens
+pour un contrôle. L’objet 174 (11,4 ha) l’est aussi, à un moindre degré
+(73 % après la bascule). Si Pascal veut les voir, la règle de lecture
+est de regarder séparément la partie datée avant la bascule (déjà nue
+sur une image d’avant juillet 2026 ?) et celle datée après (encore en
+forêt avant juillet 2026, nue après ?) : seule la seconde relève du
+changement de capteur.
+
+Lecture pour les trois objets retenus : une coupe rase récente se voit
+sur Sentinel-2 comme une tache sans végétation (sol nu, résidus), à
+partir de la date indiquée et pas avant. Si 198 et 206 sont encore en
+forêt sur une image de septembre ou octobre 2026, ce sont des faux
+positifs du changement de capteur.
 
 ## Limites et écarts
 
@@ -485,8 +527,9 @@ capteur.
     décision de réglage. Mission `analyste` : *mesurer, sur au moins
     trois tuiles de forêt stable de régions différentes, le décalage
     médian du ratio entre fenêtres 1A et 1C/1D par orbite, et dire s’il
-    est constant.* Cause : le passage de capteur, près de 60 % des
-    objets récents.
+    est constant.* Cause : le passage de capteur (hypothèse : 59 % des
+    objets récents tombent dans la fenêtre des 30 jours qui suit la
+    bascule).
 2.  **Si le décalage est constant, un paramètre exposé de recalage**
     (valeur par défaut 0, comme les autres réglages), jamais une
     correction muette. Mission `dev` : *ajouter à `parametres_sufosat()`
@@ -503,6 +546,7 @@ cause inconnue) ; le re-datage des pixels quand la série est prolongée
 défaut.
 
 **Question de contrôle.** Quelles sont les deux ou trois causes sur
-lesquelles agir ? Le passage de capteur 1A vers 1C/1D (près de 60 % des
-objets récents), l’absence de vérité de terrain sur les détections 2026
-et, à décider, le re-datage des pixels quand la série est prolongée.
+lesquelles agir ? Le passage de capteur 1A vers 1C/1D (hypothèse, 59 %
+des objets récents dans la fenêtre des 30 jours après la bascule),
+l’absence de vérité de terrain sur les détections 2026 et, à décider, le
+re-datage des pixels quand la série est prolongée.

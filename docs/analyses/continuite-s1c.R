@@ -126,7 +126,6 @@ if (ETAPE == "resumer") {
                   ifelse(d >= BASCULE, "plus de 30 jours apres la bascule",
                    ifelse(d > FIN_017, "2025-10 a 2026-06-29",
                     ifelse(d >= as.Date("2019-01-01"), "2019 a 2025-09", "avant"))))
-  tab$ancien <- tab$identifiant %in% numeric(0)
   g <- split(tab, tab$periode)
   print(data.frame(periode = names(g), objets = vapply(g, nrow, 0L),
                    ratio_moyen_mediane = vapply(g, function(x) round(median(x$ratio_moyen_db), 2), 0),
@@ -158,7 +157,22 @@ if (ETAPE == "resumer") {
     cat(s, ": avant", round(mean(dl[av]), 1), " ; apres", round(mean(dl[av == FALSE]), 1), "\n")
   }
   poly <- terra::vect(file.path(SORTIES, "objets.gpkg"), layer = "objets")
+  # Un objet qui mele des pixels dates avant et apres la bascule est un mauvais
+  # candidat : on garde ceux dont 75 % des pixels dates au moins le sont
+  # a partir du 2026-06-30.
+  idm <- terra::values(terra::rast(file.path(SORTIES, "objets.tif")), mat = FALSE)
+  dtm <- terra::values(terra::rast(file.path(SORTIES, "dates.tif")), mat = FALSE)
+  dtm[is.na(dtm)] <- 0
+  code_bascule <- as.integer(format(BASCULE, "%y%j"))
+  part_apres <- function(id) {
+    k <- which(idm == id & dtm > 0)
+    mean(dtm[k] >= code_bascule)
+  }
   cand30 <- tab[d >= BASCULE & d < BASCULE + 30, ]
+  cand30$part_apres <- vapply(cand30$identifiant, part_apres, 0)
+  cat("\n## Objets des 30 jours apres la bascule : part des pixels dates apres la bascule\n")
+  print(utils::head(cand30[order(-cand30$surface_ha), c("identifiant", "surface_ha", "date_mediane_date", "part_apres")], 5), row.names = FALSE)
+  cand30 <- cand30[cand30$part_apres >= 0.75, ]
   cand_apres <- tab[d >= BASCULE + 30, ]
   choix <- c(head(cand30$identifiant[order(-cand30$surface_ha)], 2), head(cand_apres$identifiant[order(-cand_apres$surface_ha)], 1))
   sel <- poly[poly$identifiant %in% choix, ]
@@ -169,6 +183,9 @@ if (ETAPE == "resumer") {
                          date_mediane = format(as.Date(sel$date_mediane_date)),
                          lon = round(ll[, 1], 5), lat = round(ll[, 2], 5),
                          x_l93 = round(l93[, 1]), y_l93 = round(l93[, 2]))
+  controle$part_apres <- round(vapply(controle$identifiant, part_apres, 0), 2)
+  k_ctr <- terra::cells(terra::rast(file.path(SORTIES, "dates.tif")), ctr)[, 2]
+  controle$date_au_centroide <- format(as.Date(paste0("20", dtm[k_ctr] %/% 1000, "-01-01")) + (dtm[k_ctr] %% 1000) - 1)
   cat("\n## Trois coupes datees apres le 2026-06-30, a controler\n")
   print(controle, row.names = FALSE)
   saveRDS(list(par_tri = par_tri, apres = apres, controle = controle), file.path(DOSSIER, "resume.rds"))
