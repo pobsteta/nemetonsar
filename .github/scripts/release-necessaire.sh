@@ -4,7 +4,8 @@
 #   défauts : HEAD, dernier tag v* atteignable, tête de origin/main lue par « git ls-remote origin refs/heads/main ».
 # Sortie standard : une ligne « release: <raison> » ou « pas de release: <raison> ». Code 0 dans les deux cas.
 # Ne comptent pas : pilotage/**, docs/**, *.md, .github/badges/** et les fichiers de test :
-# tests/**, .github/scripts/test-*.sh. Tout le reste compte ; en cas de doute, release.
+# tests/**, .github/scripts/test-*.sh, et DESCRIPTION quand seule sa ligne Version: a changé.
+# Tout le reste compte ; en cas de doute, release.
 # Pas de release si la tête de main a dépassé le commit par du code (hors badge [skip ci], pilotage, docs, tests) : une CI
 # relancée sur un ancien commit ne doit pas publier une version plus haute contenant moins de code.
 # Tête illisible : on publie.
@@ -22,6 +23,15 @@ fi
 # fichiers qui comptent : tout sauf pilotage, docs, *.md, badge, tests
 filtre() { grep -v -e '^$' -e '^pilotage/' -e '^docs/' -e '\.md$' -e '^\.github/badges/' \
   -e '^tests/' -e '^\.github/scripts/test-.*\.sh$'; }
+# DESCRIPTION ne compte pas quand seule sa ligne « Version: » a changé entre $1 et $2 : c'est le
+# commit [skip ci] que la release pousse sur main pour y écrire la version publiée.
+version_seule() {
+  L=$(git diff --no-renames -U0 "$1" "$2" -- DESCRIPTION 2>/dev/null) || return 1
+  [ -n "$L" ] || return 1
+  ! printf '%s\n' "$L" | grep -e '^[+-]' | grep -v -e '^+++ ' -e '^--- ' -e '^[+-]Version:' | grep -q .
+}
+# filtre, puis retire DESCRIPTION si seule sa version a changé entre $1 et $2
+compte() { R=$(filtre); if version_seule "$1" "$2"; then R=$(printf '%s\n' "$R" | grep -v -x 'DESCRIPTION'); fi; printf '%s\n' "$R" | grep -v '^$'; }
 if [ -n "$TETE" ]; then
   # tête inconnue localement (poussée après le checkout) : on garde le SHA brut, il diffère du commit
   TETE=$(git rev-parse --verify -q "$TETE^{commit}" 2>/dev/null || printf '%s' "$TETE")
@@ -32,7 +42,7 @@ if [ -n "$TETE" ]; then
     # La CI pousse elle-même un commit de badge [skip ci] sur main ; la tête n'est « dépassante » que si
     # COMMIT..TETE contient des fichiers qui comptent. Comparaison impossible : on publie.
     if DEPASSE=$(git diff --name-only --no-renames "$COMMIT" "$TETE" 2>/dev/null); then
-      if [ -n "$(printf '%s\n' "$DEPASSE" | filtre)" ]; then
+      if [ -n "$(printf '%s\n' "$DEPASSE" | compte "$COMMIT" "$TETE")" ]; then
         echo "pas de release: commit dépassé par $(printf '%s' "$TETE" | cut -c1-7)"; exit 0
       fi
     fi
@@ -48,7 +58,7 @@ if ! CHANGED=$(git diff --name-only --no-renames "$BASE" "$HEAD_REF" 2>/dev/null
   echo "release: comparaison avec $BASE impossible (dans le doute, on publie)"; exit 0
 fi
 
-COMPTE=$(printf '%s\n' "$CHANGED" | filtre)
+COMPTE=$(printf '%s\n' "$CHANGED" | compte "$BASE" "$HEAD_REF")
 if [ -n "$COMPTE" ]; then
   PREMIER=$(printf '%s\n' "$COMPTE" | head -n 1)
   N=$(printf '%s\n' "$COMPTE" | wc -l | tr -d ' ')

@@ -66,4 +66,17 @@ verifie "code puis tests : release" "release:" "$("$S" "$CODED" "" "$TESTS")"
 ecrit R/e.R 1; commit "code E"; CODEE=$(git rev-parse HEAD)
 verifie "code puis badge puis code : dépassé" "pas de release: commit dépassé par $(printf '%s' "$CODEE" | cut -c1-7)" "$("$S" "$CODED" "" "$CODEE")"
 
+# la release écrit la version publiée dans DESCRIPTION par un commit [skip ci] : seule la ligne Version: change
+git tag v0.6.0; printf 'Package: p\nVersion: 0.0.1\nTitle: t\n' > DESCRIPTION; commit "description"
+verifie "DESCRIPTION, autre ligne que Version : release" "release:" "$("$S")"
+git tag v0.7.0; sed -i 's/^Version:.*/Version: 0.7.0/' DESCRIPTION; commit "version [skip ci]"; VERS=$(git rev-parse HEAD)
+verifie "DESCRIPTION, seule la Version : pas de release" "pas de release:" "$("$S" HEAD "" "$VERS")"
+git tag v0.8.0; ecrit R/f.R 1; commit "code F"; CODEF=$(git rev-parse HEAD)
+sed -i 's/^Version:.*/Version: 0.8.0/' DESCRIPTION; commit "version [skip ci]"; VERS2=$(git rev-parse HEAD)
+verifie "code puis commit de version : release" "release:" "$("$S" "$CODEF" "" "$VERS2")"
+git tag v0.9.0; sed -i 's/^Version:.*/Version: 0.9.0/' DESCRIPTION; ecrit R/g.R 1; commit "version + code"
+verifie "Version et code ensemble : release" "release:" "$("$S" HEAD "" "$(git rev-parse HEAD)")"
+git tag v0.10.0; sed -i 's/^Version:.*/Version: 0.10.0/; s/^Title:.*/Title: u/' DESCRIPTION; commit "version + titre"
+verifie "Version et autre ligne de DESCRIPTION : release" "release:" "$("$S" HEAD "" "$(git rev-parse HEAD)")"
+
 if [ "$ECHECS" -eq 0 ]; then echo "Tous les tests passent."; else echo "$ECHECS échec(s)."; exit 1; fi
